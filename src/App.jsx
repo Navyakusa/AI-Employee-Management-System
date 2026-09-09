@@ -1,8 +1,4 @@
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-} from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import HRDashboard from "./pages/hr/HRDashboard";
 import HRJobs from "./pages/hr/HRJobs";
@@ -32,23 +28,21 @@ import AdminRoles from "./pages/admin/AdminRoles";
 import AdminDepartments from "./pages/admin/AdminDepartments";
 import AdminReports from "./pages/admin/AdminReports";
 import AdminAuditLogs from "./pages/admin/AdminAuditLogs";
+import AdminNotifications from "./pages/admin/AdminNotifications";
+import AdminOrganization from "./pages/admin/AdminOrganization";
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+
         {/* Public Routes */}
         <Route element={<PublicLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/jobs" element={<JobsPage />} />
-          <Route
-            path="/jobs/:jobId"
-            element={<JobDetailsPage />}
-          />
-          <Route
-            path="/apply/:jobId"
-            element={<ApplyJobPage />}
-          />
+          <Route path="/jobs/:jobId" element={<JobDetailsPage />} />
+          <Route path="/apply/:jobId" element={<ApplyJobPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
@@ -56,64 +50,14 @@ function App() {
         </Route>
 
         {/* HR Routes */}
-        <Route
-          path="/hr/dashboard"
-          element={<HRDashboard />}
-        />
-        <Route
-          path="/hr/jobs"
-          element={<HRJobs />}
-        />
-        <Route
-          path="/hr/jobs/create"
-          element={<CreateJob />}
-        />
-        <Route
-          path="/hr/candidates"
-          element={<HRCandidates />}
-        />
-        <Route
-          path="/hr/ai-screening"
-          element={<HRScreening />}
-        />
-        <Route
-          path="/hr/analytics"
-          element={<HRAnalytics />}
-        />
-        <Route
-          path="/hr/interviews"
-          element={<HRInterviews />}
-        />
+        <Route path="/hr/dashboard" element={<HRDashboard />} />
+        <Route path="/hr/jobs" element={<HRJobs />} />
+        <Route path="/hr/jobs/create" element={<CreateJob />} />
+        <Route path="/hr/candidates" element={<HRCandidates />} />
+        <Route path="/hr/ai-screening" element={<HRScreening />} />
+        <Route path="/hr/analytics" element={<HRAnalytics />} />
+        <Route path="/hr/interviews" element={<HRInterviews />} />
 
-<<<<<<< Updated upstream
-<Route
-  path="/hr/jobs/create"
-  element={<CreateJob />}
-/>
-<Route
-  path="/super-admin/dashboard"
-  element={<AdminDashboard />}
-/>
-<Route
-  path="/super-admin/users"
-  element={<AdminUsers />}
-/>
-<Route
-  path="/super-admin/profile"
-  element={<AdminProfile />}
-/>
-<Route
-  path="/super-admin/settings"
-  element={<AdminSettings />}
-/>
-<Route
-  path="/super-admin/roles"
-  element={<AdminRoles />}
-/>
-<Route
-  path="/super-admin/departments"
-  element={<AdminDepartments />}
-=======
         {/* Super Admin Routes */}
         <Route
           path="/super-admin/dashboard"
@@ -140,32 +84,25 @@ function App() {
           element={<AdminDepartments />}
         />
         <Route
-  path="/super-admin/reports"
-  element={<AdminReports />}
->>>>>>> Stashed changes
-/>
-
-<Route
-  path="/super-admin/audit-logs"
-  element={<AdminAuditLogs />}
-/>
-
-        {/* 404 */}
-        <Route
-          path="*"
-          element={<NotFoundPage />}
+          path="/super-admin/reports"
+          element={<AdminReports />}
         />
-<<<<<<< Updated upstream
-        {/* new AI feature routes */}
-        <Route path="/hr/candidates" element={<HRCandidates />} />
-        <Route path="/hr/ai-screening" element={<HRScreening />} />
-        <Route path="/hr/analytics" element={<HRAnalytics />} />
-        <Route path="/hr/interviews" element={<HRInterviews />} />
-        
+        <Route
+          path="/super-admin/audit-logs"
+          element={<AdminAuditLogs />}
+        />
+        <Route
+          path="/super-admin/notifications"
+          element={<AdminNotifications />}
+        />
+        <Route
+          path="/super-admin/organization"
+          element={<AdminOrganization />}
+        />
+
+        {/* Not Found */}
         <Route path="*" element={<NotFoundPage />} />
 
-=======
->>>>>>> Stashed changes
       </Routes>
     </BrowserRouter>
   );
