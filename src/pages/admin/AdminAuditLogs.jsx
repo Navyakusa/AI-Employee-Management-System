@@ -1,81 +1,284 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
 import {
   ClipboardList,
   Search,
   User,
   ShieldCheck,
   Building2,
+  BriefcaseBusiness,
+  CalendarCheck,
+  RefreshCw,
 } from "lucide-react";
 
 import AdminSidebar from "./AdminSidebar";
 import AdminNavbar from "./AdminNavbar";
-import { useAdmin } from "../../context/AdminContext";
 
 import "./AdminAuditLogs.css";
 
 function AdminAuditLogs() {
-  const { auditLogs = [] } = useAdmin();
+  // ==============================
+  // STATE
+  // ==============================
+
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [actionFilter, setActionFilter] = useState("All");
   const [dateFilter, setDateFilter] = useState("");
-  const filteredLogs = useMemo(() => {
-  return auditLogs.filter((log) => {
-    const search = searchTerm.toLowerCase().trim();
 
-    const matchesSearch =
-      log.action.toLowerCase().includes(search) ||
-      log.details.toLowerCase().includes(search) ||
-      log.module.toLowerCase().includes(search) ||
-      log.performedBy.toLowerCase().includes(search);
+  // ==============================
+  // FETCH AUDIT LOGS
+  // ==============================
 
-    const matchesAction =
-      actionFilter === "All" ||
-      log.type === actionFilter;
+  const fetchAuditLogs = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-    let matchesDate = true;
+      // Get JWT token stored after login
+      const token = localStorage.getItem("token");
 
-if (dateFilter) {
-  if (!log.timestamp) {
-    return false;
+      if (!token) {
+        setError("Login token not found. Please login again.");
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch(
+  "http://localhost:8080/api/audit-logs/all",
+  {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
   }
+);
 
-  const selectedDate =
-    new Date(dateFilter).toLocaleDateString();
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch audit logs. Status: ${response.status}`
+        );
+      }
 
-  const logDate =
-    new Date(log.timestamp).toLocaleDateString();
+      const result = await response.json();
 
-  matchesDate =
-    selectedDate === logDate;
-}
-    return (
-      matchesSearch &&
-      matchesAction &&
-      matchesDate
-    );
-  });
-}, [
-  auditLogs,
-  searchTerm,
-  actionFilter,
-  dateFilter,
-]);
+      console.log("Audit Logs API Response:", result);
+
+      if (result.success && Array.isArray(result.data)) {
+        setAuditLogs(result.data);
+      } else {
+        setAuditLogs([]);
+      }
+    } catch (error) {
+      console.error("Audit Logs Error:", error);
+
+      setError("Unable to load audit logs.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==============================
+  // LOAD AUDIT LOGS
+  // ==============================
+
+  useEffect(() => {
+    fetchAuditLogs();
+  }, []);
+
+  // ==============================
+  // SEARCH + FILTER
+  // ==============================
+
+  const filteredLogs = useMemo(() => {
+    return auditLogs.filter((log) => {
+      const search = searchTerm.toLowerCase().trim();
+
+      const action = (log.action || "").toLowerCase();
+
+      const details = (
+        log.description ||
+        log.details ||
+        ""
+      ).toLowerCase();
+
+      const module = (log.module || "").toLowerCase();
+
+      const performedBy = (
+        log.userName ||
+        log.performedBy ||
+        ""
+      ).toLowerCase();
+
+      // Search
+      const matchesSearch =
+        !search ||
+        action.includes(search) ||
+        details.includes(search) ||
+        module.includes(search) ||
+        performedBy.includes(search);
+
+      // Action filter
+      const matchesAction =
+        actionFilter === "All" ||
+        action.includes(actionFilter.toLowerCase());
+
+      // Date filter
+      let matchesDate = true;
+
+      if (dateFilter) {
+        if (!log.timestamp) {
+          matchesDate = false;
+        } else {
+          const logDate = log.timestamp.split("T")[0];
+
+          matchesDate = logDate === dateFilter;
+        }
+      }
+
+      return matchesSearch && matchesAction && matchesDate;
+    });
+  }, [
+    auditLogs,
+    searchTerm,
+    actionFilter,
+    dateFilter,
+  ]);
+
+  // ==============================
+  // MODULE ICON
+  // ==============================
+
   const getIcon = (module) => {
-    if (module === "Users") {
+    const value = (module || "").toUpperCase();
+
+    if (value === "USER" || value === "USERS") {
       return <User size={17} />;
     }
 
-    if (module === "Roles") {
+    if (value === "ROLE" || value === "ROLES") {
       return <ShieldCheck size={17} />;
     }
 
-    if (module === "Departments") {
+    if (
+      value === "DEPARTMENT" ||
+      value === "DEPARTMENTS"
+    ) {
       return <Building2 size={17} />;
+    }
+
+    if (value === "JOB" || value === "JOBS") {
+      return <BriefcaseBusiness size={17} />;
+    }
+
+    if (
+      value === "INTERVIEW" ||
+      value === "INTERVIEWS"
+    ) {
+      return <CalendarCheck size={17} />;
     }
 
     return <ClipboardList size={17} />;
   };
+
+  // ==============================
+  // ACTION CSS CLASS
+  // ==============================
+
+  const getActionClass = (action) => {
+    const value = (action || "").toLowerCase();
+
+    if (
+      value.includes("create") ||
+      value.includes("add")
+    ) {
+      return "create";
+    }
+
+    if (
+      value.includes("update") ||
+      value.includes("edit")
+    ) {
+      return "update";
+    }
+
+    if (
+      value.includes("status") ||
+      value.includes("activate") ||
+      value.includes("deactivate")
+    ) {
+      return "status";
+    }
+
+    if (
+      value.includes("delete") ||
+      value.includes("remove")
+    ) {
+      return "delete";
+    }
+
+    return "update";
+  };
+
+  // ==============================
+  // FORMAT TEXT
+  // ==============================
+
+  const formatLabel = (value) => {
+    if (!value) {
+      return "—";
+    }
+
+    return value
+      .replaceAll("_", " ")
+      .replaceAll("-", " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (letter) =>
+        letter.toUpperCase()
+      );
+  };
+
+  // ==============================
+  // FORMAT DATE
+  // ==============================
+
+  const formatDateTime = (timestamp) => {
+    if (!timestamp) {
+      return "—";
+    }
+
+    const date = new Date(timestamp);
+
+    if (Number.isNaN(date.getTime())) {
+      return timestamp;
+    }
+
+    return date.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // ==============================
+  // RESET FILTERS
+  // ==============================
+
+  const resetFilters = () => {
+    setSearchTerm("");
+    setActionFilter("All");
+    setDateFilter("");
+  };
+
+  // ==============================
+  // UI
+  // ==============================
 
   return (
     <div className="admin-audit-layout">
@@ -85,6 +288,9 @@ if (dateFilter) {
         <AdminNavbar />
 
         <main className="admin-audit-content">
+
+          {/* HEADER */}
+
           <div className="admin-audit-header">
             <p>SYSTEM ACTIVITY</p>
 
@@ -96,135 +302,213 @@ if (dateFilter) {
             </span>
           </div>
 
+          {/* AUDIT LOG CARD */}
+
           <section className="admin-audit-card">
+
+            {/* TOOLBAR */}
+
             <div className="admin-audit-toolbar">
-  <div className="admin-audit-search">
-    <Search size={17} />
 
-    <input
-      type="text"
-      placeholder="Search audit logs..."
-      value={searchTerm}
-      onChange={(e) =>
-        setSearchTerm(e.target.value)
-      }
-    />
-  </div>
+              {/* SEARCH */}
 
-  <div className="admin-audit-filters">
-    <select
-      value={actionFilter}
-      onChange={(e) =>
-        setActionFilter(e.target.value)
-      }
-    >
-      <option value="All">
-        All Actions
-      </option>
+              <div className="admin-audit-search">
+                <Search size={17} />
 
-      <option value="Create">
-        Create
-      </option>
+                <input
+                  type="text"
+                  placeholder="Search audit logs..."
+                  value={searchTerm}
+                  onChange={(e) =>
+                    setSearchTerm(e.target.value)
+                  }
+                />
+              </div>
 
-      <option value="Update">
-        Update
-      </option>
+              {/* FILTERS */}
 
-      <option value="Status">
-        Status Change
-      </option>
+              <div className="admin-audit-filters">
 
-      <option value="Delete">
-        Delete
-      </option>
-    </select>
+                <select
+                  value={actionFilter}
+                  onChange={(e) =>
+                    setActionFilter(e.target.value)
+                  }
+                >
+                  <option value="All">
+                    All Actions
+                  </option>
 
-    <input
-      type="date"
-      value={dateFilter}
-      onChange={(e) =>
-        setDateFilter(e.target.value)
-      }
-      className="admin-audit-date"
-    />
+                  <option value="Create">
+                    Create
+                  </option>
 
-    <button
-      className="admin-audit-clear-filter"
-      onClick={() => {
-        setSearchTerm("");
-        setActionFilter("All");
-        setDateFilter("");
-      }}
-    >
-      Reset Filters
-    </button>
+                  <option value="Update">
+                    Update
+                  </option>
 
-    
-  </div>
-</div>
+                  <option value="Status">
+                    Status Change
+                  </option>
 
-            <div className="admin-audit-table-wrapper">
-              <table className="admin-audit-table">
-                <thead>
-                  <tr>
-                    <th>Module</th>
-                    <th>Action</th>
-                    <th>Details</th>
-                    <th>Performed By</th>
-                    <th>Date & Time</th>
-                  </tr>
-                </thead>
+                  <option value="Delete">
+                    Delete
+                  </option>
+                </select>
 
-                <tbody>
-                  {filteredLogs.length > 0 ? (
-                    filteredLogs.map((log) => (
-                      <tr key={log.id}>
-                        <td>
-                          <div className="admin-audit-module">
-                            <div className="admin-audit-icon">
-                              {getIcon(log.module)}
+                <input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) =>
+                    setDateFilter(e.target.value)
+                  }
+                  className="admin-audit-date"
+                />
+
+                <button
+                  type="button"
+                  className="admin-audit-clear-filter"
+                  onClick={resetFilters}
+                >
+                  Reset Filters
+                </button>
+
+                <button
+                  type="button"
+                  className="admin-audit-clear-filter"
+                  onClick={fetchAuditLogs}
+                  disabled={loading}
+                >
+                  <RefreshCw size={15} />
+
+                  {loading
+                    ? "Loading..."
+                    : "Refresh"}
+                </button>
+
+              </div>
+            </div>
+
+            {/* LOADING */}
+
+            {loading && (
+              <div className="admin-audit-empty">
+                Loading audit logs...
+              </div>
+            )}
+
+            {/* ERROR */}
+
+            {!loading && error && (
+              <div className="admin-audit-empty">
+                {error}
+              </div>
+            )}
+
+            {/* TABLE */}
+
+            {!loading && !error && (
+              <div className="admin-audit-table-wrapper">
+
+                <table className="admin-audit-table">
+
+                  <thead>
+                    <tr>
+                      <th>Module</th>
+                      <th>Action</th>
+                      <th>Details</th>
+                      <th>Performed By</th>
+                      <th>Date & Time</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+
+                    {filteredLogs.length > 0 ? (
+                      filteredLogs.map((log, index) => (
+
+                        <tr
+                          key={
+                            log.id ||
+                            log.auditLogId ||
+                            index
+                          }
+                        >
+
+                          {/* MODULE */}
+
+                          <td>
+                            <div className="admin-audit-module">
+
+                              <div className="admin-audit-icon">
+                                {getIcon(log.module)}
+                              </div>
+
+                              <strong>
+                                {formatLabel(log.module)}
+                              </strong>
+
                             </div>
+                          </td>
 
-                            <strong>
-                              {log.module}
-                            </strong>
-                          </div>
-                        </td>
+                          {/* ACTION */}
 
-                        <td>
-                          <span
-                            className={`admin-audit-action ${log.type.toLowerCase()}`}
-                          >
-                            {log.action}
-                          </span>
-                        </td>
+                          <td>
+                            <span
+                              className={`admin-audit-action ${getActionClass(
+                                log.action
+                              )}`}
+                            >
+                              {formatLabel(log.action)}
+                            </span>
+                          </td>
 
-                        <td>
-                          {log.details}
-                        </td>
+                          {/* DETAILS */}
 
-                        <td>
-                          {log.performedBy}
-                        </td>
+                          <td>
+                            {log.description ||
+                              log.details ||
+                              "—"}
+                          </td>
 
-                        <td>
-                          {log.date}
+                          {/* PERFORMED BY */}
+
+                          <td>
+                            {log.userName ||
+                              log.performedBy ||
+                              "System"}
+                          </td>
+
+                          {/* DATE */}
+
+                          <td>
+                            {formatDateTime(
+                              log.timestamp
+                            )}
+                          </td>
+
+                        </tr>
+
+                      ))
+                    ) : (
+
+                      <tr>
+                        <td
+                          colSpan="5"
+                          className="admin-audit-empty"
+                        >
+                          No audit logs found.
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan="5"
-                        className="admin-audit-empty"
-                      >
-                        No audit logs found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+
+                    )}
+
+                  </tbody>
+                </table>
+
+              </div>
+            )}
+
           </section>
         </main>
       </div>

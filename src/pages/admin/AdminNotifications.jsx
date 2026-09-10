@@ -11,42 +11,46 @@ import {
 import AdminSidebar from "./AdminSidebar";
 import AdminNavbar from "./AdminNavbar";
 import { useAdmin } from "../../context/AdminContext";
+
 import "./AdminNotifications.css";
 
 function AdminNotifications() {
   const {
-  notifications,
-  setNotifications,
-} = useAdmin();
+    notifications,
+    setNotifications,
+  } = useAdmin();
 
   const [filter, setFilter] = useState("All");
-const formatNotificationTime = (timestamp) => {
-    if (!timestamp) return "";
+
+  const formatNotificationTime = (timestamp) => {
+    if (!timestamp) {
+      return "";
+    }
 
     return new Date(timestamp).toLocaleString();
   };
 
   const markAsRead = (id) => {
-  setNotifications((prev) =>
-    prev.map((notification) =>
-      notification.id === id
-        ? {
-            ...notification,
-            read: true,
-          }
-        : notification
-    )
-  );
-};
+    setNotifications((prev) =>
+      prev.map((notification) =>
+        notification.id === id
+          ? {
+              ...notification,
+              read: true,
+            }
+          : notification
+      )
+    );
+  };
 
   const markAllAsRead = () => {
-  setNotifications((prev) =>
-    prev.map((notification) => ({
-      ...notification,
-      read: true,
-    }))
-  );
-};
+    setNotifications((prev) =>
+      prev.map((notification) => ({
+        ...notification,
+        read: true,
+      }))
+    );
+  };
 
   const filteredNotifications = useMemo(() => {
     if (filter === "Unread") {
@@ -158,9 +162,17 @@ const formatNotificationTime = (timestamp) => {
                   setFilter(e.target.value)
                 }
               >
-                <option value="All">All</option>
-                <option value="Unread">Unread</option>
-                <option value="Read">Read</option>
+                <option value="All">
+                  All
+                </option>
+
+                <option value="Unread">
+                  Unread
+                </option>
+
+                <option value="Read">
+                  Read
+                </option>
               </select>
             </div>
 
@@ -198,7 +210,9 @@ const formatNotificationTime = (timestamp) => {
                         </p>
 
                         <span className="admin-notification-time">
-                          {formatNotificationTime(notification.timestamp)}
+                          {formatNotificationTime(
+                            notification.timestamp
+                          )}
                         </span>
                       </div>
 
@@ -221,7 +235,9 @@ const formatNotificationTime = (timestamp) => {
                 <div className="admin-notifications-empty">
                   <Bell size={30} />
 
-                  <h3>No notifications found</h3>
+                  <h3>
+                    No notifications found
+                  </h3>
 
                   <p>
                     There are no notifications for the

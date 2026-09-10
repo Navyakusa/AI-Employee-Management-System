@@ -42,7 +42,32 @@
   border-radius: 12px;
   overflow: hidden;
 }
+.admin-audit-loading {
+  padding: 45px;
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+}
 
+.admin-audit-error {
+  margin: 20px;
+  padding: 15px 18px;
+
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+
+  background: #fef2f2;
+  color: #dc2626;
+
+  font-size: 13px;
+}
+
+.admin-audit-clear-filter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
 .admin-audit-toolbar {
   padding: 18px;
   display: flex;
