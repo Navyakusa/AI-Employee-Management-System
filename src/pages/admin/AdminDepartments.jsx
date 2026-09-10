@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Building2,
   Plus,
@@ -13,9 +13,11 @@ import AdminNavbar from "./AdminNavbar";
 import { useAdmin } from "../../context/AdminContext";
 
 import "./AdminDepartments.css";
+import apiClient from "../../services/apiClient";
 
 function AdminDepartments() {
-    const { users } = useAdmin();
+  const { users } = useAdmin();
+
   const defaultDepartments = [
     {
       id: 1,
@@ -47,17 +49,17 @@ function AdminDepartments() {
     },
   ];
 
-  const [departments, setDepartments] = useState(() => {
-  const savedDepartments =
-    localStorage.getItem("adminDepartments");
+  // ============================================================
+  // DEPARTMENTS FROM BACKEND
+  // ============================================================
 
-  return savedDepartments
-    ? JSON.parse(savedDepartments)
-    : [];
-});
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
+
   const [editingDepartment, setEditingDepartment] =
     useState(null);
 
@@ -67,32 +69,114 @@ function AdminDepartments() {
     status: "Active",
   });
 
-  const filteredDepartments = useMemo(() => {
-    const value = searchTerm.toLowerCase().trim();
+  // ============================================================
+  // GET ALL DEPARTMENTS
+  // GET /api/departments/all
+  // ============================================================
+
+  const fetchDepartments = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await apiClient.get(
+        "/api/departments/all"
+      );
+
+      console.log(
+        "Departments backend response:",
+        response.data
+      );
+
+      const data = response.data;
+
+      if (Array.isArray(data)) {
+        setDepartments(data);
+      } else if (Array.isArray(data?.data)) {
+        setDepartments(data.data);
+      } else {
+        setDepartments([]);
+      }
+    } catch (error) {
+      console.error(
+        "Failed to fetch departments:",
+        error.response?.data || error.message
+      );
+
+      setError(
+        error.response?.data?.message ||
+          "Failed to load departments."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ============================================================
+  // LOAD DEPARTMENTS WHEN PAGE OPENS
+  // ============================================================
+
+  useEffect(() => {
+    fetchDepartments();
+  }, []);
+
+  // ============================================================
+  // FILTER DEPARTMENTS
+  // ============================================================
+
+ const [filteredDepartments, setFilteredDepartments] =
+  useState([]);
+
+useEffect(() => {
+  const searchDepartments = async () => {
+    const value = searchTerm.trim();
 
     if (!value) {
-      return departments;
+      setFilteredDepartments(departments);
+      return;
     }
 
-    return departments.filter(
-      (department) =>
-        department.name
-          .toLowerCase()
-          .includes(value) ||
-        department.manager
-          .toLowerCase()
-          .includes(value)
-    );
-  }, [departments, searchTerm]);
+    try {
+      const response = await apiClient.get(
+        "/api/departments/search",
+        {
+          params: {
+            name: value,
+          },
+        }
+      );
 
-  const saveDepartments = (updatedDepartments) => {
-    setDepartments(updatedDepartments);
+      console.log(
+        "Search Departments Response:",
+        response.data
+      );
 
-    localStorage.setItem(
-      "adminDepartments",
-      JSON.stringify(updatedDepartments)
-    );
+      const data = response.data;
+
+      if (Array.isArray(data)) {
+        setFilteredDepartments(data);
+      } else if (Array.isArray(data?.data)) {
+        setFilteredDepartments(data.data);
+      } else {
+        setFilteredDepartments([]);
+      }
+    } catch (error) {
+      console.error(
+        "Search Departments Error:",
+        error.response?.data ||
+          error.message
+      );
+
+      setFilteredDepartments([]);
+    }
   };
+
+  searchDepartments();
+}, [searchTerm, departments]);
+
+  // ============================================================
+  // OPEN CREATE MODAL
+  // ============================================================
 
   const openCreateModal = () => {
     setEditingDepartment(null);
@@ -106,6 +190,10 @@ function AdminDepartments() {
     setShowModal(true);
   };
 
+  // ============================================================
+  // OPEN EDIT MODAL
+  // ============================================================
+
   const openEditModal = (department) => {
     setEditingDepartment(department);
 
@@ -118,6 +206,10 @@ function AdminDepartments() {
     setShowModal(true);
   };
 
+  // ============================================================
+  // CLOSE MODAL
+  // ============================================================
+
   const closeModal = () => {
     setShowModal(false);
     setEditingDepartment(null);
@@ -129,6 +221,10 @@ function AdminDepartments() {
     });
   };
 
+  // ============================================================
+  // INPUT CHANGE
+  // ============================================================
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -138,76 +234,185 @@ function AdminDepartments() {
     }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  // ============================================================
+  // ADD / EDIT
+  // TEMPORARY FRONTEND LOGIC
+  // WILL CONNECT POST + PUT NEXT
+  // ============================================================
 
-    if (!formData.name.trim()) {
-      alert("Department name is required.");
-      return;
-    }
+  const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    if (editingDepartment) {
-      const updatedDepartments =
-        departments.map((department) =>
-          department.id === editingDepartment.id
-            ? {
-                ...department,
-                ...formData,
-              }
-            : department
-        );
+  if (!formData.name.trim()) {
+    alert("Department name is required.");
+    return;
+  }
 
-      saveDepartments(updatedDepartments);
-    } else {
-      const newDepartment = {
-  id: Date.now(),
-  ...formData,
-};
+  // ==========================================================
+  // EDIT DEPARTMENT
+  // Keep existing temporary frontend logic for now
+  // ==========================================================
 
-      saveDepartments([
-        newDepartment,
-        ...departments,
-      ]);
-    }
+  if (editingDepartment) {
+  try {
+    const requestBody = {
+      id: editingDepartment.id,
+      name: formData.name.trim(),
+      manager: formData.manager.trim(),
+      status: formData.status,
+    };
 
-    closeModal();
-  };
-
-  const deleteDepartment = (department) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${department.name}?`
+    console.log(
+      "Update Department Request:",
+      requestBody
     );
 
-    if (!confirmed) {
-      return;
+    const response = await apiClient.put(
+      `/api/departments/${editingDepartment.id}`,
+      requestBody
+    );
+
+    console.log(
+      "Update Department Response:",
+      response.data
+    );
+
+    if (response.data) {
+      alert("Department updated successfully.");
+
+      closeModal();
+
+      await fetchDepartments();
     }
+  } catch (error) {
+    console.error(
+      "Update Department Error:",
+      error.response?.data ||
+        error.message
+    );
 
-    const updatedDepartments =
-      departments.filter(
-        (item) => item.id !== department.id
-      );
+    alert(
+      error.response?.data?.message ||
+        "Failed to update department."
+    );
+  }
 
-    saveDepartments(updatedDepartments);
-  };
+  return;
+}
+
+  // ==========================================================
+  // CREATE DEPARTMENT
+  // POST /api/departments/create
+  // ==========================================================
+
+  try {
+    const requestBody = {
+      name: formData.name.trim(),
+      manager: formData.manager.trim(),
+      status: formData.status,
+    };
+
+    console.log(
+      "Create Department Request:",
+      requestBody
+    );
+
+    const response = await apiClient.post(
+      "/api/departments/create",
+      requestBody
+    );
+
+    console.log(
+      "Create Department Response:",
+      response.data
+    );
+
+    if (response.data) {
+      alert("Department created successfully.");
+
+      closeModal();
+
+      // Reload latest departments from backend
+      await fetchDepartments();
+    }
+  } catch (error) {
+    console.error(
+      "Create Department Error:",
+      error.response?.data ||
+        error.message
+    );
+
+    alert(
+      error.response?.data?.message ||
+        "Failed to create department."
+    );
+  }
+};
+  // ============================================================
+  // DELETE
+  // TEMPORARY FRONTEND LOGIC
+  // WILL CONNECT DELETE API NEXT
+  // ============================================================
+
+  const deleteDepartment = async (department) => {
+  const confirmed = window.confirm(
+    `Are you sure you want to delete ${department.name}?`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const response = await apiClient.delete(
+      `/api/departments/${department.id}`
+    );
+
+    console.log(
+      "Delete Department Response:",
+      response.data
+    );
+
+    alert("Department deleted successfully.");
+
+    await fetchDepartments();
+  } catch (error) {
+    console.error(
+      "Delete Department Error:",
+      error.response?.data || error.message
+    );
+
+    alert(
+      error.response?.data?.message ||
+        "Failed to delete department."
+    );
+  }
+};
+  // ============================================================
+  // COUNTS
+  // ============================================================
 
   const activeDepartments =
     departments.filter(
       (department) =>
         department.status === "Active"
     ).length;
-    const getEmployeeCount = (departmentName) => {
-  return users.filter(
-    (user) =>
-      user.department?.toLowerCase() ===
-      departmentName.toLowerCase()
-  ).length;
-};
+
+  const getEmployeeCount = (departmentName) => {
+    return users.filter(
+      (user) =>
+        user.department?.toLowerCase() ===
+        departmentName.toLowerCase()
+    ).length;
+  };
 
   const totalEmployees = departments.reduce(
-  (total, department) =>
-    total + getEmployeeCount(department.name),
-  0
-);
+    (total, department) =>
+      total +
+      getEmployeeCount(department.name),
+    0
+  );
+
   return (
     <div className="admin-departments-layout">
       <AdminSidebar />
@@ -245,8 +450,11 @@ function AdminDepartments() {
 
               <div>
                 <span>Total Departments</span>
+
                 <strong>
-                  {departments.length}
+                  {loading
+                    ? "..."
+                    : departments.length}
                 </strong>
               </div>
             </div>
@@ -258,8 +466,11 @@ function AdminDepartments() {
 
               <div>
                 <span>Active Departments</span>
+
                 <strong>
-                  {activeDepartments}
+                  {loading
+                    ? "..."
+                    : activeDepartments}
                 </strong>
               </div>
             </div>
@@ -271,8 +482,11 @@ function AdminDepartments() {
 
               <div>
                 <span>Total Employees</span>
+
                 <strong>
-                  {totalEmployees}
+                  {loading
+                    ? "..."
+                    : totalEmployees}
                 </strong>
               </div>
             </div>
@@ -290,6 +504,17 @@ function AdminDepartments() {
               />
             </div>
 
+            {error && (
+              <div
+                style={{
+                  padding: "16px",
+                  color: "#dc2626",
+                }}
+              >
+                {error}
+              </div>
+            )}
+
             <div className="admin-departments-table-wrapper">
               <table className="admin-departments-table">
                 <thead>
@@ -303,8 +528,17 @@ function AdminDepartments() {
                 </thead>
 
                 <tbody>
-                  {filteredDepartments.length >
-                  0 ? (
+                  {loading ? (
+                    <tr>
+                      <td
+                        colSpan="5"
+                        className="admin-department-empty"
+                      >
+                        Loading departments...
+                      </td>
+                    </tr>
+                  ) : filteredDepartments.length >
+                    0 ? (
                     filteredDepartments.map(
                       (department) => (
                         <tr key={department.id}>
@@ -317,9 +551,7 @@ function AdminDepartments() {
                               </div>
 
                               <strong>
-                                {
-                                  department.name
-                                }
+                                {department.name}
                               </strong>
                             </div>
                           </td>
@@ -330,8 +562,10 @@ function AdminDepartments() {
                           </td>
 
                           <td>
-  {getEmployeeCount(department.name)}
-</td>
+                            {getEmployeeCount(
+                              department.name
+                            )}
+                          </td>
 
                           <td>
                             <span
