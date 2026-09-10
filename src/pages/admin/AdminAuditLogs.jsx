@@ -68,11 +68,19 @@ function AdminAuditLogs() {
 
       console.log("Audit Logs API Response:", result);
 
-      if (result.success && Array.isArray(result.data)) {
-        setAuditLogs(result.data);
-      } else {
-        setAuditLogs([]);
-      }
+      console.log("FULL AUDIT RESPONSE:", result);
+
+if (Array.isArray(result)) {
+  // Backend returned List<AuditLog> directly
+  setAuditLogs(result);
+} else if (result.success && Array.isArray(result.data)) {
+  // Backend returned ApiResponse<List<AuditLog>>
+  setAuditLogs(result.data);
+} else if (Array.isArray(result.data)) {
+  setAuditLogs(result.data);
+} else {
+  setAuditLogs([]);
+}
     } catch (error) {
       console.error("Audit Logs Error:", error);
 
@@ -131,10 +139,11 @@ function AdminAuditLogs() {
       let matchesDate = true;
 
       if (dateFilter) {
-        if (!log.timestamp) {
+        if (!log.dateTime
+        ) {
           matchesDate = false;
         } else {
-          const logDate = log.timestamp.split("T")[0];
+          const logDate = log.dateTime.split("T")[0];
 
           matchesDate = logDate === dateFilter;
         }
@@ -483,7 +492,7 @@ function AdminAuditLogs() {
 
                           <td>
                             {formatDateTime(
-                              log.timestamp
+                              log.dateTime
                             )}
                           </td>
 
