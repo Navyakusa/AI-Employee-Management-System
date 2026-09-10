@@ -7,6 +7,7 @@ import {
   Power,
   X,
   Users,
+  Trash2,
 } from "lucide-react";
 
 import { useSearchParams } from "react-router-dom";
@@ -49,6 +50,7 @@ function AdminUsers() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    password: "",
     role: "Employee",
     department: "",
     status: "Active",
@@ -210,6 +212,7 @@ function AdminUsers() {
     setFormData({
       name: "",
       email: "",
+      password: "",
       role: "Employee",
       department: "",
       status: "Active",
@@ -228,6 +231,7 @@ function AdminUsers() {
     setFormData({
       name: user.name,
       email: user.email,
+      password: "",
       role: user.role,
       department: user.department,
       status: user.status,
@@ -259,50 +263,165 @@ function AdminUsers() {
   };
 
   // ============================================================
-  // TEMPORARY ADD / EDIT
+  // ADD USER
+  // POST /api/admin/users
   //
-  // Backend POST and PUT are NOT connected yet.
-  // This keeps your existing UI working without errors.
+  // EDIT remains temporary for now.
+  // PUT will be integrated separately.
   // ============================================================
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // ==========================================================
+    // EDIT USER
+    // Keep existing temporary edit functionality
+    // ==========================================================
+
+    if (editingUser) {
+  try {
+    const requestBody = {
+      userName: formData.name.trim(),
+      email: formData.email.trim().toLowerCase(),
+      role: formData.role
+        .toUpperCase()
+        .replaceAll(" ", "_"),
+      active: formData.status === "Active",
+      department: formData.department.trim(),
+    };
+
+    console.log("Update User Request:", requestBody);
+
+    const response = await apiClient.put(
+      `/api/admin/users/${editingUser.id}`,
+      requestBody
+    );
+
+    console.log("Update User Response:", response.data);
+
+    if (response.data?.success) {
+      alert(
+        response.data.message ||
+          "User updated successfully."
+      );
+
+      closeModal();
+
+      // Reload latest data from backend
+      await fetchUsers();
+    } else {
+      alert(
+        response.data?.message ||
+          "Failed to update user."
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Update User Error:",
+      error.response?.data || error.message
+    );
+
+    alert(
+      error.response?.data?.message ||
+        "Failed to update user."
+    );
+  }
+
+  return;
+}
+
+    // ==========================================================
+    // ADD USER VALIDATION
+    // ==========================================================
 
     if (
       !formData.name.trim() ||
       !formData.email.trim() ||
+      !formData.password.trim() ||
       !formData.department.trim()
     ) {
       alert(
-        "Please fill all required fields."
+        "Please fill name, email, password and department."
       );
       return;
     }
 
-    if (editingUser) {
-      setUsers((prevUsers) =>
-        prevUsers.map((user) =>
-          user.id === editingUser.id
-            ? {
-                ...user,
-                ...formData,
-              }
-            : user
-        )
-      );
-    } else {
-      const temporaryUser = {
-        id: `temp-${Date.now()}`,
-        ...formData,
+    try {
+      // ========================================================
+      // BODY EXPECTED BY BACKEND
+      // ========================================================
+
+      const requestBody = {
+        userName: formData.name.trim(),
+
+        email: formData.email
+          .trim()
+          .toLowerCase(),
+
+        password: formData.password,
+
+        role: formData.role
+          .toUpperCase()
+          .replaceAll(" ", "_"),
+
+        active:
+          formData.status === "Active",
+
+        department:
+          formData.department.trim(),
       };
 
-      setUsers((prevUsers) => [
-        ...prevUsers,
-        temporaryUser,
-      ]);
-    }
+      console.log(
+        "Add User Request:",
+        requestBody
+      );
 
-    closeModal();
+      // ========================================================
+      // POST API
+      // ========================================================
+
+      const response = await apiClient.post(
+        "/api/admin/users",
+        requestBody
+      );
+
+      console.log(
+        "Add User Response:",
+        response.data
+      );
+
+      // ========================================================
+      // SUCCESS
+      // ========================================================
+
+      if (response.data?.success) {
+        alert(
+          response.data.message ||
+            "User created successfully."
+        );
+
+        closeModal();
+
+        // Reload latest users from database
+        await fetchUsers();
+      } else {
+        alert(
+          response.data?.message ||
+            "Failed to create user."
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Add User Error:",
+        error.response?.data ||
+          error.message
+      );
+
+      alert(
+        error.response?.data?.message ||
+          "Failed to create user."
+      );
+    }
   };
 
   // ============================================================
@@ -311,22 +430,89 @@ function AdminUsers() {
   // PATCH API will be connected next.
   // ============================================================
 
-  const handleToggleUserStatus = (userId) => {
-    setUsers((prevUsers) =>
-      prevUsers.map((user) =>
-        user.id === userId
-          ? {
-              ...user,
-              status:
-                user.status === "Active"
-                  ? "Inactive"
-                  : "Active",
-            }
-          : user
-      )
+  const handleToggleUserStatus = async (userId) => {
+  try {
+    const selectedUser = users.find(
+      (user) => user.id === userId
     );
-  };
 
+    if (!selectedUser) {
+      return;
+    }
+
+    const newActiveStatus =
+      selectedUser.status !== "Active";
+
+    const response = await apiClient.patch(
+      `/api/admin/users/${userId}/status`,
+      null,
+      {
+        params: {
+          active: newActiveStatus,
+        },
+      }
+    );
+
+    console.log(
+      "Update Status Response:",
+      response.data
+    );
+
+    if (response.data?.success) {
+      await fetchUsers();
+    } else {
+      alert(
+        response.data?.message ||
+          "Failed to update user status."
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Update Status Error:",
+      error.response?.data ||
+        error.message
+    );
+
+    alert(
+      error.response?.data?.message ||
+        "Failed to update user status."
+    );
+  }
+};
+const handleDeleteUser = async (userId) => {
+  const confirmed = window.confirm(
+    "Are you sure you want to delete this user?"
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const response = await apiClient.delete(
+      `/api/admin/users/${userId}`
+    );
+
+    if (response.data?.success) {
+      await fetchUsers();
+    } else {
+      alert(
+        response.data?.message ||
+          "Failed to delete user."
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Delete User Error:",
+      error.response?.data || error.message
+    );
+
+    alert(
+      error.response?.data?.message ||
+        "Failed to delete user."
+    );
+  }
+};
   // ============================================================
   // COUNTS
   // ============================================================
@@ -670,6 +856,15 @@ function AdminUsers() {
                                   size={16}
                                 />
                               </button>
+                              <button
+  className="admin-action-button"
+  title="Delete user"
+  onClick={() =>
+    handleDeleteUser(user.id)
+  }
+>
+  <Trash2 size={16} />
+</button>
                             </div>
                           </td>
                         </tr>
@@ -768,6 +963,27 @@ function AdminUsers() {
                   }
                 />
               </div>
+
+              {/* PASSWORD - ONLY FOR ADD USER */}
+
+              {!editingUser && (
+                <div className="admin-user-form-group">
+                  <label>
+                    Password
+                    <span>*</span>
+                  </label>
+
+                  <input
+                    type="password"
+                    name="password"
+                    placeholder="Enter password"
+                    value={formData.password}
+                    onChange={
+                      handleInputChange
+                    }
+                  />
+                </div>
+              )}
 
               <div className="admin-user-form-row">
                 {/* ROLE */}
