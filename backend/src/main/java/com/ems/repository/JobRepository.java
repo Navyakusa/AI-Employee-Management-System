@@ -30,4 +30,8 @@ public interface JobRepository extends JpaRepository<Job, Long> {
        GROUP BY j.status
        """)
     List<Object[]> countJobsByStatus();
+
+    long countByDepartmentIgnoreCaseAndStatusIgnoreCase(String department, String open);
+
+    long countByDepartmentIgnoreCase(String department);
 }
