@@ -18,39 +18,8 @@ import apiClient from "../../services/apiClient";
 function AdminDepartments() {
   const { users } = useAdmin();
 
-  const defaultDepartments = [
-    {
-      id: 1,
-      name: "Engineering",
-      manager: "Kiran Kumar",
-      employees: 12,
-      status: "Active",
-    },
-    {
-      id: 2,
-      name: "Human Resources",
-      manager: "Anjali Reddy",
-      employees: 5,
-      status: "Active",
-    },
-    {
-      id: 3,
-      name: "Design",
-      manager: "Priya Singh",
-      employees: 4,
-      status: "Active",
-    },
-    {
-      id: 4,
-      name: "Analytics",
-      manager: "Rahul Sharma",
-      employees: 3,
-      status: "Inactive",
-    },
-  ];
-
   // ============================================================
-  // DEPARTMENTS FROM BACKEND
+  // STATES
   // ============================================================
 
   const [departments, setDepartments] = useState([]);
@@ -69,6 +38,9 @@ function AdminDepartments() {
     status: "Active",
   });
 
+  const [filteredDepartments, setFilteredDepartments] =
+    useState([]);
+
   // ============================================================
   // GET ALL DEPARTMENTS
   // GET /api/departments/all
@@ -80,7 +52,7 @@ function AdminDepartments() {
       setError("");
 
       const response = await apiClient.get(
-        "/api/departments/all"
+        "/departments/all"
       );
 
       console.log(
@@ -107,13 +79,15 @@ function AdminDepartments() {
         error.response?.data?.message ||
           "Failed to load departments."
       );
+
+      setDepartments([]);
     } finally {
       setLoading(false);
     }
   };
 
   // ============================================================
-  // LOAD DEPARTMENTS WHEN PAGE OPENS
+  // LOAD DEPARTMENTS
   // ============================================================
 
   useEffect(() => {
@@ -121,58 +95,55 @@ function AdminDepartments() {
   }, []);
 
   // ============================================================
-  // FILTER DEPARTMENTS
+  // SEARCH DEPARTMENTS
   // ============================================================
 
- const [filteredDepartments, setFilteredDepartments] =
-  useState([]);
+  useEffect(() => {
+    const searchDepartments = async () => {
+      const value = searchTerm.trim();
 
-useEffect(() => {
-  const searchDepartments = async () => {
-    const value = searchTerm.trim();
+      if (!value) {
+        setFilteredDepartments(departments);
+        return;
+      }
 
-    if (!value) {
-      setFilteredDepartments(departments);
-      return;
-    }
+      try {
+        const response = await apiClient.get(
+          "/departments/search",
+          {
+            params: {
+              name: value,
+            },
+          }
+        );
 
-    try {
-      const response = await apiClient.get(
-        "/api/departments/search",
-        {
-          params: {
-            name: value,
-          },
+        console.log(
+          "Search Departments Response:",
+          response.data
+        );
+
+        const data = response.data;
+
+        if (Array.isArray(data)) {
+          setFilteredDepartments(data);
+        } else if (Array.isArray(data?.data)) {
+          setFilteredDepartments(data.data);
+        } else {
+          setFilteredDepartments([]);
         }
-      );
+      } catch (error) {
+        console.error(
+          "Search Departments Error:",
+          error.response?.data ||
+            error.message
+        );
 
-      console.log(
-        "Search Departments Response:",
-        response.data
-      );
-
-      const data = response.data;
-
-      if (Array.isArray(data)) {
-        setFilteredDepartments(data);
-      } else if (Array.isArray(data?.data)) {
-        setFilteredDepartments(data.data);
-      } else {
         setFilteredDepartments([]);
       }
-    } catch (error) {
-      console.error(
-        "Search Departments Error:",
-        error.response?.data ||
-          error.message
-      );
+    };
 
-      setFilteredDepartments([]);
-    }
-  };
-
-  searchDepartments();
-}, [searchTerm, departments]);
+    searchDepartments();
+  }, [searchTerm, departments]);
 
   // ============================================================
   // OPEN CREATE MODAL
@@ -198,9 +169,9 @@ useEffect(() => {
     setEditingDepartment(department);
 
     setFormData({
-      name: department.name,
-      manager: department.manager,
-      status: department.status,
+      name: department.name || "",
+      manager: department.manager || "",
+      status: department.status || "Active",
     });
 
     setShowModal(true);
@@ -222,7 +193,7 @@ useEffect(() => {
   };
 
   // ============================================================
-  // INPUT CHANGE
+  // HANDLE INPUT CHANGE
   // ============================================================
 
   const handleChange = (e) => {
@@ -235,159 +206,167 @@ useEffect(() => {
   };
 
   // ============================================================
-  // ADD / EDIT
-  // TEMPORARY FRONTEND LOGIC
-  // WILL CONNECT POST + PUT NEXT
+  // ADD / EDIT DEPARTMENT
   // ============================================================
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!formData.name.trim()) {
-    alert("Department name is required.");
-    return;
-  }
-
-  // ==========================================================
-  // EDIT DEPARTMENT
-  // Keep existing temporary frontend logic for now
-  // ==========================================================
-
-  if (editingDepartment) {
-  try {
-    const requestBody = {
-      id: editingDepartment.id,
-      name: formData.name.trim(),
-      manager: formData.manager.trim(),
-      status: formData.status,
-    };
-
-    console.log(
-      "Update Department Request:",
-      requestBody
-    );
-
-    const response = await apiClient.put(
-      `/api/departments/${editingDepartment.id}`,
-      requestBody
-    );
-
-    console.log(
-      "Update Department Response:",
-      response.data
-    );
-
-    if (response.data) {
-      alert("Department updated successfully.");
-
-      closeModal();
-
-      await fetchDepartments();
+    if (!formData.name.trim()) {
+      alert("Department name is required.");
+      return;
     }
-  } catch (error) {
-    console.error(
-      "Update Department Error:",
-      error.response?.data ||
-        error.message
-    );
 
-    alert(
-      error.response?.data?.message ||
-        "Failed to update department."
-    );
-  }
+    // ==========================================================
+    // EDIT DEPARTMENT
+    // PUT /api/departments/{id}
+    // ==========================================================
 
-  return;
-}
+    if (editingDepartment) {
+      try {
+        const requestBody = {
+          id: editingDepartment.id,
+          name: formData.name.trim(),
+          manager: formData.manager.trim(),
+          status: formData.status,
+        };
 
-  // ==========================================================
-  // CREATE DEPARTMENT
-  // POST /api/departments/create
-  // ==========================================================
+        console.log(
+          "Update Department Request:",
+          requestBody
+        );
 
-  try {
-    const requestBody = {
-      name: formData.name.trim(),
-      manager: formData.manager.trim(),
-      status: formData.status,
-    };
+        const response = await apiClient.put(
+          `/departments/${editingDepartment.id}`,
+          requestBody
+        );
 
-    console.log(
-      "Create Department Request:",
-      requestBody
-    );
+        console.log(
+          "Update Department Response:",
+          response.data
+        );
 
-    const response = await apiClient.post(
-      "/api/departments/create",
-      requestBody
-    );
+        if (response.data) {
+          alert(
+            response.data?.message ||
+              "Department updated successfully."
+          );
 
-    console.log(
-      "Create Department Response:",
-      response.data
-    );
+          closeModal();
 
-    if (response.data) {
-      alert("Department created successfully.");
+          await fetchDepartments();
+        }
+      } catch (error) {
+        console.error(
+          "Update Department Error:",
+          error.response?.data ||
+            error.message
+        );
 
-      closeModal();
+        alert(
+          error.response?.data?.message ||
+            "Failed to update department."
+        );
+      }
 
-      // Reload latest departments from backend
-      await fetchDepartments();
+      return;
     }
-  } catch (error) {
-    console.error(
-      "Create Department Error:",
-      error.response?.data ||
-        error.message
-    );
 
-    alert(
-      error.response?.data?.message ||
-        "Failed to create department."
-    );
-  }
-};
+    // ==========================================================
+    // CREATE DEPARTMENT
+    // POST /api/departments/create
+    // ==========================================================
+
+    try {
+      const requestBody = {
+        name: formData.name.trim(),
+        manager: formData.manager.trim(),
+        status: formData.status,
+      };
+
+      console.log(
+        "Create Department Request:",
+        requestBody
+      );
+
+      const response = await apiClient.post(
+        "/departments/create",
+        requestBody
+      );
+
+      console.log(
+        "Create Department Response:",
+        response.data
+      );
+
+      if (response.data) {
+        alert(
+          response.data?.message ||
+            "Department created successfully."
+        );
+
+        closeModal();
+
+        await fetchDepartments();
+      }
+    } catch (error) {
+      console.error(
+        "Create Department Error:",
+        error.response?.data ||
+          error.message
+      );
+
+      alert(
+        error.response?.data?.message ||
+          "Failed to create department."
+      );
+    }
+  };
+
   // ============================================================
-  // DELETE
-  // TEMPORARY FRONTEND LOGIC
-  // WILL CONNECT DELETE API NEXT
+  // DELETE DEPARTMENT
+  // DELETE /api/departments/{id}
   // ============================================================
 
   const deleteDepartment = async (department) => {
-  const confirmed = window.confirm(
-    `Are you sure you want to delete ${department.name}?`
-  );
-
-  if (!confirmed) {
-    return;
-  }
-
-  try {
-    const response = await apiClient.delete(
-      `/api/departments/${department.id}`
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${department.name}?`
     );
 
-    console.log(
-      "Delete Department Response:",
-      response.data
-    );
+    if (!confirmed) {
+      return;
+    }
 
-    alert("Department deleted successfully.");
+    try {
+      const response = await apiClient.delete(
+        `/departments/${department.id}`
+      );
 
-    await fetchDepartments();
-  } catch (error) {
-    console.error(
-      "Delete Department Error:",
-      error.response?.data || error.message
-    );
+      console.log(
+        "Delete Department Response:",
+        response.data
+      );
 
-    alert(
-      error.response?.data?.message ||
-        "Failed to delete department."
-    );
-  }
-};
+      alert(
+        response.data?.message ||
+          "Department deleted successfully."
+      );
+
+      await fetchDepartments();
+    } catch (error) {
+      console.error(
+        "Delete Department Error:",
+        error.response?.data ||
+          error.message
+      );
+
+      alert(
+        error.response?.data?.message ||
+          "Failed to delete department."
+      );
+    }
+  };
+
   // ============================================================
   // COUNTS
   // ============================================================
@@ -399,11 +378,23 @@ useEffect(() => {
     ).length;
 
   const getEmployeeCount = (departmentName) => {
-    return users.filter(
-      (user) =>
-        user.department?.toLowerCase() ===
+    if (!Array.isArray(users)) {
+      return 0;
+    }
+
+    return users.filter((user) => {
+      const userDepartment =
+        typeof user.department === "string"
+          ? user.department
+          : user.department?.departmentName ||
+            user.department?.name ||
+            "";
+
+      return (
+        userDepartment.toLowerCase() ===
         departmentName.toLowerCase()
-    ).length;
+      );
+    }).length;
   };
 
   const totalEmployees = departments.reduce(
@@ -413,6 +404,10 @@ useEffect(() => {
     0
   );
 
+  // ============================================================
+  // UI
+  // ============================================================
+
   return (
     <div className="admin-departments-layout">
       <AdminSidebar />
@@ -421,6 +416,11 @@ useEffect(() => {
         <AdminNavbar />
 
         <main className="admin-departments-content">
+
+          {/* ====================================================
+              HEADER
+          ==================================================== */}
+
           <div className="admin-departments-header">
             <div>
               <p>ORGANIZATION</p>
@@ -442,14 +442,23 @@ useEffect(() => {
             </button>
           </div>
 
+          {/* ====================================================
+              STATISTICS
+          ==================================================== */}
+
           <div className="admin-department-stats">
+
+            {/* TOTAL DEPARTMENTS */}
+
             <div className="admin-department-stat-card">
               <div className="admin-department-stat-icon">
                 <Building2 size={22} />
               </div>
 
               <div>
-                <span>Total Departments</span>
+                <span>
+                  Total Departments
+                </span>
 
                 <strong>
                   {loading
@@ -459,13 +468,17 @@ useEffect(() => {
               </div>
             </div>
 
+            {/* ACTIVE DEPARTMENTS */}
+
             <div className="admin-department-stat-card">
               <div className="admin-department-stat-icon">
                 <Building2 size={22} />
               </div>
 
               <div>
-                <span>Active Departments</span>
+                <span>
+                  Active Departments
+                </span>
 
                 <strong>
                   {loading
@@ -475,13 +488,17 @@ useEffect(() => {
               </div>
             </div>
 
+            {/* TOTAL EMPLOYEES */}
+
             <div className="admin-department-stat-card">
               <div className="admin-department-stat-icon">
                 <Users size={22} />
               </div>
 
               <div>
-                <span>Total Employees</span>
+                <span>
+                  Total Employees
+                </span>
 
                 <strong>
                   {loading
@@ -492,17 +509,28 @@ useEffect(() => {
             </div>
           </div>
 
+          {/* ====================================================
+              DEPARTMENT LIST
+          ==================================================== */}
+
           <section className="admin-departments-card">
+
+            {/* SEARCH */}
+
             <div className="admin-departments-toolbar">
               <input
                 type="text"
                 placeholder="Search departments..."
                 value={searchTerm}
                 onChange={(e) =>
-                  setSearchTerm(e.target.value)
+                  setSearchTerm(
+                    e.target.value
+                  )
                 }
               />
             </div>
+
+            {/* ERROR */}
 
             {error && (
               <div
@@ -515,19 +543,39 @@ useEffect(() => {
               </div>
             )}
 
+            {/* TABLE */}
+
             <div className="admin-departments-table-wrapper">
               <table className="admin-departments-table">
+
                 <thead>
                   <tr>
-                    <th>Department</th>
-                    <th>Manager</th>
-                    <th>Employees</th>
-                    <th>Status</th>
-                    <th>Actions</th>
+                    <th>
+                      Department
+                    </th>
+
+                    <th>
+                      Manager
+                    </th>
+
+                    <th>
+                      Employees
+                    </th>
+
+                    <th>
+                      Status
+                    </th>
+
+                    <th>
+                      Actions
+                    </th>
                   </tr>
                 </thead>
 
                 <tbody>
+
+                  {/* LOADING */}
+
                   {loading ? (
                     <tr>
                       <td
@@ -539,11 +587,22 @@ useEffect(() => {
                     </tr>
                   ) : filteredDepartments.length >
                     0 ? (
+
+                    /* DEPARTMENT ROWS */
+
                     filteredDepartments.map(
                       (department) => (
-                        <tr key={department.id}>
+                        <tr
+                          key={
+                            department.id
+                          }
+                        >
+
+                          {/* DEPARTMENT */}
+
                           <td>
                             <div className="admin-department-name">
+
                               <div className="admin-department-avatar">
                                 <Building2
                                   size={18}
@@ -551,21 +610,30 @@ useEffect(() => {
                               </div>
 
                               <strong>
-                                {department.name}
+                                {
+                                  department.name
+                                }
                               </strong>
+
                             </div>
                           </td>
+
+                          {/* MANAGER */}
 
                           <td>
                             {department.manager ||
                               "Not Assigned"}
                           </td>
 
+                          {/* EMPLOYEE COUNT */}
+
                           <td>
                             {getEmployeeCount(
                               department.name
                             )}
                           </td>
+
+                          {/* STATUS */}
 
                           <td>
                             <span
@@ -582,9 +650,15 @@ useEffect(() => {
                             </span>
                           </td>
 
+                          {/* ACTIONS */}
+
                           <td>
                             <div className="admin-department-actions">
+
+                              {/* EDIT */}
+
                               <button
+                                type="button"
                                 title="Edit department"
                                 onClick={() =>
                                   openEditModal(
@@ -597,7 +671,10 @@ useEffect(() => {
                                 />
                               </button>
 
+                              {/* DELETE */}
+
                               <button
+                                type="button"
                                 title="Delete department"
                                 className="delete"
                                 onClick={() =>
@@ -610,12 +687,17 @@ useEffect(() => {
                                   size={16}
                                 />
                               </button>
+
                             </div>
                           </td>
+
                         </tr>
                       )
                     )
                   ) : (
+
+                    /* EMPTY */
+
                     <tr>
                       <td
                         colSpan="5"
@@ -625,17 +707,30 @@ useEffect(() => {
                       </td>
                     </tr>
                   )}
+
                 </tbody>
+
               </table>
             </div>
+
           </section>
+
         </main>
       </div>
 
+      {/* ========================================================
+          ADD / EDIT DEPARTMENT MODAL
+      ======================================================== */}
+
       {showModal && (
         <div className="admin-department-modal-overlay">
+
           <div className="admin-department-modal">
+
+            {/* MODAL HEADER */}
+
             <div className="admin-department-modal-header">
+
               <div>
                 <h2>
                   {editingDepartment
@@ -649,14 +744,23 @@ useEffect(() => {
               </div>
 
               <button
+                type="button"
                 className="admin-department-modal-close"
                 onClick={closeModal}
               >
                 <X size={19} />
               </button>
+
             </div>
 
-            <form onSubmit={handleSubmit}>
+            {/* FORM */}
+
+            <form
+              onSubmit={handleSubmit}
+            >
+
+              {/* DEPARTMENT NAME */}
+
               <div className="admin-department-form-group">
                 <label>
                   Department Name
@@ -670,6 +774,8 @@ useEffect(() => {
                   placeholder="Enter department name"
                 />
               </div>
+
+              {/* MANAGER */}
 
               <div className="admin-department-form-group">
                 <label>
@@ -685,8 +791,12 @@ useEffect(() => {
                 />
               </div>
 
+              {/* STATUS */}
+
               <div className="admin-department-form-group">
-                <label>Status</label>
+                <label>
+                  Status
+                </label>
 
                 <select
                   name="status"
@@ -703,7 +813,10 @@ useEffect(() => {
                 </select>
               </div>
 
+              {/* BUTTONS */}
+
               <div className="admin-department-modal-actions">
+
                 <button
                   type="button"
                   className="cancel"
@@ -720,11 +833,16 @@ useEffect(() => {
                     ? "Update Department"
                     : "Create Department"}
                 </button>
+
               </div>
+
             </form>
+
           </div>
+
         </div>
       )}
+
     </div>
   );
 }

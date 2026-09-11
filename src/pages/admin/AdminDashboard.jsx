@@ -105,7 +105,7 @@ const [recentActivitiesLoading, setRecentActivitiesLoading] =
         setRecentUsersLoading(true);
 
         const response = await apiClient.get(
-          "/api/admin/users"
+          "/admin/users"
         );
 
         console.log(
@@ -174,7 +174,7 @@ useEffect(() => {
       setRecentActivitiesLoading(true);
 
       const response = await apiClient.get(
-        "/api/audit-logs/all"
+        "/audit-logs/all"
       );
 
       console.log(
