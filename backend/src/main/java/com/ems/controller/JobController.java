@@ -16,7 +16,7 @@ public class JobController {
     }
 
     // Create a new job
-    @PostMapping
+    @PostMapping("/create")
     public ResponseEntity<Job> createJob(@RequestBody Job job) {
 
         Job createdJob = jobService.createJob(job);
@@ -25,7 +25,7 @@ public class JobController {
     }
 
     // Get all jobs
-    @GetMapping
+    @GetMapping("/all")
     public ResponseEntity<?> getAllJobs() {
 
         return ResponseEntity.ok(

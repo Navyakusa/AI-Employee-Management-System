@@ -46,7 +46,9 @@ public class AdminUserService {
 
         try {
 
-            List<User> users = userRepository.findAll();
+            // Get newest users first
+            List<User> users =
+                    userRepository.findAllUsersForRecentUsers();
 
             List<AdminUserDto> result = users.stream()
 
@@ -74,6 +76,7 @@ public class AdminUserService {
                         return nameMatches || emailMatches;
                     })
 
+                    // Filter by role
                     .filter(user -> {
 
                         if (role == null || role.trim().isEmpty()) {
@@ -85,6 +88,7 @@ public class AdminUserService {
                                         .equalsIgnoreCase(role);
                     })
 
+                    // Filter by active/inactive status
                     .filter(user -> {
 
                         if (active == null) {
@@ -114,7 +118,12 @@ public class AdminUserService {
                     .body(
                             new ApiResponse<>(
                                     false,
+<<<<<<< Updated upstream
                                     "Failed to fetch users",
+=======
+                                    "Failed to fetch users: "
+                                            + e.getMessage(),
+>>>>>>> Stashed changes
                                     null
                             )
                     );
@@ -165,7 +174,12 @@ public class AdminUserService {
                     .body(
                             new ApiResponse<>(
                                     false,
+<<<<<<< Updated upstream
                                     "Failed to fetch user",
+=======
+                                    "Failed to fetch user: "
+                                            + e.getMessage(),
+>>>>>>> Stashed changes
                                     null
                             )
                     );
@@ -198,6 +212,7 @@ public class AdminUserService {
                         );
             }
 
+            // Validate email
             if (
                     dto.getEmail() == null ||
                             dto.getEmail().trim().isEmpty()
@@ -232,7 +247,13 @@ public class AdminUserService {
 
             if (
                     userRepository
+<<<<<<< Updated upstream
                             .findByEmailIgnoreCase(dto.getEmail())
+=======
+                            .findByEmailIgnoreCase(
+                                    dto.getEmail().trim()
+                            )
+>>>>>>> Stashed changes
                             .isPresent()
             ) {
 

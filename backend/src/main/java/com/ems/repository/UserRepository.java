@@ -25,6 +25,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     long countByActive(boolean b);
 
     long countByRoleIgnoreCase(String employee);
+
     @Query("""
        SELECT u.role, COUNT(u)
        FROM User u
@@ -32,4 +33,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
        GROUP BY u.role
        """)
     List<Object[]> countUsersByRole();
+
+    @Query("""
+       SELECT u
+       FROM User u
+       ORDER BY
+           CASE WHEN u.createdDate IS NULL THEN 1 ELSE 0 END,
+           u.createdDate DESC
+       """)
+    List<User> findAllUsersForRecentUsers();
 }

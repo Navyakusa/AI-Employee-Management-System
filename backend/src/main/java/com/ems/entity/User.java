@@ -2,11 +2,17 @@ package com.ems.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
+
 //import jakarta.validation.constraints.NotNull;
+
+
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -15,17 +21,32 @@ import lombok.Setter;
 @AllArgsConstructor
 @Table(name = "users")
 public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long userId;
+
     private String userName;
-    @Column(unique = true,nullable = false)
+
+    @Column(unique = true, nullable = false)
     private String email;
+
     @Column(nullable = false)
     private String password;
+
     private String role;
+
     private Boolean active;
-    @NotBlank(message="department is mandatory")
+
+    @NotBlank(message = "department is mandatory")
     private String department;
 
+    private LocalDateTime createdDate;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdDate == null) {
+            createdDate = LocalDateTime.now();
+        }
+    }
 }

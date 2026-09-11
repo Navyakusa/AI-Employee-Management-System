@@ -22,7 +22,7 @@ public class RoleController {
     }
 
     // Get all roles
-    @GetMapping
+    @GetMapping("/all")
     public ResponseEntity<List<RoleResponseDTO>> getAllRoles() {
 
         return ResponseEntity.ok(
@@ -41,7 +41,7 @@ public class RoleController {
     }
 
     // Create role
-    @PostMapping
+    @PostMapping("/create")
     public ResponseEntity<RoleResponseDTO> createRole(
             @Valid @RequestBody RoleRequestDTO dto) {
 

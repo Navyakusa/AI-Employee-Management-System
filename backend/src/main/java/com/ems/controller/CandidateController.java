@@ -16,7 +16,7 @@ public class CandidateController {
     }
 
     // Create a candidate
-    @PostMapping
+    @PostMapping("/create")
     public ResponseEntity<Candidate> createCandidate(
             @RequestBody Candidate candidate) {
 
@@ -27,7 +27,7 @@ public class CandidateController {
     }
 
     // Get all candidates
-    @GetMapping
+    @GetMapping("/all")
     public ResponseEntity<?> getAllCandidates() {
 
         return ResponseEntity.ok(

@@ -55,11 +55,12 @@ public class AuditLogService {
     }
 
     // ============================================
-    // GET ALL
+    // GET ALL - NEWEST FIRST
     // ============================================
 
     public List<AuditLog> getAllAuditLogs() {
-        return auditLogRepository.findAll();
+        return auditLogRepository
+                .findAllByOrderByDateTimeDesc();
     }
 
     // ============================================
@@ -83,7 +84,8 @@ public class AuditLogService {
     ) {
 
         List<AuditLog> logs =
-                auditLogRepository.findAll();
+                auditLogRepository
+                        .findAllByOrderByDateTimeDesc();
 
         return logs.stream()
 
