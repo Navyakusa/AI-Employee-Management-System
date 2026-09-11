@@ -77,12 +77,13 @@ function SignupPage() {
 
       // CALL SPRING BOOT SIGNUP API
       const response = await apiClient.post(
-    "/auth/signup",
+          "/auth/signup",
           {
             userName,
             email,
             password,
             role: "CANDIDATE",
+            department: "Candidate",
           }
       );
 
