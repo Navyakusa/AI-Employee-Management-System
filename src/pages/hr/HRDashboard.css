@@ -215,3 +215,85 @@
     flex-direction: column;
   }
 }
+
+.hr-profile-wrapper {
+  position: relative;
+}
+
+.hr-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.hr-profile:hover {
+  background: #f5f5ff;
+}
+
+.hr-profile-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.hr-profile-info strong {
+  font-size: 14px;
+  color: #111827;
+}
+
+.hr-profile-info span {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.profile-arrow {
+  font-size: 18px;
+  color: #6b7280;
+  margin-left: 4px;
+}
+
+.hr-profile-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 190px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+  border: 1px solid #e5e7eb;
+  padding: 8px;
+  z-index: 1000;
+}
+
+.hr-profile-menu button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  text-align: left;
+}
+
+.hr-profile-menu button:hover {
+  background: #f5f5ff;
+}
+
+.hr-profile-menu .logout-option {
+  color: #ef4444;
+}
+
+.hr-profile-menu .logout-option:hover {
+  background: #fff1f2;
+}

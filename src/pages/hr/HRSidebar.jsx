@@ -48,17 +48,11 @@ function HRSidebar() {
       </nav>
 
       {/* Bottom Navigation */}
-      <div className="hr-sidebar-bottom">
+      
 
-        <NavLink to="/hr/settings">
-          ⚙️ Settings
-        </NavLink>
+       
 
-        <NavLink to="/login">
-          🚪 Logout
-        </NavLink>
-
-      </div>
+      
 
     </aside>
   );
