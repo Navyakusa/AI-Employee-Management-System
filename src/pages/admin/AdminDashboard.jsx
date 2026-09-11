@@ -13,12 +13,16 @@ import AdminSidebar from "./AdminSidebar";
 import AdminNavbar from "./AdminNavbar";
 import "./AdminDashboard.css";
 import { useNavigate } from "react-router-dom";
-import { useAdmin } from "../../context/AdminContext";
+
+import apiClient from "../../services/apiClient";
 
 function AdminDashboard() {
   const navigate = useNavigate();
 
-  const { users, activities } = useAdmin();
+
+  // ============================================================
+  // DASHBOARD SUMMARY
+  // ============================================================
 
   const [dashboardSummary, setDashboardSummary] = useState({
     totalJobs: 0,
@@ -31,9 +35,24 @@ function AdminDashboard() {
 
   const [summaryLoading, setSummaryLoading] = useState(true);
 
-  const recentUsers = users.slice(0, 4);
+  // ============================================================
+  // RECENT USERS FROM BACKEND
+  // ============================================================
 
-  const recentActivities = activities.slice(0, 5);
+  const [recentUsers, setRecentUsers] = useState([]);
+  
+  const [recentUsersLoading, setRecentUsersLoading] =
+    useState(true);
+    const [recentActivities, setRecentActivities] =
+  useState([]);
+
+const [recentActivitiesLoading, setRecentActivitiesLoading] =
+  useState(true);
+
+
+  // ============================================================
+  // FETCH DASHBOARD SUMMARY
+  // ============================================================
 
   useEffect(() => {
     const fetchDashboardSummary = async () => {
@@ -41,7 +60,7 @@ function AdminDashboard() {
         const token = localStorage.getItem("token");
 
         const response = await fetch(
-  "/api/dashboard/summary",
+          "/api/dashboard/summary",
           {
             method: "GET",
             headers: {
@@ -63,7 +82,10 @@ function AdminDashboard() {
           setDashboardSummary(result.data);
         }
       } catch (error) {
-        console.error("Dashboard summary error:", error);
+        console.error(
+          "Dashboard summary error:",
+          error
+        );
       } finally {
         setSummaryLoading(false);
       }
@@ -71,6 +93,142 @@ function AdminDashboard() {
 
     fetchDashboardSummary();
   }, []);
+
+  // ============================================================
+  // FETCH RECENT USERS
+  // GET /api/admin/users
+  // ============================================================
+
+  useEffect(() => {
+    const fetchRecentUsers = async () => {
+      try {
+        setRecentUsersLoading(true);
+
+        const response = await apiClient.get(
+          "/api/admin/users"
+        );
+
+        console.log(
+          "Recent Users backend response:",
+          response.data
+        );
+
+        if (
+          response.data?.success &&
+          Array.isArray(response.data.data)
+        ) {
+          const formattedUsers = response.data.data.map(
+            (user) => ({
+              id: user.userId ?? user.id,
+
+              name:
+                user.userName ??
+                user.name ??
+                "",
+
+              email: user.email ?? "",
+
+              role: user.role ?? "Not Assigned",
+
+              status:
+                typeof user.active === "boolean"
+                  ? user.active
+                    ? "Active"
+                    : "Inactive"
+                  : "Inactive",
+            })
+          );
+
+          // Show only 4 users in dashboard
+          const latestUsers = formattedUsers
+  .sort((a, b) => b.id - a.id)
+  .slice(0, 4);
+
+setRecentUsers(latestUsers);
+        } else {
+          setRecentUsers([]);
+        }
+      } catch (error) {
+        console.error(
+          "Recent Users Error:",
+          error.response?.data ||
+            error.message
+        );
+
+        setRecentUsers([]);
+      } finally {
+        setRecentUsersLoading(false);
+      }
+    };
+
+    fetchRecentUsers();
+  }, []);
+  // ============================================================
+// FETCH RECENT ACTIVITY
+// GET /api/audit-logs/all
+// ============================================================
+
+useEffect(() => {
+  const fetchRecentActivities = async () => {
+    try {
+      setRecentActivitiesLoading(true);
+
+      const response = await apiClient.get(
+        "/api/audit-logs/all"
+      );
+
+      console.log(
+        "Recent Activity backend response:",
+        response.data
+      );
+
+      if (Array.isArray(response.data)) {
+        const latestActivities = [...response.data]
+          .sort(
+            (a, b) =>
+              new Date(b.dateTime) -
+              new Date(a.dateTime)
+          )
+          .slice(0, 5)
+          .map((log) => ({
+            id: log.id,
+
+            message:
+              log.details ||
+              `${log.action} - ${log.module}`,
+
+            time: log.dateTime
+              ? new Date(
+                  log.dateTime
+                ).toLocaleString()
+              : "",
+          }));
+
+        setRecentActivities(
+          latestActivities
+        );
+      } else {
+        setRecentActivities([]);
+      }
+    } catch (error) {
+      console.error(
+        "Recent Activity Error:",
+        error.response?.data ||
+          error.message
+      );
+
+      setRecentActivities([]);
+    } finally {
+      setRecentActivitiesLoading(false);
+    }
+  };
+
+  fetchRecentActivities();
+}, []);
+
+  // ============================================================
+  // DASHBOARD CARDS
+  // ============================================================
 
   const stats = [
     {
@@ -205,49 +363,66 @@ function AdminDashboard() {
                   </thead>
 
                   <tbody>
-                    {recentUsers.map((user) => (
-                      <tr key={user.email}>
-                        <td>
-                          <div className="admin-user-cell">
-                            <div className="admin-user-avatar">
-                              {user.name
-                                .split(" ")
-                                .map((word) => word[0])
-                                .join("")
-                                .slice(0, 2)}
-                            </div>
-
-                            <div>
-                              <strong>
-                                {user.name}
-                              </strong>
-
-                              <span>
-                                {user.email}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td>
-                          {user.role}
-                        </td>
-
-                        <td>
-                          <span
-                            className={
-                              user.status === "Active"
-                                ? "admin-status active"
-                                : "admin-status inactive"
-                            }
-                          >
-                            {user.status}
-                          </span>
+                    {recentUsersLoading ? (
+                      <tr>
+                        <td colSpan="3">
+                          Loading users...
                         </td>
                       </tr>
-                    ))}
+                    ) : recentUsers.length > 0 ? (
+                      recentUsers.map((user) => (
+                        <tr
+                          key={
+                            user.id ??
+                            user.email
+                          }
+                        >
+                          <td>
+                            <div className="admin-user-cell">
+                              <div className="admin-user-avatar">
+                                {(user.name || "U")
+                                  .split(" ")
+                                  .filter(Boolean)
+                                  .map(
+                                    (word) =>
+                                      word[0]
+                                  )
+                                  .join("")
+                                  .slice(0, 2)
+                                  .toUpperCase()}
+                              </div>
 
-                    {recentUsers.length === 0 && (
+                              <div>
+                                <strong>
+                                  {user.name}
+                                </strong>
+
+                                <span>
+                                  {user.email}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td>
+                            {user.role}
+                          </td>
+
+                          <td>
+                            <span
+                              className={
+                                user.status ===
+                                "Active"
+                                  ? "admin-status active"
+                                  : "admin-status inactive"
+                              }
+                            >
+                              {user.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
                       <tr>
                         <td colSpan="3">
                           No users available.
@@ -272,30 +447,32 @@ function AdminDashboard() {
                 <Activity size={20} />
               </div>
 
-              <div className="admin-activity-list">
-                {recentActivities.map((activity) => (
-                  <div
-                    className="admin-activity-item"
-                    key={activity.id}
-                  >
-                    <div className="admin-activity-dot"></div>
+          <div className="admin-activity-list">
+  {recentActivitiesLoading ? (
+    <p>Loading recent activity...</p>
+  ) : recentActivities.length > 0 ? (
+    recentActivities.map((activity) => (
+      <div
+        className="admin-activity-item"
+        key={activity.id}
+      >
+        <div className="admin-activity-dot"></div>
 
-                    <div>
-                      <strong>
-                        {activity.message}
-                      </strong>
+        <div>
+          <strong>
+            {activity.message}
+          </strong>
 
-                      <span>
-                        {activity.time}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-
-                {recentActivities.length === 0 && (
-                  <p>No recent activity.</p>
-                )}
-              </div>
+          <span>
+            {activity.time}
+          </span>
+        </div>
+      </div>
+    ))
+  ) : (
+    <p>No recent activity.</p>
+  )}
+</div>
             </div>
           </section>
         </main>
