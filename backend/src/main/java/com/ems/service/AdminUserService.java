@@ -119,12 +119,11 @@ public class AdminUserService {
                             new ApiResponse<>(
                                     false,
 
+
                                     "Failed to fetch users",
 
-                                    "Failed to fetch users: "
-                                            + e.getMessage(),
+                                  null
 
-                                    null
                             )
                     );
         }
@@ -175,10 +174,9 @@ public class AdminUserService {
                             new ApiResponse<>(
                                     false,
 
+
                                     "Failed to fetch user",
 
-                                    "Failed to fetch user: "
-                                            + e.getMessage(),
 
                                     null
                             )
@@ -248,12 +246,10 @@ public class AdminUserService {
             if (
                     userRepository
 
+
                             .findByEmailIgnoreCase(dto.getEmail())
 
-                            .findByEmailIgnoreCase(
-                                    dto.getEmail().trim()
-                            )
-
+                        
                             .isPresent()
             ) {
 
