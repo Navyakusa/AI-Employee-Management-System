@@ -3,14 +3,19 @@ spring:
     name: ems-backend
  
   datasource:
-    url: jdbc:postgresql://aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres
-    username: postgres.jnhthcivyouwousramzr
-    password: "Sheshma@0908"
+    url: {DATABASE_URL}
+    username: {USERNAME}
+    password: {PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 5
       minimum-idle: 1
- 
+  spring:
+    devtools:
+      restart:
+        enabled: true
+      livereload:
+        enabled: true
   jpa:
     hibernate:
       ddl-auto: update

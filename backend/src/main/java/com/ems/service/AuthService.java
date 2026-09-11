@@ -51,6 +51,23 @@ public class AuthService {
                 );
             }
 
+            // Check whether account is active
+            if (Boolean.FALSE.equals(user.getActive())) {
+                throw new InvalidCredentialsException(
+                        "Your account is inactive"
+                );
+            }
+
+            // Check selected role with database role
+            if (loginDto.getRole() == null ||
+                    !user.getRole().equalsIgnoreCase(loginDto.getRole())) {
+
+                throw new InvalidCredentialsException(
+                        "You are not authorized to login as "
+                                + loginDto.getRole()
+                );
+            }
+
             String token =
                     jwtService.generateToken(
                             user.getEmail(),
@@ -93,7 +110,6 @@ public class AuthService {
             );
         }
     }
-
 
     public ResponseEntity<ApiResponse<User>> signup(
             SignupDto signupDto) {
@@ -142,6 +158,10 @@ public class AuthService {
                     signupDto.getRole()
             );
 
+            user.setDepartment(
+                    signupDto.getDepartment()
+            );
+
             user.setActive(true);
 
             User savedUser =
@@ -161,10 +181,12 @@ public class AuthService {
 
         } catch (Exception e) {
 
+            e.printStackTrace();
+
             ApiResponse<User> response =
                     new ApiResponse<>(
                             false,
-                            "Registration failed",
+                            "Registration failed: " + e.getMessage(),
                             null
                     );
 
