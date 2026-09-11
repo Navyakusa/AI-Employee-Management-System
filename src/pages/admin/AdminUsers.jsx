@@ -91,7 +91,7 @@ function AdminUsers() {
       setError("");
 
       const response = await apiClient.get(
-        "/api/admin/users"
+        "/admin/users"
       );
 
       console.log(
@@ -293,7 +293,7 @@ function AdminUsers() {
     console.log("Update User Request:", requestBody);
 
     const response = await apiClient.put(
-      `/api/admin/users/${editingUser.id}`,
+      `/admin/users/${editingUser.id}`,
       requestBody
     );
 
@@ -381,7 +381,7 @@ function AdminUsers() {
       // ========================================================
 
       const response = await apiClient.post(
-        "/api/admin/users",
+        "/admin/users",
         requestBody
       );
 
@@ -444,7 +444,7 @@ function AdminUsers() {
       selectedUser.status !== "Active";
 
     const response = await apiClient.patch(
-      `/api/admin/users/${userId}/status`,
+      `/admin/users/${userId}/status`,
       null,
       {
         params: {
@@ -490,7 +490,7 @@ const handleDeleteUser = async (userId) => {
 
   try {
     const response = await apiClient.delete(
-      `/api/admin/users/${userId}`
+      `/admin/users/${userId}`
     );
 
     if (response.data?.success) {
