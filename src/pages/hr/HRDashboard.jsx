@@ -2,21 +2,56 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import HRSidebar from "./HRSidebar";
 import "./HRDashboard.css";
-import { fetchCandidates } from "./hrApi";
+import {
+  fetchDashboardSummary,
+  fetchApplicationsByStatus,
+} from "./hrApi";
 
 function HRDashboard() {
   const navigate = useNavigate();
 
   // Real candidate count from the AI backend — no hardcoded number.
   // null = still loading, "error" = backend unreachable.
-  const [candidateCount, setCandidateCount] = useState(null);
-  const [candidatesError, setCandidatesError] = useState(false);
+ const [summary, setSummary] = useState(null);
+const [dashboardError, setDashboardError] = useState(false);
+const [applicationsByStatus, setApplicationsByStatus] = useState([]);
+const [applicationsStatusError, setApplicationsStatusError] = useState(false);
 
   useEffect(() => {
-    fetchCandidates()
-      .then((data) => setCandidateCount(Object.keys(data).length))
-      .catch(() => setCandidatesError(true));
-  }, []);
+  // Dashboard summary
+  fetchDashboardSummary()
+    .then((data) => {
+      console.log("Dashboard Summary:", data);
+      setSummary(data);
+    })
+    .catch((error) => {
+      console.error("Dashboard summary error:", error);
+      setDashboardError(true);
+    });
+
+  // Applications by status
+  fetchApplicationsByStatus()
+    .then((data) => {
+      console.log("Applications By Status:", data);
+      setApplicationsByStatus(data);
+    })
+    .catch((error) => {
+      console.error(
+        "Applications by status error:",
+        error
+      );
+      setApplicationsStatusError(true);
+    });
+}, []);
+
+const getApplicationStatusCount = (status) => {
+  const item = applicationsByStatus.find(
+    (item) =>
+      item.status?.toUpperCase() === status.toUpperCase()
+  );
+
+  return item?.count ?? 0;
+}; 
 
   return (
     <div className="hr-dashboard">
@@ -56,29 +91,44 @@ function HRDashboard() {
           </div>
 
           <div className="hr-stat-card">
-            <div className="stat-icon">💼</div>
-            <div>
-              <p>Open Positions</p>
-              <h2>24</h2>
-              <span>Currently hiring</span>
-            </div>
-          </div>
+  <div className="stat-icon">💼</div>
+
+  <div>
+    <p>Open Positions</p>
+
+    <h2>
+      {dashboardError
+        ? "—"
+        : summary === null
+        ? "…"
+        : summary.activeJobs}
+    </h2>
+
+    <span>Currently hiring</span>
+  </div>
+</div>
 
           <div className="hr-stat-card">
-            <div className="stat-icon">📄</div>
-            <div>
-              <p>Applications</p>
-              <h2>
-                {candidatesError ? "—" : candidateCount === null ? "…" : candidateCount}
-              </h2>
-              <span>
-                {candidatesError
-                  ? "AI backend not reachable"
-                  : "Candidates uploaded to the system"}
-              </span>
-            </div>
-          </div>
+  <div className="stat-icon">📄</div>
 
+  <div>
+    <p>Applications</p>
+
+    <h2>
+      {dashboardError
+        ? "—"
+        : summary === null
+        ? "…"
+        : summary.totalApplications}
+    </h2>
+
+    <span>
+      {dashboardError
+        ? "Dashboard backend not reachable"
+        : "Total applications"}
+    </span>
+  </div>
+</div>
           <div className="hr-stat-card">
             <div className="stat-icon">🎯</div>
             <div>

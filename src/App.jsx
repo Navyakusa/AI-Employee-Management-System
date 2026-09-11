@@ -7,6 +7,8 @@ import HRCandidates from "./pages/hr/HRCandidates";
 import HRScreening from "./pages/hr/HRScreening";
 import HRAnalytics from "./pages/hr/HRAnalytics";
 import HRInterviews from "./pages/hr/HRInterviews";
+import HROffers from "./pages/hr/HROffers";
+import HREmployees from "./pages/hr/HREmployees";
 
 import PublicLayout from "./layouts/PublicLayout";
 import HomePage from "./pages/public/HomePage";
@@ -19,6 +21,9 @@ import NotFoundPage from "./pages/public/NotFoundPage";
 import LoginPage from "./pages/public/auth/LoginPage";
 import SignupPage from "./pages/public/auth/SignupPage";
 import Chatbot from "./pages/public/Chatbot";
+
+//<Route path="/hr/offers" element={<HROffers />} />
+//<Route path="/hr/employees" element={<HREmployees />} />
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -57,6 +62,8 @@ function App() {
         <Route path="/hr/ai-screening" element={<HRScreening />} />
         <Route path="/hr/analytics" element={<HRAnalytics />} />
         <Route path="/hr/interviews" element={<HRInterviews />} />
+        <Route path="/hr/offers" element={<HROffers />} />
+        <Route path="/hr/employees" element={<HREmployees />} />
 
         {/* Super Admin Routes */}
         <Route

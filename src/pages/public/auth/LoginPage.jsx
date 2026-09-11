@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import apiClient from "../../../services/apiClient";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -39,20 +40,15 @@ function LoginPage() {
       setLoading(true);
       setError("");
 
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: enteredEmail,
-          password: enteredPassword,
-        }),
+      // Call backend login API
+     const response = await apiClient.post("/auth/login", {
+        email: enteredEmail,
+        password: enteredPassword,
       });
 
-      const result = await response.json();
+      const result = response.data;
 
-      if (!response.ok || !result.success) {
+      if (!result.success) {
         setError(result.message || "Invalid email or password.");
         return;
       }
@@ -64,7 +60,7 @@ function LoginPage() {
         return;
       }
 
-      // Save JWT
+      // Save JWT token
       localStorage.setItem("token", userData.token);
 
       // Save logged-in user
@@ -79,9 +75,10 @@ function LoginPage() {
         })
       );
 
+      // Save selected role
       localStorage.setItem("role", role);
 
-      // Keep current selected-role navigation
+      // Navigate according to selected role
       switch (role) {
         case "hr":
           navigate("/hr/dashboard");
@@ -112,7 +109,11 @@ function LoginPage() {
       }
     } catch (error) {
       console.error("Login error:", error);
-      setError("Unable to connect to the server. Please try again.");
+
+      setError(
+        error.response?.data?.message ||
+          "Unable to connect to the server. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -145,6 +146,7 @@ function LoginPage() {
           <div className="login-features">
             <div className="feature-item">
               <div className="feature-icon">✓</div>
+
               <div>
                 <h4>Smart Recruitment</h4>
                 <p>AI-powered candidate screening</p>
@@ -153,6 +155,7 @@ function LoginPage() {
 
             <div className="feature-item">
               <div className="feature-icon">✓</div>
+
               <div>
                 <h4>Employee Management</h4>
                 <p>Manage your workforce efficiently</p>
@@ -161,6 +164,7 @@ function LoginPage() {
 
             <div className="feature-item">
               <div className="feature-icon">✓</div>
+
               <div>
                 <h4>Role Based Access</h4>
                 <p>Secure access for every user</p>
@@ -254,7 +258,7 @@ function LoginPage() {
             {/* ERROR */}
             {error && <div className="login-error">{error}</div>}
 
-            {/* LOGIN */}
+            {/* LOGIN BUTTON */}
             <button
               type="submit"
               className="login-button"
