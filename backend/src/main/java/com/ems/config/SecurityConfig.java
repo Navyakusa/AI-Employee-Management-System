@@ -1,5 +1,5 @@
 package com.ems.config;
-
+ 
 import com.ems.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,69 +13,69 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
+ 
 import java.util.List;
-
+ 
 @Configuration
 public class SecurityConfig {
-
+ 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-
+ 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
-
+ 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http)
             throws Exception {
-
+ 
         http
                 // =========================
                 // CORS
                 // =========================
                 .cors(cors -> {})
-
+ 
                 .csrf(csrf -> csrf.disable())
-
+ 
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
                         )
                 )
-
+ 
                 .authorizeHttpRequests(auth -> auth
-
+ 
                         // =========================
                         // AUTH APIs
                         // =========================
-
+ 
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/signup"
                         ).permitAll()
-
-
+ 
+ 
                         // =========================
                         // SWAGGER
                         // =========================
-
+ 
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"
                         ).permitAll()
-
-
+ 
+ 
                         // =========================
                         // JOB APIs
                         // =========================
-
+ 
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/jobs",
                                 "/api/jobs/**"
                         ).authenticated()
-
+ 
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/jobs"
@@ -86,7 +86,7 @@ public class SecurityConfig {
                                 "RECRUITER",
                                 "SUPER_ADMIN"
                         )
-
+ 
                         .requestMatchers(
                                 HttpMethod.PUT,
                                 "/api/jobs/**"
@@ -97,7 +97,7 @@ public class SecurityConfig {
                                 "RECRUITER",
                                 "SUPER_ADMIN"
                         )
-
+ 
                         .requestMatchers(
                                 HttpMethod.DELETE,
                                 "/api/jobs/**"
@@ -105,27 +105,27 @@ public class SecurityConfig {
                                 "EMPLOYER",
                                 "SUPER_ADMIN"
                         )
-
-
+ 
+ 
                         // =========================
                         // APPLICATION APIs
                         // =========================
-
+ 
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/applications/apply/**"
                         ).hasRole("CANDIDATE")
-
+ 
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/applications/my"
                         ).hasRole("CANDIDATE")
-
+ 
                         .requestMatchers(
                                 HttpMethod.PUT,
                                 "/api/applications/*/withdraw"
                         ).hasRole("CANDIDATE")
-
+ 
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/applications/job/**"
@@ -136,7 +136,7 @@ public class SecurityConfig {
                                 "RECRUITER",
                                 "SUPER_ADMIN"
                         )
-
+ 
                         .requestMatchers(
                                 HttpMethod.PUT,
                                 "/api/applications/**"
@@ -147,12 +147,12 @@ public class SecurityConfig {
                                 "RECRUITER",
                                 "SUPER_ADMIN"
                         )
-
-
+ 
+ 
                         // =========================
                         // INTERVIEW APIs
                         // =========================
-
+ 
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/interviews/schedule"
@@ -162,12 +162,12 @@ public class SecurityConfig {
                                 "RECRUITER",
                                 "SUPER_ADMIN"
                         )
-
+ 
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/interviews/my"
                         ).hasRole("CANDIDATE")
-
+ 
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/interviews/job/**"
@@ -177,7 +177,7 @@ public class SecurityConfig {
                                 "RECRUITER",
                                 "SUPER_ADMIN"
                         )
-
+ 
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/interviews/interviewer/**"
@@ -188,7 +188,7 @@ public class SecurityConfig {
                                 "RECRUITER",
                                 "SUPER_ADMIN"
                         )
-
+ 
                         .requestMatchers(
                                 HttpMethod.PUT,
                                 "/api/interviews/**"
@@ -198,17 +198,17 @@ public class SecurityConfig {
                                 "RECRUITER",
                                 "SUPER_ADMIN"
                         )
-
-
+ 
+ 
                         // =========================
                         // INTERVIEW FEEDBACK APIs
                         // =========================
-
+ 
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/interview-feedback"
                         ).hasRole("INTERVIEWER")
-
+ 
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/interview-feedback/**"
@@ -218,27 +218,27 @@ public class SecurityConfig {
                                 "RECRUITER",
                                 "SUPER_ADMIN"
                         )
-
-
+ 
+ 
                         // =========================
                         // NOTIFICATION APIs
                         // =========================
-
+ 
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/notifications/**"
                         ).authenticated()
-
+ 
                         .requestMatchers(
                                 HttpMethod.PUT,
                                 "/api/notifications/**"
                         ).authenticated()
-
-
+ 
+ 
                         // =========================
                         // AUDIT LOG APIs
                         // =========================
-
+ 
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/audit-logs/**"
@@ -248,7 +248,7 @@ public class SecurityConfig {
                                 "RECRUITER",
                                 "SUPER_ADMIN"
                         )
-
+ 
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/audit-logs/**"
@@ -258,39 +258,39 @@ public class SecurityConfig {
                                 "RECRUITER",
                                 "SUPER_ADMIN"
                         )
-
-
+ 
+ 
                         // =========================
                         // ALL OTHER APIs
                         // =========================
-
+ 
                         .anyRequest()
                         .authenticated()
                 )
-
+ 
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class
                 );
-
+ 
         return http.build();
     }
-
-
+ 
+ 
     // =========================
     // CORS CONFIGURATION
     // =========================
-
+ 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-
+ 
         CorsConfiguration configuration =
                 new CorsConfiguration();
-
+ 
         configuration.setAllowedOrigins(
                 List.of("http://localhost:5173")
         );
-
+ 
         configuration.setAllowedMethods(
                 List.of(
                         "GET",
@@ -301,34 +301,34 @@ public class SecurityConfig {
                         "OPTIONS"
                 )
         );
-
+ 
         configuration.setAllowedHeaders(
                 List.of("*")
         );
-
+ 
         configuration.setAllowCredentials(true);
-
+ 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
-
+ 
         source.registerCorsConfiguration(
                 "/**",
                 configuration
         );
-
+ 
         return source;
     }
-
-
+ 
+ 
     // =========================
     // AUTHENTICATION MANAGER
     // =========================
-
+ 
     @Bean
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration configuration)
             throws Exception {
-
+ 
         return configuration.getAuthenticationManager();
     }
 }
