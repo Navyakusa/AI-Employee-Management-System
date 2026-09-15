@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-
+import org.springframework.http.MediaType;
 @RestController
 @RequestMapping("/api/resumes")
 public class ResumeController {
@@ -19,16 +19,14 @@ public class ResumeController {
     @Autowired
     private ResumeService resumeService;
 
-
-    @PostMapping("/upload")
+    @PostMapping(
+            value = "/upload",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
     public ResponseEntity<ApiResponse<ResumeResponseDto>> uploadResume(
-            @Valid @ModelAttribute ResumeRequestDto resumeRequestDto,
-            @RequestParam("file") MultipartFile file) {
+            @Valid @ModelAttribute ResumeRequestDto request) {
 
-        return resumeService.uploadResume(
-                resumeRequestDto,
-                file
-        );
+        return resumeService.uploadResume(request);
     }
 
 
@@ -74,5 +72,12 @@ public class ResumeController {
             @PathVariable Long id) {
 
         return resumeService.deleteResume(id);
+    }
+    @GetMapping("/{id}/view")
+    public ResponseEntity
+    <?> viewResume(
+            @PathVariable Long id) {
+
+        return resumeService.viewResume(id);
     }
 }

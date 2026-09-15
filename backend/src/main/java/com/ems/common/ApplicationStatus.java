@@ -8,5 +8,7 @@ public enum ApplicationStatus {
     HIRED,
     WITHDRAWN,
     SELECTED,
-    PENDING
+    PENDING,
+    SCREENING,
+    INTERVIEW
 }

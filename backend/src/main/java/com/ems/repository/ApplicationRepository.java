@@ -1,5 +1,6 @@
 package com.ems.repository;
 
+import com.ems.common.ApplicationStatus;
 import com.ems.entity.Application;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -19,8 +20,7 @@ public interface ApplicationRepository
             Long jobId
     );
 
-    long countByStatus(
-            com.ems.common.ApplicationStatus status
+    long countByStatus(ApplicationStatus status
     );
 
     Long countByJobId(Long id);
@@ -47,4 +47,6 @@ public interface ApplicationRepository
     long countApplicationsByDepartment(
             @Param("department") String department
     );
+
+    List<Application> findByStatus(ApplicationStatus applicationStatus);
 }

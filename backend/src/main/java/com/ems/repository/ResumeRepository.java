@@ -10,4 +10,8 @@ import java.util.Optional;
 public interface ResumeRepository extends JpaRepository<Resume, Long> {
 
     Optional<Resume> findByCandidateId(Long candidateId);
+    Optional<Resume> findFirstByCandidateIdOrderByIdDesc(
+            Long candidateId
+    );
+
 }

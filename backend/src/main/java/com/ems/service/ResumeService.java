@@ -7,17 +7,27 @@ import com.ems.entity.Resume;
 import com.ems.mapper.ResumeMapper;
 import com.ems.repository.ResumeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+
+import java.net.MalformedURLException;
 
 @Service
 public class ResumeService {
@@ -52,15 +62,18 @@ public class ResumeService {
     private static final String UPLOAD_DIR = "uploads/resumes";
 
 
-    // Upload and process resume
     public ResponseEntity<ApiResponse<ResumeResponseDto>> uploadResume(
-            ResumeRequestDto dto,
-            MultipartFile file) {
+            ResumeRequestDto request) {
 
         try {
 
+            Long candidateId = request.getCandidateId();
+            MultipartFile file = request.getFile();
+
+            // continue your existing logic...
+
             // 1. Validate candidate ID
-            if (dto == null || dto.getCandidateId() == null) {
+            if (request == null || request.getCandidateId() == null) {
 
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(new ApiResponse<>(
@@ -178,7 +191,7 @@ public class ResumeService {
                     );
 
             // 17. Create Resume entity
-            Resume resume = resumeMapper.toEntity(dto);
+            Resume resume = resumeMapper.toEntity(request);
 
             resume.setFileName(fileName);
             resume.setFileType(extension);
@@ -424,4 +437,143 @@ public class ResumeService {
                     ));
         }
     }
+    public ResponseEntity<?> viewResume(Long id) {
+
+        try {
+
+            Resume resume = resumeRepository
+                    .findById(id)
+                    .orElse(null);
+
+            if (resume == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Resume not found",
+                                null
+                        ));
+            }
+
+            if (resume.getFilePath() == null ||
+                    resume.getFilePath().isBlank()) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Resume file path not found",
+                                null
+                        ));
+            }
+
+            Path filePath = Paths
+                    .get(resume.getFilePath())
+                    .toAbsolutePath()
+                    .normalize();
+
+            System.out.println("========== RESUME VIEW ==========");
+            System.out.println("Resume ID: " + resume.getId());
+            System.out.println("DB Path: " + resume.getFilePath());
+            System.out.println("Absolute Path: " + filePath);
+            System.out.println("Exists: " + Files.exists(filePath));
+            System.out.println("Readable: " + Files.isReadable(filePath));
+            System.out.println("=================================");
+
+            if (!Files.exists(filePath)) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Resume file not found on server",
+                                null
+                        ));
+            }
+
+            if (!Files.isReadable(filePath)) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Resume file is not readable",
+                                null
+                        ));
+            }
+
+            Resource resource =
+                    new UrlResource(filePath.toUri());
+
+            if (!resource.exists() ||
+                    !resource.isReadable()) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Resume resource is not readable",
+                                null
+                        ));
+            }
+
+            String contentType;
+
+            String fileName =
+                    resume.getFileName() != null
+                            ? resume.getFileName().toLowerCase()
+                            : "";
+
+            if (fileName.endsWith(".pdf")) {
+
+                contentType = MediaType.APPLICATION_PDF_VALUE;
+
+            } else if (fileName.endsWith(".doc")) {
+
+                contentType = "application/msword";
+
+            } else if (fileName.endsWith(".docx")) {
+
+                contentType =
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+            } else {
+
+                contentType =
+                        MediaType.APPLICATION_OCTET_STREAM_VALUE;
+            }
+
+            return ResponseEntity.ok()
+                    .contentType(
+                            MediaType.parseMediaType(contentType)
+                    )
+                    .contentLength(Files.size(filePath))
+                    .header(
+                            HttpHeaders.CONTENT_DISPOSITION,
+                            "inline; filename=\"" +
+                                    resume.getFileName() +
+                                    "\""
+                    )
+                    .body(resource);
+
+        } catch (Exception e) {
+
+            System.err.println(
+                    "Error while viewing resume ID: " + id
+            );
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(
+                            false,
+                            "Failed to view resume: "
+                                    + e.getMessage(),
+                            null
+                    ));
+        }
+    }
+
 }
