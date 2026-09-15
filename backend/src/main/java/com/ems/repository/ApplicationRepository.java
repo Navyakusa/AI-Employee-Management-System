@@ -20,7 +20,8 @@ public interface ApplicationRepository
             Long jobId
     );
 
-    long countByStatus(ApplicationStatus status
+    long countByStatus(
+            ApplicationStatus status
     );
 
     Long countByJobId(Long id);
@@ -48,5 +49,11 @@ public interface ApplicationRepository
             @Param("department") String department
     );
 
-    List<Application> findByStatus(ApplicationStatus applicationStatus);
+    List<Application> findByStatus(
+            ApplicationStatus status
+    );
+
+    List<Application> findByStatusIn(
+            List<ApplicationStatus> statuses
+    );
 }

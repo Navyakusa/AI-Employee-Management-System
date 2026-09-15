@@ -1,105 +1,129 @@
 package com.ems.controller;
 
+import com.ems.common.ApiResponse;
+import com.ems.dto.JobAssignedDto;
 import com.ems.entity.Job;
 import com.ems.service.JobService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/jobs")
 public class JobController {
 
-    private final JobService jobService;
+    @Autowired
+    private JobService jobService;
 
-    public JobController(JobService jobService) {
-        this.jobService = jobService;
-    }
 
-    // Create a new job
+    // =========================
+    // CREATE JOB
+    // =========================
+
     @PostMapping("/create")
-    public ResponseEntity<Job> createJob(@RequestBody Job job) {
+    public ResponseEntity<ApiResponse<Job>> createJob(
+            @RequestBody Job job
+    ) {
 
-        Job createdJob = jobService.createJob(job);
-
-        return ResponseEntity.ok(createdJob);
+        return jobService.createJob(job);
     }
 
-    // Get all jobs
+
+    // =========================
+    // GET ALL JOBS
+    // =========================
+
     @GetMapping("/all")
-    public ResponseEntity<?> getAllJobs() {
+    public ResponseEntity<ApiResponse<List<Job>>> getAllJobs() {
 
-        return ResponseEntity.ok(
-                jobService.getAllJobs()
-        );
+        return jobService.getAllJobs();
     }
 
-    // Search jobs
+
+    // =========================
+    // GET ASSIGNED JOBS
+    // =========================
+
+    @GetMapping("/assigned")
+    public ResponseEntity<ApiResponse<List<JobAssignedDto>>>
+    getAssignedJobs(Authentication authentication) {
+
+        return jobService.getAssignedJobs(authentication);
+    }
+
+
+    // =========================
+    // SEARCH JOBS
+    // =========================
+
     @GetMapping("/search")
-    public ResponseEntity<?> searchJobs(
+    public ResponseEntity<ApiResponse<List<Job>>> searchJobs(
             @RequestParam(required = false) String title,
-            @RequestParam(required = false) String location) {
+            @RequestParam(required = false) String location
+    ) {
 
-        return ResponseEntity.ok(
-                jobService.searchJobs(title, location)
+        return jobService.searchJobs(
+                title,
+                location
         );
     }
 
-    // Get one job by ID
+
+    // =========================
+    // GET JOB BY ID
+    // =========================
+
     @GetMapping("/{id}")
-    public ResponseEntity<?> getJobById(
-            @PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Job>> getJobById(
+            @PathVariable Long id
+    ) {
 
-        Job job = jobService.getJobById(id);
-
-        if (job == null) {
-            return ResponseEntity.notFound().build();
-        }
-
-        return ResponseEntity.ok(job);
+        return jobService.getJobById(id);
     }
 
-    // Update an existing job
+
+    // =========================
+    // UPDATE JOB
+    // =========================
+
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateJob(
+    public Job updateJob(
             @PathVariable Long id,
-            @RequestBody Job job) {
+            @RequestBody Job job
+    ) {
 
-        Job updatedJob = jobService.updateJob(id, job);
-
-        if (updatedJob == null) {
-            return ResponseEntity.notFound().build();
-        }
-
-        return ResponseEntity.ok(updatedJob);
+        return jobService.updateJob(
+                id,
+                job
+        );
     }
 
-    // Close a job
+
+    // =========================
+    // CLOSE JOB
+    // =========================
+
     @PutMapping("/{id}/close")
-    public ResponseEntity<?> closeJob(
-            @PathVariable Long id) {
+    public Job closeJob(
+            @PathVariable Long id
+    ) {
 
-        Job closedJob = jobService.closeJob(id);
-
-        if (closedJob == null) {
-            return ResponseEntity.notFound().build();
-        }
-
-        return ResponseEntity.ok(closedJob);
+        return jobService.closeJob(id);
     }
 
-    // Delete a job
+
+    // =========================
+    // DELETE JOB
+    // =========================
+
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteJob(
-            @PathVariable Long id) {
+    public ResponseEntity<ApiResponse<String>> deleteJob(
+            @PathVariable Long id
+    ) {
 
-        Job existingJob = jobService.getJobById(id);
-
-        if (existingJob == null) {
-            return ResponseEntity.notFound().build();
-        }
-
-        jobService.deleteJob(id);
-
-        return ResponseEntity.ok("Job deleted successfully");
+        return jobService.deleteJob(id);
     }
 }

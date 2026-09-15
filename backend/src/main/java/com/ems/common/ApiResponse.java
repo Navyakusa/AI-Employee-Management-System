@@ -1,5 +1,7 @@
 package com.ems.common;
 
+import com.ems.entity.Job;
+
 import java.time.LocalDateTime;
 
 public class ApiResponse<T> {
@@ -18,6 +20,12 @@ public class ApiResponse<T> {
         this.message = message;
         this.data = data;
         this.timestamp = LocalDateTime.now();
+    }
+
+    public ApiResponse(String jobCreatedSuccessfully, Job savedJob) {
+    }
+
+    public ApiResponse(String jobDeletedSuccessfully, String jobDeletedSuccessfully1) {
     }
 
     public boolean isSuccess() {

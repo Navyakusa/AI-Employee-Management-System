@@ -41,4 +41,5 @@ public class Job {
 
     private LocalDateTime createdDate;
     private LocalDateTime closingDate;
+    private Long hiringManagerId;
 }
