@@ -35,7 +35,15 @@ import AdminReports from "./pages/admin/AdminReports";
 import AdminAuditLogs from "./pages/admin/AdminAuditLogs";
 import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminOrganization from "./pages/admin/AdminOrganization";
-
+import HiringManagerDashboard from "./pages/hiringManager/HiringManagerDashboard";
+import HiringManagerJobs from "./pages/hiringManager/HiringManagerJobs";
+import HiringManagerCandidates from "./pages/hiringManager/HiringManagerCandidates";
+import HiringManagerResumeReview from "./pages/hiringManager/HiringManagerResumeReview";
+import HiringManagerInterviews from "./pages/hiringManager/HiringManagerInterviews";
+import HiringManagerDecisions from "./pages/hiringManager/HiringManagerDecisions";
+import HiringManagerJobDetails from "./pages/hiringManager/HiringManagerJobDetails";
+import HiringManagerCandidateReview from "./pages/hiringManager/HiringManagerCandidateReview";
+import HiringManagerInterviewDetails from "./pages/hiringManager/HiringManagerInterviewDetails";
 function App() {
   return (
     <BrowserRouter>
@@ -109,7 +117,42 @@ function App() {
           path="/super-admin/organization"
           element={<AdminOrganization />}
         />
-
+        <Route
+  path="/hiring-manager/dashboard"
+  element={<HiringManagerDashboard />}
+/>
+<Route
+  path="/hiring-manager/jobs"
+  element={<HiringManagerJobs />}
+/>
+<Route
+  path="/hiring-manager/shortlisted-candidates"
+  element={<HiringManagerCandidates />}
+/>
+<Route
+  path="/hiring-manager/resume-review/:candidateId"
+  element={<HiringManagerResumeReview />}
+/>
+<Route
+  path="/hiring-manager/interviews"
+  element={<HiringManagerInterviews />}
+/>
+<Route
+  path="/hiring-manager/decisions"
+  element={<HiringManagerDecisions />}
+/>
+<Route
+  path="/hiring-manager/jobs/:jobId"
+  element={<HiringManagerJobDetails />}
+/>
+<Route
+  path="/hiring-manager/candidate-review/:candidateId"
+  element={<HiringManagerCandidateReview />}
+/>
+<Route
+  path="/hiring-manager/interviews/:interviewId"
+  element={<HiringManagerInterviewDetails />}
+/>
         {/* Not Found */}
         <Route path="*" element={<NotFoundPage />} />
 
