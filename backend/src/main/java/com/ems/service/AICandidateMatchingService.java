@@ -1,608 +1,523 @@
 package com.ems.service;
 
 import com.ems.common.ApiResponse;
-import com.ems.dto.*;
+import com.ems.dto.AICandidateMatchingRequestDto;
+import com.ems.dto.AICandidateMatchingResponseDto;
 import com.ems.entity.AICandidateMatching;
-import com.ems.entity.Candidate;
 import com.ems.entity.Job;
 import com.ems.entity.Resume;
 import com.ems.mapper.AICandidateMatchingMapper;
 import com.ems.repository.AICandidateMatchingRepository;
-import com.ems.repository.CandidateRepository;
 import com.ems.repository.JobRepository;
 import com.ems.repository.ResumeRepository;
-
-import lombok.RequiredArgsConstructor;
-
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.Locale;
+import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class AICandidateMatchingService {
 
-    private final AICandidateMatchingRepository matchingRepository;
-    private final AICandidateMatchingMapper matchingMapper;
-    private final CandidateRepository candidateRepository;
-    private final ResumeRepository resumeRepository;
-    private final JobRepository jobRepository;
-    private final PythonAIClient pythonAIClient;
+    @Autowired
+    private AICandidateMatchingRepository matchingRepository;
+
+    @Autowired
+    private AICandidateMatchingMapper matchingMapper;
+
+    @Autowired
+    private ResumeRepository resumeRepository;
+
+    @Autowired
+    private JobRepository jobRepository;
 
 
-    public ResponseEntity<ApiResponse<AICandidateMatchingResponseDto>>
-    matchCandidate(AICandidateMatchingRequestDto requestDto) {
+    public ResponseEntity<ApiResponse<AICandidateMatchingResponseDto>> matchCandidate(
+            AICandidateMatchingRequestDto requestDto) {
 
         try {
 
-            // 1. Find candidate
-            Candidate candidate = candidateRepository
-                    .findById(requestDto.getCandidateId())
-                    .orElse(null);
+            Resume resume = resumeRepository.findByCandidateId(requestDto.getCandidateId())
+                    .orElseThrow(() -> new RuntimeException(
+                            "Resume not found for candidate ID: " + requestDto.getCandidateId()
+                    ));
 
-            if (candidate == null) {
+            Job job = jobRepository.findById(requestDto.getJobId())
+                    .orElseThrow(() -> new RuntimeException(
+                            "Job not found with ID: " + requestDto.getJobId()
+                    ));
 
-                return ResponseEntity
-                        .status(HttpStatus.NOT_FOUND)
-                        .body(new ApiResponse<>(
-                                false,
-                                "Candidate not found",
-                                null
-                        ));
-            }
+            AICandidateMatching matching = matchingMapper.toEntity(requestDto);
 
+            String resumeText = safeText(resume.getExtractedText());
+            String resumeSkills = safeText(resume.getExtractedSkills());
+            String resumeExperience = safeText(resume.getExtractedExperience());
+            String resumeEducation = safeText(resume.getExtractedEducation());
 
-            // 2. Find job
-            Job job = jobRepository
-                    .findById(requestDto.getJobId())
-                    .orElse(null);
+            String jobSkills = safeText(job.getRequiredSkills());
+            String jobDescription = safeText(job.getDescription());
+            String jobEducation = safeText(job.getEducation());
+            String jobLocation = safeText(job.getLocation());
+            String jobTitle = safeText(job.getTitle());
 
-            if (job == null) {
-
-                return ResponseEntity
-                        .status(HttpStatus.NOT_FOUND)
-                        .body(new ApiResponse<>(
-                                false,
-                                "Job not found",
-                                null
-                        ));
-            }
-
-
-            // 3. Find latest resume
-            Resume resume = resumeRepository
-                    .findFirstByCandidateIdOrderByIdDesc(
-                            candidate.getId()
-                    )
-                    .orElse(null);
-
-            if (resume == null) {
-
-                return ResponseEntity
-                        .status(HttpStatus.NOT_FOUND)
-                        .body(new ApiResponse<>(
-                                false,
-                                "Resume not found for candidate",
-                                null
-                        ));
-            }
-
-
-            // 4. Build Python Job request
-            PythonJobRequestDto pythonJob =
-                    buildPythonJob(job);
-
-
-            // 5. Build Python Resume request
-            PythonResumeRequestDto pythonResume =
-                    buildPythonResume(
-                            candidate,
-                            resume,
-                            job
-                    );
-
-
-            // 6. Create Python request
-            PythonMatchRequestDto pythonRequest =
-                    new PythonMatchRequestDto(
-                            pythonJob,
-                            pythonResume
-                    );
-
-
-            // 7. Call Python FastAPI
-            PythonMatchResponseDto pythonResponse =
-                    pythonAIClient.matchCandidate(
-                            pythonRequest
-                    );
-
-
-            if (pythonResponse == null) {
-
-                return ResponseEntity
-                        .status(HttpStatus.BAD_GATEWAY)
-                        .body(new ApiResponse<>(
-                                false,
-                                "AI service returned empty response",
-                                null
-                        ));
-            }
-
-
-            // 8. Find existing match or create new
-            AICandidateMatching matching =
-                    matchingRepository
-                            .findByCandidateIdAndJobId(
-                                    candidate.getId(),
-                                    job.getId()
-                            )
-                            .orElseGet(AICandidateMatching::new);
-
-
-            matching.setCandidateId(
-                    candidate.getId()
+            double skillMatch = calculateSkillMatch(
+                    resumeSkills,
+                    jobSkills
             );
 
-            matching.setJobId(
-                    job.getId()
+            double experienceMatch = calculateExperienceMatch(
+                    resumeExperience,
+                    job.getExperienceMin(),
+                    job.getExperienceMax()
             );
 
-
-            // 9. Save overall AI score
-            matching.setOverallMatchScore(
-                    pythonResponse.getMatchProbabilityPct()
+            double educationMatch = calculateEducationMatch(
+                    resumeEducation,
+                    jobEducation
             );
 
-
-            // 10. Extract individual feature scores
-            setFeatureScores(
-                    matching,
-                    pythonResponse.getFeatures()
+            double certificationMatch = calculateCertificationMatch(
+                    resumeText,
+                    jobDescription
             );
 
+            double locationMatch = calculateLocationMatch(
+                    resumeText,
+                    jobLocation
+            );
 
-            // 11. Save AI explanation
+            double roleMatch = calculateRoleMatch(
+                    resumeText,
+                    jobTitle
+            );
+
+            double overallScore =
+                    (skillMatch * 0.40)
+                    + (experienceMatch * 0.25)
+                    + (educationMatch * 0.10)
+                    + (certificationMatch * 0.10)
+                    + (locationMatch * 0.05)
+                    + (roleMatch * 0.10);
+
+            overallScore = roundScore
+                    (overallScore);
+
+            matching.setSkillMatch(roundScore(skillMatch));
+            matching.setExperienceMatch(roundScore(experienceMatch));
+            matching.setEducationMatch(roundScore(educationMatch));
+            matching.setCertificationMatch(roundScore(certificationMatch));
+            matching.setLocationMatch(roundScore(locationMatch));
+            matching.setRoleMatch(roundScore(roleMatch));
+            matching.setOverallMatchScore(overallScore);
+
             matching.setExplanation(
                     buildExplanation(
-                            pythonResponse
+                            skillMatch,
+                            experienceMatch,
+                            educationMatch,
+                            certificationMatch,
+                            locationMatch,
+                            roleMatch,
+                            overallScore
                     )
             );
 
-
-            // 12. Save/update database
             AICandidateMatching savedMatching =
-                    matchingRepository.save(
-                            matching
-                    );
+                    matchingRepository.save(matching);
 
-
-            // 13. Map entity -> response DTO
             AICandidateMatchingResponseDto responseDto =
-                    matchingMapper.toResponseDto(
-                            savedMatching
-                    );
+                    matchingMapper.toResponseDto(savedMatching);
 
-
-            return ResponseEntity.ok(
-                    new ApiResponse<>(
+            return ResponseEntity
+                    .status(HttpStatus.CREATED)
+                    .body(new ApiResponse<>(
                             true,
-                            "Candidate AI matching completed successfully",
+                            "AI candidate matching completed successfully",
                             responseDto
-                    )
-            );
+                    ));
 
         } catch (Exception e) {
-
-            e.printStackTrace();
 
             return ResponseEntity
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(
                             false,
-                            "AI candidate matching failed: "
-                                    + e.getMessage(),
+                            "Failed to perform AI candidate matching: " + e.getMessage(),
                             null
                     ));
         }
     }
 
 
-    private PythonJobRequestDto buildPythonJob(
-            Job job) {
+    private double calculateSkillMatch(
+            String resumeSkills,
+            String jobSkills) {
 
-        PythonJobRequestDto dto =
-                new PythonJobRequestDto();
+        if (resumeSkills.isBlank() || jobSkills.isBlank()) {
+            return 0.0;
+        }
 
-        dto.setJobId(
-                "J_" + job.getId()
-        );
+        List<String> candidateSkills = splitValues(resumeSkills);
 
-        dto.setJobTitle(
-                safe(job.getTitle())
-        );
+        List<String> requiredSkills = splitValues(jobSkills);
 
-        dto.setSeniority(
-                determineSeniority(
-                        job.getExperienceMin()
+        if (requiredSkills.isEmpty()) {
+            return 0.0;
+        }
+
+        long matchedSkills = requiredSkills.stream()
+                .filter(requiredSkill ->
+                        candidateSkills.stream()
+                                .anyMatch(candidateSkill ->
+                                        candidateSkill.contains(requiredSkill)
+                                                || requiredSkill.contains(candidateSkill)
+                                )
                 )
-        );
+                .count();
 
-        dto.setIndustry(
-                safe(job.getDepartment())
-        );
-
-        dto.setMustHaveSkills(
-                convertSkillsToPythonFormat(
-                        job.getRequiredSkills()
-                )
-        );
-
-        dto.setNiceToHaveSkills(
-                convertSkillsToPythonFormat(
-                        job.getPreferredSkills()
-                )
-        );
-
-        dto.setDescription(
-                safe(job.getDescription())
-        );
-
-        dto.setResponsibilities(
-                safe(job.getResponsibilities())
-        );
-
-        dto.setRequirements(
-                buildJobRequirements(job)
-        );
-
-        return dto;
+        return (matchedSkills * 100.0) / requiredSkills.size();
     }
 
 
-    private PythonResumeRequestDto buildPythonResume(
-            Candidate candidate,
-            Resume resume,
-            Job job) {
+    private double calculateExperienceMatch(
+            String resumeExperience,
+            Integer experienceMin,
+            Integer experienceMax) {
 
-        PythonResumeRequestDto dto =
-                new PythonResumeRequestDto();
+        if (experienceMin == null && experienceMax == null) {
+            return 100.0;
+        }
 
-        dto.setResumeId(
-                "R_" + resume.getId()
+        double candidateYears =
+                extractYearsOfExperience(resumeExperience);
+
+        int minimumExperience =
+                experienceMin != null ? experienceMin : 0;
+
+        int maximumExperience =
+                experienceMax != null ? experienceMax : Integer.MAX_VALUE;
+
+        if (candidateYears >= minimumExperience
+                && candidateYears <= maximumExperience) {
+
+            return 100.0;
+        }
+
+        if (candidateYears >= minimumExperience) {
+            return 100.0;
+        }
+
+        if (minimumExperience == 0) {
+            return 100.0;
+        }
+
+        return Math.min(
+                100.0,
+                (candidateYears / minimumExperience) * 100.0
         );
+    }
 
-        /*
-         * Candidate entity currently does not have a separate
-         * role field. For matching against this specific job,
-         * job title is used as the target role.
-         */
-        dto.setRole(
-                safe(job.getTitle())
-        );
 
-        int years =
-                extractYears(
-                        candidate.getExperience()
+    private double calculateEducationMatch(
+            String resumeEducation,
+            String jobEducation) {
+
+        if (jobEducation.isBlank()) {
+            return 100.0;
+        }
+
+        if (resumeEducation.isBlank()) {
+            return 0.0;
+        }
+
+        String candidateEducation =
+                resumeEducation.toLowerCase(Locale.ROOT);
+
+        String requiredEducation =
+                jobEducation.toLowerCase(Locale.ROOT);
+
+        if (candidateEducation.contains(requiredEducation)
+                || requiredEducation.contains(candidateEducation)) {
+
+            return 100.0;
+        }
+
+        String[] educationKeywords = {
+                "b.tech",
+                "btech",
+                "b.e",
+                "be",
+                "bachelor",
+                "m.tech",
+                "mtech",
+                "m.e",
+                "me",
+                "master",
+                "mba",
+                "phd",
+                "doctorate"
+        };
+
+        for (String keyword : educationKeywords) {
+
+            if (requiredEducation.contains(keyword)
+                    && candidateEducation.contains(keyword)) {
+
+                return 100.0;
+            }
+        }
+
+        return 0.0;
+    }
+
+
+    private double calculateCertificationMatch(
+            String resumeText,
+            String jobDescription) {
+
+        if (resumeText.isBlank()) {
+            return 0.0;
+        }
+
+        String resumeLower =
+                resumeText.toLowerCase(Locale.ROOT);
+
+        String jobLower =
+                jobDescription.toLowerCase(Locale.ROOT);
+
+        if (jobLower.isBlank()) {
+            return 100.0;
+        }
+
+        String[] certificationKeywords = {
+                "certification",
+                "certified",
+                "certificate",
+                "aws",
+                "azure",
+                "google cloud",
+                "gcp",
+                "oracle",
+                "microsoft"
+        };
+
+        boolean candidateHasCertification = false;
+
+        for (String keyword : certificationKeywords) {
+
+            if (resumeLower.contains(keyword)) {
+                candidateHasCertification = true;
+                break;
+            }
+        }
+
+        if (!candidateHasCertification) {
+            return 0.0;
+        }
+
+        for (String keyword : certificationKeywords) {
+
+            if (jobLower.contains(keyword)
+                    && resumeLower.contains(keyword)) {
+
+                return 100.0;
+            }
+        }
+
+        return 50.0;
+    }
+
+
+    private double calculateLocationMatch(
+            String resumeText,
+            String jobLocation) {
+
+        if (jobLocation.isBlank()) {
+            return 100.0;
+        }
+
+        if (resumeText.isBlank()) {
+            return 0.0;
+        }
+
+        String resumeLower =
+                resumeText.toLowerCase(Locale.ROOT);
+
+        String locationLower =
+                jobLocation.toLowerCase(Locale.ROOT);
+
+        if (resumeLower.contains(locationLower)) {
+            return 100.0;
+        }
+
+        String[] locationParts =
+                locationLower.split("[,\\s]+");
+
+        for (String part : locationParts) {
+
+            if (part.length() >= 3
+                    && resumeLower.contains(part)) {
+
+                return 100.0;
+            }
+        }
+
+        return 0.0;
+    }
+
+
+    private double calculateRoleMatch(
+            String resumeText,
+            String jobTitle) {
+
+        if (jobTitle.isBlank()) {
+            return 100.0;
+        }
+
+        if (resumeText.isBlank()) {
+            return 0.0;
+        }
+
+        String resumeLower =
+                resumeText.toLowerCase(Locale.ROOT);
+
+        String jobTitleLower =
+                jobTitle.toLowerCase(Locale.ROOT);
+
+        String[] roleWords =
+                jobTitleLower.split("\\s+");
+
+        int totalWords = 0;
+        int matchedWords = 0;
+
+        for (String word : roleWords) {
+
+            if (word.length() < 3) {
+                continue;
+            }
+
+            totalWords++;
+
+            if (resumeLower.contains(word)) {
+                matchedWords++;
+            }
+        }
+
+        if (totalWords == 0) {
+            return 0.0;
+        }
+
+        return (matchedWords * 100.0) / totalWords;
+    }
+
+
+    private double extractYearsOfExperience(
+            String experience) {
+
+        if (experience == null || experience.isBlank()) {
+            return 0.0;
+        }
+
+        double totalYears = 0.0;
+
+        String text =
+                experience.toLowerCase(Locale.ROOT);
+
+        java.util.regex.Pattern yearsPattern =
+                java.util.regex.Pattern.compile(
+                        "(\\d+(?:\\.\\d+)?)\\s*(?:years?|yrs?)"
                 );
 
-        dto.setYearsExperience(
-                years
-        );
+        java.util.regex.Matcher yearsMatcher =
+                yearsPattern.matcher(text);
 
-        dto.setSeniority(
-                determineSeniority(years)
-        );
+        while (yearsMatcher.find()) {
 
-        dto.setIndustry(
-                safe(job.getDepartment())
-        );
-
-        String education =
-                candidate.getEducation();
-
-        if (education == null ||
-                education.isBlank()) {
-
-            education =
-                    resume.getExtractedEducation();
+            totalYears += Double.parseDouble(
+                    yearsMatcher.group(1)
+            );
         }
 
-        dto.setEducation(
-                safe(education)
-        );
+        java.util.regex.Pattern monthsPattern =
+                java.util.regex.Pattern.compile(
+                        "(\\d+(?:\\.\\d+)?)\\s*(?:months?|mos?)"
+                );
 
+        java.util.regex.Matcher monthsMatcher =
+                monthsPattern.matcher(text);
 
-        String skills =
-                candidate.getSkills();
+        while (monthsMatcher.find()) {
 
-        if (skills == null ||
-                skills.isBlank()) {
-
-            skills =
-                    resume.getExtractedSkills();
+            totalYears += Double.parseDouble(
+                    monthsMatcher.group(1)
+            ) / 12.0;
         }
 
-        dto.setSkills(
-                convertSkillsToPythonFormat(
-                        skills
-                )
-        );
-
-
-        dto.setSummary(
-                safe(resume.getExtractedText())
-        );
-
-        /*
-         * Your current Resume entity doesn't have a separate
-         * experience_bullets column.
-         *
-         * Use extracted experience for now.
-         */
-        dto.setExperienceBullets(
-                safe(
-                        resume.getExtractedExperience()
-                )
-        );
-
-        return dto;
+        return totalYears;
     }
 
 
-    private void setFeatureScores(
-            AICandidateMatching matching,
-            Map<String, Object> features) {
+    private List<String> splitValues(String value) {
 
-        if (features == null) {
-            return;
-        }
-
-        // Python returns values between 0 and 1.
-        // Convert them to percentage values between 0 and 100.
-
-        Double mustSkillCoverage =
-                getDouble(features, "must_skill_coverage");
-
-        Double skillJaccard =
-                getDouble(features, "skill_jaccard");
-
-        Double seniorityMatch =
-                getDouble(features, "seniority_match");
-
-        Double roleSimilarity =
-                getDouble(features, "role_similarity");
-
-
-        // Skill match
-        if (mustSkillCoverage != null) {
-
-            matching.setSkillMatch(
-                    mustSkillCoverage * 100
-            );
-        }
-
-
-        // Experience match
-        if (seniorityMatch != null) {
-
-            matching.setExperienceMatch(
-                    seniorityMatch * 100
-            );
-        }
-
-
-        // Role match
-        if (roleSimilarity != null) {
-
-            matching.setRoleMatch(
-                    roleSimilarity * 100
-            );
-        }
-        matching.setEducationMatch(null);
-        matching.setCertificationMatch(null);
-        matching.setLocationMatch(null);
+        return java.util.Arrays.stream(
+                        value.toLowerCase(Locale.ROOT)
+                                .split("[,;|]")
+                )
+                .map(String::trim)
+                .filter(item -> !item.isBlank())
+                .collect(Collectors.toList());
     }
 
-    private Double getDouble(
-            Map<String, Object> features,
-            String key) {
 
-        Object value =
-                features.get(key);
+    private String safeText(String value) {
 
-        if (value instanceof Number number) {
+        return value == null ? "" : value.trim();
+    }
 
-            return number.doubleValue();
-        }
 
-        return null;
+    private double roundScore(double value) {
+
+        return Math.round(value * 100.0) / 100.0;
     }
 
 
     private String buildExplanation(
-            PythonMatchResponseDto response) {
+            double skillMatch,
+            double experienceMatch,
+            double educationMatch,
+            double certificationMatch,
+            double locationMatch,
+            double roleMatch,
+            double overallScore) {
 
-        if (response.getExplanation() != null &&
-                !response.getExplanation().isEmpty()) {
-
-            return response
-                    .getExplanation()
-                    .toString();
-        }
-
-        if (response.getResult() != null) {
-
-            return response.getResult();
-        }
-
-        return "AI matching completed";
+        return "Match Score Explanation: "
+                + "Skill Match = " + roundScore(skillMatch) + "% (40% weight), "
+                + "Experience Match = " + roundScore(experienceMatch) + "% (25% weight), "
+                + "Education Match = " + roundScore(educationMatch) + "% (10% weight), "
+                + "Certification Match = " + roundScore(certificationMatch) + "% (10% weight), "
+                + "Location Match = " + roundScore(locationMatch) + "% (5% weight), "
+                + "Role Similarity = " + roundScore(roleMatch) + "% (10% weight). "
+                + "Overall Match Score = " + overallScore + "%.";
     }
 
 
-    private String determineSeniority(
-            Integer years) {
-
-        if (years == null) {
-            return "Junior";
-        }
-
-        if (years <= 2) {
-            return "Junior";
-        }
-
-        if (years <= 5) {
-            return "Mid";
-        }
-
-        return "Senior";
-    }
-
-
-    private int extractYears(
-            String experience) {
-
-        if (experience == null ||
-                experience.isBlank()) {
-
-            return 0;
-        }
-
-        String digits =
-                experience.replaceAll(
-                        "[^0-9]",
-                        " "
-                );
-
-        String[] parts =
-                digits.trim()
-                        .split("\\s+");
-
-        if (parts.length == 0 ||
-                parts[0].isBlank()) {
-
-            return 0;
-        }
-
-        try {
-
-            return Integer.parseInt(
-                    parts[0]
-            );
-
-        } catch (NumberFormatException e) {
-
-            return 0;
-        }
-    }
-
-
-    private String convertSkillsToPythonFormat(
-            String skills) {
-
-        if (skills == null ||
-                skills.isBlank()) {
-
-            return "[]";
-        }
-
-        String[] values =
-                skills.split(",");
-
-        StringBuilder builder =
-                new StringBuilder("[");
-
-        for (String value : values) {
-
-            String skill =
-                    value.trim();
-
-            if (!skill.isEmpty()) {
-
-                if (builder.length() > 1) {
-                    builder.append(" ");
-                }
-
-                builder
-                        .append("'")
-                        .append(skill)
-                        .append("'");
-            }
-        }
-
-        builder.append("]");
-
-        return builder.toString();
-    }
-
-
-    private String buildJobRequirements(
-            Job job) {
-
-        StringBuilder requirements =
-                new StringBuilder();
-
-        if (job.getExperienceMin() != null) {
-
-            requirements
-                    .append(job.getExperienceMin())
-                    .append("+ years experience. ");
-        }
-
-        if (job.getEducation() != null &&
-                !job.getEducation().isBlank()) {
-
-            requirements
-                    .append("Education: ")
-                    .append(job.getEducation())
-                    .append(". ");
-        }
-
-        if (job.getRequiredSkills() != null &&
-                !job.getRequiredSkills().isBlank()) {
-
-            requirements
-                    .append("Required skills: ")
-                    .append(job.getRequiredSkills())
-                    .append(".");
-        }
-
-        return requirements
-                .toString()
-                .trim();
-    }
-
-
-    private String safe(
-            String value) {
-
-        return value == null
-                ? ""
-                : value;
-    }
-
-
-    public ResponseEntity<ApiResponse<List<AICandidateMatchingResponseDto>>>
-    getAllMatches() {
+    public ResponseEntity<ApiResponse<List<AICandidateMatchingResponseDto>>> getAllMatches() {
 
         try {
 
             List<AICandidateMatchingResponseDto> matches =
-                    matchingRepository
-                            .findAll()
+                    matchingRepository.findAll()
                             .stream()
-                            .map(
-                                    matchingMapper::toResponseDto
-                            )
-                            .toList();
+                            .map(matchingMapper::toResponseDto)
+                            .collect(Collectors.toList());
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
                             true,
-                            "AI candidate matches fetched successfully",
+                            "AI candidate matches retrieved successfully",
                             matches
                     )
             );
@@ -613,42 +528,33 @@ public class AICandidateMatchingService {
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(
                             false,
-                            "Failed to fetch AI candidate matches",
+                            "Failed to retrieve AI candidate matches: "
+                                    + e.getMessage(),
                             null
                     ));
         }
     }
 
 
-    public ResponseEntity<ApiResponse<AICandidateMatchingResponseDto>>
-    getMatchById(Long id) {
+    public ResponseEntity<ApiResponse<AICandidateMatchingResponseDto>> getMatchById(
+            Long id) {
 
         try {
 
-            Optional<AICandidateMatching> optional =
-                    matchingRepository.findById(id);
-
-            if (optional.isEmpty()) {
-
-                return ResponseEntity
-                        .status(HttpStatus.NOT_FOUND)
-                        .body(new ApiResponse<>(
-                                false,
-                                "AI candidate match not found",
-                                null
-                        ));
-            }
-
-            AICandidateMatchingResponseDto dto =
-                    matchingMapper.toResponseDto(
-                            optional.get()
-                    );
+            AICandidateMatching matching =
+                    matchingRepository.findById(id)
+                            .orElseThrow(() ->
+                                    new RuntimeException(
+                                            "AI candidate matching record not found with ID: "
+                                                    + id
+                                    )
+                            );
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
                             true,
-                            "AI candidate match fetched successfully",
-                            dto
+                            "AI candidate match retrieved successfully",
+                            matchingMapper.toResponseDto(matching)
                     )
             );
 
@@ -658,7 +564,8 @@ public class AICandidateMatchingService {
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(
                             false,
-                            "Failed to fetch AI candidate match",
+                            "Failed to retrieve AI candidate match: "
+                                    + e.getMessage(),
                             null
                     ));
         }

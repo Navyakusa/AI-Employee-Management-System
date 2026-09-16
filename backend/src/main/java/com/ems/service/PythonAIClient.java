@@ -1,9 +1,6 @@
 package com.ems.service;
 
-import com.ems.dto.PythonJobRequestDto;
-import com.ems.dto.PythonMatchRequestDto;
-import com.ems.dto.PythonMatchResponseDto;
-import com.ems.dto.PythonResumeRequestDto;
+import com.ems.dto.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
@@ -12,121 +9,140 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 @Service
 public class PythonAIClient {
 
+    private static final String AI_BASE_URL = "http://127.0.0.1:8000";
+
+    private final HttpClient httpClient;
+
     private final ObjectMapper objectMapper;
 
+
+    // =========================================================
+    // CONSTRUCTOR
+    // =========================================================
+
     public PythonAIClient() {
+
         this.objectMapper = new ObjectMapper();
+
+        this.httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(10)).build();
     }
 
-    public PythonMatchResponseDto matchCandidate(
-            PythonMatchRequestDto request) {
+
+    // =========================================================
+    // CANDIDATE MATCHING
+    // =========================================================
+
+    public PythonMatchResponseDto matchCandidate(PythonMatchRequestDto request) {
 
         try {
 
             if (request == null) {
-                throw new RuntimeException("AI request is null");
+                throw new RuntimeException("Python match request is null");
             }
 
-            PythonJobRequestDto job = request.getJob();
-            PythonResumeRequestDto resume = request.getResume();
-
-            if (job == null) {
+            if (request.getJob() == null) {
                 throw new RuntimeException("Job data is null");
             }
 
-            if (resume == null) {
+            if (request.getResume() == null) {
                 throw new RuntimeException("Resume data is null");
             }
 
-            // Convert DTO directly into JSON using Jackson
-            String jsonBody =
-                    objectMapper.writeValueAsString(request);
+            String jsonBody = objectMapper.writeValueAsString(request);
 
             System.out.println("=================================");
-            System.out.println("CALLING PYTHON AI");
-            System.out.println("JSON SENT:");
+            System.out.println("CALLING PYTHON AI - MATCH SCORE");
+            System.out.println("JSON SENT TO PYTHON:");
             System.out.println(jsonBody);
             System.out.println("=================================");
 
-            HttpClient client =
-                    HttpClient.newBuilder()
-                            .version(HttpClient.Version.HTTP_1_1)
-                            .build();
+            HttpResponse<String> response = sendPostRequest(AI_BASE_URL + "/match-score?explain=true", jsonBody);
 
-            HttpRequest httpRequest =
-                    HttpRequest.newBuilder()
-                            .uri(
-                                    URI.create(
-                                            "http://127.0.0.1:8000/match-score?explain=true"
-                                    )
-                            )
-                            .header(
-                                    "Content-Type",
-                                    "application/json"
-                            )
-                            .header(
-                                    "Accept",
-                                    "application/json"
-                            )
-                            .POST(
-                                    HttpRequest.BodyPublishers.ofString(
-                                            jsonBody,
-                                            StandardCharsets.UTF_8
-                                    )
-                            )
-                            .build();
+            System.out.println("PYTHON MATCH STATUS = " + response.statusCode());
 
-            System.out.println(
-                    "Content-Length = "
-                            + jsonBody.getBytes(
-                            StandardCharsets.UTF_8
-                    ).length
-            );
+            System.out.println("PYTHON MATCH RESPONSE = " + response.body());
 
-            HttpResponse<String> response =
-                    client.send(
-                            httpRequest,
-                            HttpResponse.BodyHandlers.ofString(
-                                    StandardCharsets.UTF_8
-                            )
-                    );
+            validateResponse(response, "Candidate Matching");
 
-            System.out.println(
-                    "Python HTTP status = "
-                            + response.statusCode()
-            );
+            return objectMapper.readValue(response.body(), PythonMatchResponseDto.class);
 
-            System.out.println(
-                    "Python response = "
-                            + response.body()
-            );
+        } catch (Exception e) {
 
-            if (response.statusCode() < 200
-                    || response.statusCode() >= 300) {
+            e.printStackTrace();
 
-                throw new RuntimeException(
-                        "Python AI returned HTTP "
-                                + response.statusCode()
-                                + ": "
-                                + response.body()
-                );
+            throw new RuntimeException("Python AI call failed: " + e.getMessage(), e);
+        }
+    }
+
+
+    // =========================================================
+    // SKILL GAP ANALYSIS
+    // =========================================================
+
+    public PythonSkillGapResponseDto analyzeSkillGap(PythonSkillGapRequestDto request) {
+
+        try {
+
+            if (request == null) {
+                throw new RuntimeException("Python skill gap request is null");
             }
 
-            // Convert Python JSON response into Java DTO
-            PythonMatchResponseDto result =
-                    objectMapper.readValue(
-                            response.body(),
-                            PythonMatchResponseDto.class
-                    );
+            if (request.getJob() == null) {
+                throw new RuntimeException("Job data is null");
+            }
+
+            if (request.getResume() == null) {
+                throw new RuntimeException("Resume data is null");
+            }
+
+            String jsonBody = objectMapper.writeValueAsString(request);
+
+            byte[] bodyBytes = jsonBody.getBytes(StandardCharsets.UTF_8);
 
             System.out.println("=================================");
-            System.out.println("MAPPED AI RESPONSE");
-            System.out.println(result);
+            System.out.println("CALLING PYTHON AI - SKILL GAP");
+            System.out.println("URL = " + AI_BASE_URL + "/skill-gap");
+            System.out.println("BODY LENGTH = " + bodyBytes.length);
+            System.out.println("JSON SENT TO PYTHON:");
+            System.out.println(jsonBody);
             System.out.println("=================================");
+
+            HttpRequest httpRequest = HttpRequest.newBuilder().uri(URI.create(AI_BASE_URL + "/skill-gap")).version(HttpClient.Version.HTTP_1_1).timeout(Duration.ofSeconds(30)).header("Content-Type", "application/json; charset=UTF-8").header("Accept", "application/json").POST(HttpRequest.BodyPublishers.ofByteArray(bodyBytes)).build();
+
+            System.out.println("HTTP METHOD = " + httpRequest.method());
+
+            System.out.println("HTTP HEADERS = " + httpRequest.headers());
+
+            System.out.println("BODY PUBLISHER PRESENT = " + httpRequest.bodyPublisher().isPresent());
+
+            if (httpRequest.bodyPublisher().isPresent()) {
+
+                System.out.println("CONTENT LENGTH = " + httpRequest.bodyPublisher().get().contentLength());
+            }
+
+            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+
+            System.out.println("=================================");
+            System.out.println("PYTHON SKILL GAP STATUS = " + response.statusCode());
+            System.out.println("PYTHON SKILL GAP RESPONSE = " + response.body());
+            System.out.println("=================================");
+
+            validateResponse(response, "Skill Gap");
+
+            PythonSkillGapResponseDto result = objectMapper.readValue(response.body(), PythonSkillGapResponseDto.class);
+
+            System.out.println("PARSED PYTHON RESPONSE:");
+            System.out.println("Job ID = " + result.getJobId());
+            System.out.println("Resume ID = " + result.getResumeId());
+            System.out.println("Must Have Coverage = " + result.getMustHaveCoveragePct());
+            System.out.println("Nice To Have Coverage = " + result.getNiceToHaveCoveragePct());
+            System.out.println("Missing Must Have = " + result.getMissingMustHave());
+            System.out.println("Missing Nice To Have = " + result.getMissingNiceToHave());
 
             return result;
 
@@ -134,11 +150,34 @@ public class PythonAIClient {
 
             e.printStackTrace();
 
-            throw new RuntimeException(
-                    "Python AI call failed: "
-                            + e.getMessage(),
-                    e
-            );
+            throw new RuntimeException("Python Skill Gap call failed: " + e.getMessage(), e);
+        }
+    }
+
+
+    // =========================================================
+    // COMMON POST REQUEST
+    // =========================================================
+
+    private HttpResponse<String> sendPostRequest(String url, String jsonBody) throws Exception {
+
+        byte[] bodyBytes = jsonBody.getBytes(StandardCharsets.UTF_8);
+
+        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).version(HttpClient.Version.HTTP_1_1).timeout(Duration.ofSeconds(30)).header("Content-Type", "application/json; charset=UTF-8").header("Accept", "application/json").POST(HttpRequest.BodyPublishers.ofByteArray(bodyBytes)).build();
+
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+    }
+
+
+    // =========================================================
+    // VALIDATE RESPONSE
+    // =========================================================
+
+    private void validateResponse(HttpResponse<String> response, String moduleName) {
+
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+
+            throw new RuntimeException("Python " + moduleName + " returned HTTP " + response.statusCode() + ": " + response.body());
         }
     }
 }
