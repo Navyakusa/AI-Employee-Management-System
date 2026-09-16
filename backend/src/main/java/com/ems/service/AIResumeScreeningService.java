@@ -39,8 +39,18 @@ public class AIResumeScreeningService {
 
         try {
 
+            /*
+             * Get the latest resume uploaded by the candidate.
+             *
+             * A candidate can have more than one resume.
+             * Therefore, we select the resume with the highest ID,
+             * which represents the latest uploaded resume in the
+             * current Resume table.
+             */
             Resume resume = resumeRepository
-                    .findByCandidateId(requestDto.getCandidateId())
+                    .findFirstByCandidateIdOrderByIdDesc(
+                            requestDto.getCandidateId()
+                    )
                     .orElseThrow(() -> new RuntimeException(
                             "Resume not found for candidate ID: "
                                     + requestDto.getCandidateId()));
