@@ -13,6 +13,7 @@ public class PythonScreeningRequestDto {
 
     private PythonScreeningJobDto job;
 
+    private PythonResumeRequestDto resume;
     @JsonProperty("resume_text")
     private String resumeText;
 }

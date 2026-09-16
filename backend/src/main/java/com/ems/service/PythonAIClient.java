@@ -20,22 +20,12 @@ public class PythonAIClient {
 
     private final ObjectMapper objectMapper;
 
-
-    // =========================================================
-    // CONSTRUCTOR
-    // =========================================================
-
     public PythonAIClient() {
 
         this.objectMapper = new ObjectMapper();
 
         this.httpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(10)).build();
     }
-
-
-    // =========================================================
-    // CANDIDATE MATCHING
-    // =========================================================
 
     public PythonMatchResponseDto matchCandidate(PythonMatchRequestDto request) {
 
@@ -78,11 +68,6 @@ public class PythonAIClient {
             throw new RuntimeException("Python AI call failed: " + e.getMessage(), e);
         }
     }
-
-
-    // =========================================================
-    // SKILL GAP ANALYSIS
-    // =========================================================
 
     public PythonSkillGapResponseDto analyzeSkillGap(PythonSkillGapRequestDto request) {
 
@@ -153,12 +138,88 @@ public class PythonAIClient {
             throw new RuntimeException("Python Skill Gap call failed: " + e.getMessage(), e);
         }
     }
+// =========================================================
+// 3. AI RESUME SCREENING
+// FastAPI: POST /screen-resume
+// =========================================================
 
+    public PythonScreeningResponseDto screenResume(
+            PythonScreeningRequestDto request) {
 
-    // =========================================================
-    // COMMON POST REQUEST
-    // =========================================================
+        try {
 
+            if (request == null) {
+                throw new RuntimeException(
+                        "Python screening request is null"
+                );
+            }
+
+            if (request.getJob() == null) {
+                throw new RuntimeException(
+                        "Screening job data is null"
+                );
+            }
+
+            if (request.getResume() == null
+                    && (request.getResumeText() == null
+                    || request.getResumeText().isBlank())) {
+
+                throw new RuntimeException(
+                        "Resume data and resume text are both empty"
+                );
+            }
+
+            String jsonBody =
+                    objectMapper.writeValueAsString(request);
+
+            System.out.println("=================================");
+            System.out.println(
+                    "CALLING PYTHON AI - RESUME SCREENING"
+            );
+            System.out.println(
+                    "URL = " + AI_BASE_URL + "/screen-resume"
+            );
+            System.out.println("JSON SENT TO PYTHON:");
+            System.out.println(jsonBody);
+            System.out.println("=================================");
+
+            HttpResponse<String> response =
+                    sendPostRequest(
+                            AI_BASE_URL + "/screen-resume",
+                            jsonBody
+                    );
+
+            System.out.println(
+                    "PYTHON SCREENING STATUS = "
+                            + response.statusCode()
+            );
+
+            System.out.println(
+                    "PYTHON SCREENING RESPONSE = "
+                            + response.body()
+            );
+
+            validateResponse(
+                    response,
+                    "Resume Screening"
+            );
+
+            return objectMapper.readValue(
+                    response.body(),
+                    PythonScreeningResponseDto.class
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            throw new RuntimeException(
+                    "Python Resume Screening call failed: "
+                            + e.getMessage(),
+                    e
+            );
+        }
+    }
     private HttpResponse<String> sendPostRequest(String url, String jsonBody) throws Exception {
 
         byte[] bodyBytes = jsonBody.getBytes(StandardCharsets.UTF_8);
@@ -168,11 +229,6 @@ public class PythonAIClient {
         return httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
     }
 
-
-    // =========================================================
-    // VALIDATE RESPONSE
-    // =========================================================
-
     private void validateResponse(HttpResponse<String> response, String moduleName) {
 
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
@@ -180,4 +236,5 @@ public class PythonAIClient {
             throw new RuntimeException("Python " + moduleName + " returned HTTP " + response.statusCode() + ": " + response.body());
         }
     }
+
 }
