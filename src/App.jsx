@@ -1,5 +1,24 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+// Recruiter pages
+import RecruiterDashboard from "./pages/recruiter/RecruiterDashboard";
 
+
+
+
+
+
+
+
+// Employee Pages
+import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
+import EmployeeProfile from "./pages/employee/EmployeeProfile";
+import EmployeeAttendance from "./pages/employee/EmployeeAttendance";
+import EmployeeLeave from "./pages/employee/EmployeeLeave";
+import EmployeeDocuments from "./pages/employee/EmployeeDocuments";
+import EmployeePerformance from "./pages/employee/EmployeePerformance";
+import EmployeeNotifications from "./pages/employee/EmployeeNotifications";
+import EmployeeSettings from "./pages/employee/EmployeeSettings";
+// HR Pages
 import HRDashboard from "./pages/hr/HRDashboard";
 import HRJobs from "./pages/hr/HRJobs";
 import CreateJob from "./pages/hr/CreateJob";
@@ -12,6 +31,7 @@ import HREmployees from "./pages/hr/HREmployees";
 import HRProfile from "./pages/hr/HRProfile";
 import HRSettings from "./pages/hr/HRSettings";
 
+// Public Pages
 import PublicLayout from "./layouts/PublicLayout";
 import HomePage from "./pages/public/HomePage";
 import AboutPage from "./pages/public/AboutPage";
@@ -24,7 +44,7 @@ import LoginPage from "./pages/public/auth/LoginPage";
 import SignupPage from "./pages/public/auth/SignupPage";
 import Chatbot from "./pages/public/Chatbot";
 
-
+// Super Admin Pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminProfile from "./pages/admin/AdminProfile";
@@ -49,7 +69,8 @@ function App() {
     <BrowserRouter>
       <Routes>
 
-        {/* Public Routes */}
+        {/* ================= PUBLIC ROUTES ================= */}
+
         <Route element={<PublicLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
@@ -62,61 +83,167 @@ function App() {
           <Route path="/chatbot" element={<Chatbot />} />
         </Route>
 
-        {/* HR Routes */}
-        <Route path="/hr/dashboard" element={<HRDashboard />} />
-        <Route path="/hr/jobs" element={<HRJobs />} />
-        <Route path="/hr/jobs/create" element={<CreateJob />} />
-        <Route path="/hr/candidates" element={<HRCandidates />} />
-        <Route path="/hr/ai-screening" element={<HRScreening />} />
-        <Route path="/hr/analytics" element={<HRAnalytics />} />
-        <Route path="/hr/interviews" element={<HRInterviews />} />
-        <Route path="/hr/offers" element={<HROffers />} />
-        <Route path="/hr/employees" element={<HREmployees />} />
+        {/*================Recruiter dashboard=================*/}
 
-        <Route path="/hr/profile" element={<HRProfile />} />
-        <Route path="/hr/settings" element={<HRSettings />} />
+        <Route
+  path="/recruiter/dashboard"
+  element={<RecruiterDashboard />}
+/>
 
-        {/* Super Admin Routes */}
+
+        {/* ================= EMPLOYEE ROUTES ================= */}
+
+        <Route
+          path="/employee/dashboard"
+          element={<EmployeeDashboard />}
+        />
+
+        <Route
+          path="/employee/profile"
+          element={<EmployeeProfile />}
+        />
+
+        <Route
+          path="/employee/attendance"
+          element={<EmployeeAttendance />}
+        />
+
+        <Route
+          path="/employee/leave"
+          element={<EmployeeLeave />}
+        />
+
+        <Route
+          path="/employee/documents"
+          element={<EmployeeDocuments />}
+        />
+
+        <Route
+          path="/employee/performance"
+          element={<EmployeePerformance />}
+        />
+
+        <Route
+          path="/employee/notifications"
+          element={<EmployeeNotifications />}
+        />
+
+        <Route
+  path="/employee/settings"
+  element={<EmployeeSettings />}
+/>
+
+
+        {/* ================= HR ROUTES ================= */}
+
+        <Route
+          path="/hr/dashboard"
+          element={<HRDashboard />}
+        />
+
+        <Route
+          path="/hr/jobs"
+          element={<HRJobs />}
+        />
+
+        <Route
+          path="/hr/jobs/create"
+          element={<CreateJob />}
+        />
+
+        <Route
+          path="/hr/candidates"
+          element={<HRCandidates />}
+        />
+
+        <Route
+          path="/hr/ai-screening"
+          element={<HRScreening />}
+        />
+
+        <Route
+          path="/hr/analytics"
+          element={<HRAnalytics />}
+        />
+
+        <Route
+          path="/hr/interviews"
+          element={<HRInterviews />}
+        />
+
+        <Route
+          path="/hr/offers"
+          element={<HROffers />}
+        />
+
+        <Route
+          path="/hr/employees"
+          element={<HREmployees />}
+        />
+
+        <Route
+          path="/hr/profile"
+          element={<HRProfile />}
+        />
+
+        <Route
+          path="/hr/settings"
+          element={<HRSettings />}
+        />
+
+
+        {/* ================= SUPER ADMIN ROUTES ================= */}
+
         <Route
           path="/super-admin/dashboard"
           element={<AdminDashboard />}
         />
+
         <Route
           path="/super-admin/users"
           element={<AdminUsers />}
         />
+
         <Route
           path="/super-admin/profile"
           element={<AdminProfile />}
         />
+
         <Route
           path="/super-admin/settings"
           element={<AdminSettings />}
         />
+
         <Route
           path="/super-admin/roles"
           element={<AdminRoles />}
         />
+
         <Route
           path="/super-admin/departments"
           element={<AdminDepartments />}
         />
+
         <Route
           path="/super-admin/reports"
           element={<AdminReports />}
         />
+
         <Route
           path="/super-admin/audit-logs"
           element={<AdminAuditLogs />}
         />
+
         <Route
           path="/super-admin/notifications"
           element={<AdminNotifications />}
         />
+
         <Route
           path="/super-admin/organization"
           element={<AdminOrganization />}
         />
+<<<<<<< Updated upstream
         <Route
   path="/hiring-manager/dashboard"
   element={<HiringManagerDashboard />}
@@ -155,6 +282,16 @@ function App() {
 />
         {/* Not Found */}
         <Route path="*" element={<NotFoundPage />} />
+=======
+
+
+        {/* ================= NOT FOUND ================= */}
+
+        <Route
+          path="*"
+          element={<NotFoundPage />}
+        />
+>>>>>>> Stashed changes
 
       </Routes>
     </BrowserRouter>

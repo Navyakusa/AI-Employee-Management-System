@@ -1,0 +1,700 @@
+.employee-performance-layout {
+  min-height: 100vh;
+  background: #f8fafc;
+}
+
+.employee-performance-main {
+  margin-left: 250px;
+
+  padding: 105px 32px 40px;
+
+  min-height: 100vh;
+
+  box-sizing: border-box;
+}
+
+
+/* =========================
+   HEADER
+========================= */
+
+.employee-performance-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 28px;
+}
+
+.employee-page-label {
+  color: #3158d9;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  letter-spacing: 1.5px;
+}
+
+.employee-performance-header h1 {
+  margin: 6px 0 5px;
+
+  color: #101828;
+
+  font-size: 28px;
+}
+
+.employee-performance-header p {
+  margin: 0;
+
+  color: #667085;
+
+  font-size: 14px;
+}
+
+.employee-performance-header-icon {
+  width: 52px;
+  height: 52px;
+
+  border-radius: 12px;
+
+  background: #edf3ff;
+
+  color: #3158d9;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* =========================
+   OVERVIEW
+========================= */
+
+.employee-performance-overview {
+  display: grid;
+
+  grid-template-columns: 1fr 1.5fr;
+
+  gap: 20px;
+
+  background: #3158d9;
+
+  border-radius: 14px;
+
+  padding: 28px;
+
+  margin-bottom: 22px;
+
+  color: white;
+}
+
+.performance-overview-left {
+  border-right: 1px solid rgba(255,255,255,0.2);
+
+  padding-right: 25px;
+}
+
+.performance-overview-label {
+  font-size: 11px;
+
+  font-weight: 700;
+
+  letter-spacing: 1.2px;
+
+  opacity: 0.85;
+}
+
+.performance-score {
+  margin-top: 8px;
+
+  font-size: 40px;
+
+  font-weight: 700;
+}
+
+.performance-score span {
+  font-size: 17px;
+
+  font-weight: 400;
+
+  opacity: 0.8;
+}
+
+.performance-stars {
+  display: flex;
+
+  gap: 4px;
+
+  margin-top: 3px;
+}
+
+.performance-overview-left p {
+  margin: 10px 0 0;
+
+  font-size: 12px;
+
+  opacity: 0.8;
+}
+
+
+/* =========================
+   OVERVIEW DETAILS
+========================= */
+
+.performance-overview-right {
+  display: grid;
+
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 15px;
+
+  align-items: center;
+}
+
+.overview-detail {
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+}
+
+.overview-detail svg {
+  opacity: 0.85;
+}
+
+.overview-detail span {
+  display: block;
+
+  font-size: 10px;
+
+  opacity: 0.75;
+}
+
+.overview-detail strong {
+  display: block;
+
+  margin-top: 4px;
+
+  font-size: 13px;
+}
+
+
+/* =========================
+   CARD
+========================= */
+
+.employee-performance-card {
+  background: white;
+
+  border: 1px solid #e4e7ec;
+
+  border-radius: 14px;
+
+  overflow: hidden;
+
+  margin-bottom: 22px;
+}
+
+.performance-card-header {
+  padding: 22px 24px;
+
+  display: flex;
+
+  align-items: flex-start;
+
+  justify-content: space-between;
+
+  color: #3158d9;
+
+  border-bottom: 1px solid #eef2f6;
+}
+
+.performance-card-header h2 {
+  margin: 0;
+
+  color: #101828;
+
+  font-size: 17px;
+}
+
+.performance-card-header p {
+  margin: 5px 0 0;
+
+  color: #98a2b3;
+
+  font-size: 12px;
+}
+
+
+/* =========================
+   METRICS
+========================= */
+
+.performance-metrics {
+  padding: 24px;
+}
+
+.performance-metric {
+  margin-bottom: 22px;
+}
+
+.performance-metric:last-child {
+  margin-bottom: 0;
+}
+
+.performance-metric-top {
+  display: flex;
+
+  justify-content: space-between;
+
+  margin-bottom: 8px;
+}
+
+.performance-metric-top span {
+  color: #475467;
+
+  font-size: 13px;
+}
+
+.performance-metric-top strong {
+  color: #101828;
+
+  font-size: 13px;
+}
+
+.performance-progress {
+  width: 100%;
+
+  height: 8px;
+
+  background: #eef2f6;
+
+  border-radius: 20px;
+
+  overflow: hidden;
+}
+
+.performance-progress-fill {
+  height: 100%;
+
+  background: #3158d9;
+
+  border-radius: 20px;
+
+  transition: width 0.3s ease;
+}
+
+
+/* =========================
+   HISTORY
+========================= */
+
+.performance-history-list {
+  padding: 0 24px;
+}
+
+.performance-history-row {
+  display: flex;
+
+  align-items: center;
+
+  gap: 15px;
+
+  padding: 18px 0;
+
+  border-bottom: 1px solid #eef2f6;
+}
+
+.performance-history-row:last-child {
+  border-bottom: none;
+}
+
+.performance-history-icon {
+  width: 42px;
+  height: 42px;
+
+  flex-shrink: 0;
+
+  border-radius: 10px;
+
+  background: #f4f3ff;
+
+  color: #7a5af8;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+}
+
+.performance-history-info {
+  flex: 1;
+}
+
+.performance-history-info h3 {
+  margin: 0;
+
+  color: #344054;
+
+  font-size: 13px;
+}
+
+.performance-history-info p {
+  margin: 4px 0 0;
+
+  color: #98a2b3;
+
+  font-size: 11px;
+}
+
+.performance-history-score {
+  color: #101828;
+}
+
+.performance-history-score strong {
+  font-size: 18px;
+}
+
+.performance-history-score span {
+  color: #98a2b3;
+
+  font-size: 11px;
+}
+
+.performance-completed-badge {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 5px;
+
+  padding: 5px 9px;
+
+  border-radius: 20px;
+
+  background: #ecfdf3;
+
+  color: #12b76a;
+
+  font-size: 10px;
+
+  font-weight: 600;
+}
+
+.view-review-button {
+  border: 1px solid #d0d5dd;
+
+  background: white;
+
+  color: #3158d9;
+
+  border-radius: 7px;
+
+  padding: 7px 12px;
+
+  font-size: 11px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.view-review-button:hover {
+  border-color: #3158d9;
+}
+
+
+/* =========================
+   INFO
+========================= */
+
+.performance-info-box {
+  display: flex;
+
+  align-items: flex-start;
+
+  gap: 13px;
+
+  background: #edf3ff;
+
+  border: 1px solid #dbe6ff;
+
+  border-radius: 12px;
+
+  padding: 18px 20px;
+}
+
+.performance-info-icon {
+  width: 38px;
+  height: 38px;
+
+  flex-shrink: 0;
+
+  border-radius: 9px;
+
+  background: white;
+
+  color: #3158d9;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+}
+
+.performance-info-box h3 {
+  margin: 0;
+
+  color: #344054;
+
+  font-size: 13px;
+}
+
+.performance-info-box p {
+  margin: 5px 0 0;
+
+  color: #667085;
+
+  font-size: 11px;
+
+  line-height: 1.5;
+}
+
+
+/* =========================
+   MODAL
+========================= */
+
+.performance-modal-overlay {
+  position: fixed;
+
+  inset: 0;
+
+  background: rgba(16, 24, 40, 0.45);
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  padding: 20px;
+
+  z-index: 500;
+}
+
+.performance-modal {
+  width: 100%;
+
+  max-width: 440px;
+
+  background: white;
+
+  border-radius: 14px;
+
+  overflow: hidden;
+
+  box-shadow: 0 20px 50px rgba(16, 24, 40, 0.2);
+}
+
+.performance-modal-header {
+  display: flex;
+
+  justify-content: space-between;
+
+  padding: 20px 22px;
+
+  border-bottom: 1px solid #eef2f6;
+}
+
+.performance-modal-header h2 {
+  margin: 0;
+
+  color: #101828;
+
+  font-size: 17px;
+}
+
+.performance-modal-header p {
+  margin: 4px 0 0;
+
+  color: #98a2b3;
+
+  font-size: 11px;
+}
+
+.performance-modal-header button {
+  width: 34px;
+  height: 34px;
+
+  border: none;
+
+  background: #f8fafc;
+
+  color: #667085;
+
+  border-radius: 7px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  cursor: pointer;
+}
+
+.performance-modal-score {
+  text-align: center;
+
+  padding: 30px 20px 15px;
+}
+
+.performance-modal-score span {
+  display: block;
+
+  color: #667085;
+
+  font-size: 12px;
+}
+
+.performance-modal-score strong {
+  display: block;
+
+  margin-top: 5px;
+
+  color: #3158d9;
+
+  font-size: 42px;
+}
+
+.performance-modal-score small {
+  color: #98a2b3;
+
+  font-size: 15px;
+
+  font-weight: 400;
+}
+
+.performance-modal-status {
+  width: fit-content;
+
+  margin: 0 auto 20px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 6px;
+
+  padding: 6px 10px;
+
+  border-radius: 20px;
+
+  background: #ecfdf3;
+
+  color: #12b76a;
+
+  font-size: 11px;
+
+  font-weight: 600;
+}
+
+.performance-modal-footer {
+  padding: 15px 22px;
+
+  display: flex;
+
+  justify-content: flex-end;
+
+  border-top: 1px solid #eef2f6;
+}
+
+.performance-modal-footer button {
+  border: 1px solid #d0d5dd;
+
+  background: white;
+
+  color: #475467;
+
+  border-radius: 7px;
+
+  padding: 9px 15px;
+
+  font-size: 11px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 1000px) {
+
+  .employee-performance-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .performance-overview-left {
+    border-right: none;
+
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+
+    padding-right: 0;
+
+    padding-bottom: 20px;
+  }
+
+}
+
+@media (max-width: 800px) {
+
+  .employee-performance-main {
+    margin-left: 0;
+
+    padding: 95px 20px 30px;
+  }
+
+  .performance-overview-right {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+@media (max-width: 600px) {
+
+  .employee-performance-header {
+    align-items: flex-start;
+
+    flex-direction: column;
+
+    gap: 15px;
+  }
+
+  .performance-history-row {
+    align-items: flex-start;
+
+    flex-wrap: wrap;
+  }
+
+  .performance-history-score {
+    margin-left: 57px;
+  }
+
+  .performance-completed-badge {
+    margin-left: 57px;
+  }
+
+  .view-review-button {
+    margin-left: 57px;
+  }
+
+}

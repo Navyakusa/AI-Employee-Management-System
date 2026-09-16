@@ -7,8 +7,9 @@
  * 2. Spring Boot EMS backend
  *
  * Existing AI functions are preserved.
- * Dashboard functions are added at the bottom.
+ * Dashboard and Offers functions are included.
  */
+
 
 // ============================================================
 // FASTAPI AI BACKEND
@@ -238,10 +239,12 @@ export async function getAnalytics() {
 
 
 // ============================================================
-// SPRING BOOT EMS DASHBOARD APIs
+// SPRING BOOT EMS BACKEND
 // ============================================================
 
-const EMS_API_BASE = "http://localhost:8080/api";
+const EMS_API_BASE =
+  "http://localhost:8080/api";
+
 
 // ============================================================
 // DASHBOARD SUMMARY
@@ -326,6 +329,373 @@ export async function fetchApplicationsByStatus() {
     throw new Error(
       response.message ||
         "Failed to load applications by status."
+    );
+  }
+
+  return response.data;
+}
+
+
+// ============================================================
+// OFFERS
+// SPRING BOOT EMS BACKEND
+// ============================================================
+
+
+// ============================================================
+// GET ALL OFFERS
+// GET /api/offers
+// ============================================================
+
+export async function fetchOffers() {
+  const token =
+    localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/offers`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res
+      .json()
+      .catch(() => ({}));
+
+    throw new Error(
+      errorData.message ||
+        "Failed to load offers."
+    );
+  }
+
+  const response =
+    await res.json();
+
+  if (!response.success) {
+    throw new Error(
+      response.message ||
+        "Failed to load offers."
+    );
+  }
+
+  return response.data;
+}
+
+
+// ============================================================
+// GET OFFER STATISTICS
+// GET /api/offers/stats
+// ============================================================
+
+export async function fetchOfferStats() {
+  const token =
+    localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/offers/stats`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res
+      .json()
+      .catch(() => ({}));
+
+    throw new Error(
+      errorData.message ||
+        "Failed to load offer statistics."
+    );
+  }
+
+  const response =
+    await res.json();
+
+  if (!response.success) {
+    throw new Error(
+      response.message ||
+        "Failed to load offer statistics."
+    );
+  }
+
+  return response.data;
+}
+
+
+// ============================================================
+// SEARCH OFFERS
+// GET /api/offers/search?query=...
+// ============================================================
+
+export async function searchOffers(query) {
+  const token =
+    localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/offers/search?query=${encodeURIComponent(query)}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res
+      .json()
+      .catch(() => ({}));
+
+    throw new Error(
+      errorData.message ||
+        "Failed to search offers."
+    );
+  }
+
+  const response =
+    await res.json();
+
+  if (!response.success) {
+    throw new Error(
+      response.message ||
+        "Failed to search offers."
+    );
+  }
+
+  return response.data;
+}
+
+
+// ============================================================
+// GET OFFERS BY STATUS
+// GET /api/offers/status?status=...
+// ============================================================
+
+export async function fetchOffersByStatus(status) {
+  const token =
+    localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/offers/status?status=${encodeURIComponent(status)}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res
+      .json()
+      .catch(() => ({}));
+
+    throw new Error(
+      errorData.message ||
+        "Failed to filter offers."
+    );
+  }
+
+  const response =
+    await res.json();
+
+  if (!response.success) {
+    throw new Error(
+      response.message ||
+        "Failed to filter offers."
+    );
+  }
+
+  return response.data;
+}
+
+
+// ============================================================
+// CREATE OFFER
+// POST /api/offers
+// ============================================================
+
+export async function createOffer(offerData) {
+  const token =
+    localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/offers`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(offerData),
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res
+      .json()
+      .catch(() => ({}));
+
+    throw new Error(
+      errorData.message ||
+        "Failed to create offer."
+    );
+  }
+
+  const response =
+    await res.json();
+
+  if (!response.success) {
+    throw new Error(
+      response.message ||
+        "Failed to create offer."
+    );
+  }
+
+  return response.data;
+}
+
+
+// ============================================================
+// SEND OFFER
+// PUT /api/offers/{offerId}/send
+// ============================================================
+
+export async function sendOffer(offerId) {
+  const token =
+    localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/offers/${offerId}/send`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res
+      .json()
+      .catch(() => ({}));
+
+    throw new Error(
+      errorData.message ||
+        "Failed to send offer."
+    );
+  }
+
+  const response =
+    await res.json();
+
+  if (!response.success) {
+    throw new Error(
+      response.message ||
+        "Failed to send offer."
+    );
+  }
+
+  return response.data;
+}
+
+
+// ============================================================
+// ACCEPT OFFER
+// PUT /api/offers/{offerId}/accept
+// ============================================================
+
+export async function acceptOffer(offerId) {
+  const token =
+    localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/offers/${offerId}/accept`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res
+      .json()
+      .catch(() => ({}));
+
+    throw new Error(
+      errorData.message ||
+        "Failed to accept offer."
+    );
+  }
+
+  const response =
+    await res.json();
+
+  if (!response.success) {
+    throw new Error(
+      response.message ||
+        "Failed to accept offer."
+    );
+  }
+
+  return response.data;
+}
+
+
+// ============================================================
+// REJECT OFFER
+// PUT /api/offers/{offerId}/reject
+// ============================================================
+
+export async function rejectOffer(offerId) {
+  const token =
+    localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/offers/${offerId}/reject`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res
+      .json()
+      .catch(() => ({}));
+
+    throw new Error(
+      errorData.message ||
+        "Failed to reject offer."
+    );
+  }
+
+  const response =
+    await res.json();
+
+  if (!response.success) {
+    throw new Error(
+      response.message ||
+        "Failed to reject offer."
     );
   }
 

@@ -1,0 +1,222 @@
+/* ================================
+   EMPLOYEE SIDEBAR
+================================ */
+
+.employee-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+
+  width: 260px;
+  height: 100vh;
+
+  background: #101a38;
+  color: #ffffff;
+
+  display: flex;
+  flex-direction: column;
+
+  z-index: 1000;
+
+  overflow-y: auto;
+}
+
+/* ================================
+   LOGO / BRAND
+================================ */
+
+.employee-sidebar-logo {
+  height: 88px;
+
+  padding: 0 28px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 14px;
+}
+
+.employee-sidebar-logo-box {
+  width: 44px;
+  height: 44px;
+
+  border-radius: 10px;
+
+  background: #5b6ee1;
+  color: #ffffff;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 16px;
+  font-weight: 700;
+
+  box-shadow: 0 4px 12px rgba(91, 110, 225, 0.25);
+}
+
+.employee-sidebar-brand-text h2 {
+  margin: 0;
+
+  color: #ffffff;
+
+  font-size: 19px;
+  font-weight: 700;
+
+  letter-spacing: -0.3px;
+}
+
+.employee-sidebar-brand-text span {
+  display: block;
+
+  margin-top: 3px;
+
+  color: #8e9abb;
+
+  font-size: 11px;
+}
+
+/* ================================
+   NAVIGATION
+================================ */
+
+.employee-sidebar-nav {
+  padding: 22px 16px;
+}
+
+/* Navigation link */
+
+.employee-sidebar-link {
+  position: relative;
+
+  width: 100%;
+  height: 48px;
+
+  margin-bottom: 7px;
+
+  padding: 0 15px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 14px;
+
+  border-radius: 10px;
+
+  color: #aeb8d0;
+
+  text-decoration: none;
+
+  font-size: 14px;
+  font-weight: 500;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.employee-sidebar-link svg {
+  flex-shrink: 0;
+}
+
+/* Hover */
+
+.employee-sidebar-link:hover {
+  background: #17244a;
+  color: #ffffff;
+}
+
+/* Active */
+
+.employee-sidebar-link-active {
+  background: #1d315f;
+  color: #ffffff;
+
+  font-weight: 600;
+}
+
+/* Blue active indicator */
+
+.employee-sidebar-link-active::before {
+  content: "";
+
+  position: absolute;
+
+  left: 0;
+  top: 8px;
+
+  width: 3px;
+  height: 32px;
+
+  border-radius: 0 4px 4px 0;
+
+  background: #6c82ff;
+}
+
+/* Active icon */
+
+.employee-sidebar-link-active svg {
+  color: #ffffff;
+}
+
+/* ================================
+   SCROLLBAR
+================================ */
+
+.employee-sidebar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.employee-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.employee-sidebar::-webkit-scrollbar-thumb {
+  background: #27355b;
+  border-radius: 10px;
+}
+
+/* ================================
+   RESPONSIVE
+================================ */
+
+@media (max-width: 900px) {
+  .employee-sidebar {
+    width: 230px;
+  }
+}
+
+@media (max-width: 700px) {
+  .employee-sidebar {
+    width: 72px;
+  }
+
+  .employee-sidebar-logo {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .employee-sidebar-brand-text {
+    display: none;
+  }
+
+  .employee-sidebar-nav {
+    padding: 22px 10px;
+  }
+
+  .employee-sidebar-link {
+    justify-content: center;
+
+    padding: 0;
+
+    gap: 0;
+  }
+
+  .employee-sidebar-link span {
+    display: none;
+  }
+
+  .employee-sidebar-link-active::before {
+    left: 0;
+  }
+}

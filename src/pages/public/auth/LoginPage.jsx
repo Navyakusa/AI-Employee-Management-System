@@ -51,12 +51,21 @@ function LoginPage() {
       setLoading(true);
       setError("");
 
+<<<<<<< Updated upstream
       // Send email, password AND selected role
       const response = await apiClient.post("/auth/login", {
         email: enteredEmail,
         password: enteredPassword,
         role: role,
       });
+=======
+      // Call backend login API
+     const response = await apiClient.post("/auth/login", {
+  email: enteredEmail,
+  password: enteredPassword,
+  role: role.toUpperCase(),
+});
+>>>>>>> Stashed changes
 
       const result = response.data;
 
