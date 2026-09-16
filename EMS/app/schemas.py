@@ -40,6 +40,24 @@ class ResumeInput(BaseModel):
     experience_bullets: str = Field(default="", example="['Built scalable APIs' 'Led a team of 3']")
 
 
+class MatchScoreRequest(BaseModel):
+    job: JobInput
+    resume: Optional[ResumeInput] = Field(
+        default=None, description="Provide this OR resume_text, not both."
+    )
+    resume_text: Optional[str] = Field(
+        default=None, description="Raw resume text, parsed via the Module 5 NER model. "
+                                    "Provide this OR resume, not both."
+    )
+    resume_seniority: Optional[str] = Field(
+        default=None, description="Only used with resume_text -- seniority can't be reliably "
+                                    "extracted from raw text, so pass it here if known."
+    )
+    resume_industry: Optional[str] = Field(
+        default=None, description="Only used with resume_text -- same reasoning as resume_seniority."
+    )
+
+
 class MatchScoreResponse(BaseModel):
     job_id: str
     resume_id: str
@@ -85,6 +103,12 @@ class ScreeningResponse(BaseModel):
     screening_dimensions: List[ScreeningDimension]
 
 
+class SkillGapRequest(BaseModel):
+    job: JobInput
+    resume: Optional[ResumeInput] = Field(default=None, description="Provide this OR resume_text, not both.")
+    resume_text: Optional[str] = Field(default=None, description="Raw resume text. Provide this OR resume, not both.")
+
+
 class SkillGapResponse(BaseModel):
     job_id: str
     resume_id: str
@@ -96,7 +120,14 @@ class SkillGapResponse(BaseModel):
 
 class RankCandidatesRequest(BaseModel):
     job: JobInput
-    candidates: List[ResumeInput]
+    candidates: List[ResumeInput] = Field(
+        default_factory=list, description="Structured candidate records."
+    )
+    candidate_texts: List[str] = Field(
+        default_factory=list, description="Raw resume texts, parsed via the Module 5 NER model. "
+                                            "Can be used together with 'candidates' -- both pools "
+                                            "are merged before ranking."
+    )
     top_n: int = Field(default=10, ge=1, le=200)
 
 

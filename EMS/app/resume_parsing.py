@@ -53,3 +53,32 @@ def parse_resume(text: str) -> dict:
 
     raw_profile["skills_cleaned"] = extract_individual_skills(raw_profile["skills_raw"])
     return raw_profile
+
+
+def build_resume_dict_from_text(resume_text: str, resume_id: str = None,
+                                 seniority: str = None, industry: str = None) -> dict:
+    """Bridges raw resume text into the shape /match-score, /skill-gap, and
+    /rank-candidates expect (the same shape a structured ResumeInput produces).
+
+    seniority/industry can't be reliably extracted by the current NER model (its
+    label set doesn't include them) -- pass them in explicitly if known, otherwise
+    they're left as None and the matching engine treats them as "unknown" rather
+    than guessing (seniority_diff defaults to 2, industry_match defaults to False)."""
+    profile = parse_resume(resume_text)
+    skills = profile["skills_cleaned"]
+    skills_str = "[" + " ".join(f"'{s}'" for s in skills) + "]"
+    role = profile["designation"][0] if profile["designation"] else ""
+
+    return {
+        "resume_id": resume_id or "PARSED_FROM_TEXT",
+        "role": role,
+        "seniority": seniority,
+        "industry": industry,
+        "skills": skills_str,
+        # Using the raw resume text itself as the "summary" so the text_similarity
+        # feature still has real content to compare against, instead of coming back
+        # as 0 the way it would with an empty summary/experience_bullets.
+        "summary": resume_text,
+        "experience_bullets": "",
+        "years_experience": None,
+    }

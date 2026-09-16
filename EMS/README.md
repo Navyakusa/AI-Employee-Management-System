@@ -31,6 +31,37 @@ python3 test_api.py
 This runs realistic sample requests against every endpoint and prints PASS/FAIL for each.
 All 9 checks (8 endpoints + 1 error-handling case) pass as of this build.
 
+## Backward compatibility
+
+Every endpoint that previously required a structured `resume` object still works with
+**exactly the same request body** as before -- nothing your team has already integrated
+will need to change. What's new is *optional*:
+
+- `/match-score`, `/skill-gap` now also accept `resume_text` instead of `resume` (raw text
+  gets parsed via the Module 5 NER model internally). Provide exactly one of the two.
+- `/rank-candidates` now also accepts an optional `candidate_texts` list of raw resume texts,
+  which can be combined with the existing `candidates` list -- both pools get merged before
+  ranking.
+
+Example -- old style (still works, unchanged):
+```json
+{"job": {...}, "resume": {"resume_id": "R1", "role": "...", "skills": "['Python']", ...}}
+```
+
+Example -- new style (raw text instead):
+```json
+{
+  "job": {...},
+  "resume_text": "Priya Sharma\nSenior Backend Engineer\n...",
+  "resume_seniority": "Senior",
+  "resume_industry": "IT"
+}
+```
+
+`resume_seniority` / `resume_industry` are optional hints -- the NER model's label set
+doesn't include these fields, so they can't be reliably extracted from raw text. Pass them
+if you know them; otherwise they're treated as unknown rather than guessed.
+
 ## Endpoints
 
 | Endpoint | Module | Description |

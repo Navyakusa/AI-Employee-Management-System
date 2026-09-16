@@ -131,27 +131,70 @@ check(
 )
 
 print("=" * 70)
-print("4. Candidate Matching (Modules 6/7)")
+print("4. Candidate Matching (Modules 6/7) -- old-style structured call (regression check)")
 print("=" * 70)
-check("POST /match-score", client.post(
+check("POST /match-score (structured, old style)", client.post(
     "/match-score?explain=true",
     json={"job": SAMPLE_JOB, "resume": SAMPLE_RESUME}
 ))
 
 print("=" * 70)
-print("4. Skill Gap Analysis (Module 17)")
+print("4b. Candidate Matching -- NEW: raw resume_text instead of structured resume")
 print("=" * 70)
-check("POST /skill-gap", client.post(
+check("POST /match-score (resume_text)", client.post(
+    "/match-score",
+    json={
+        "job": SAMPLE_JOB,
+        "resume_text": SAMPLE_RESUME_TEXT,
+        "resume_seniority": "Senior",
+        "resume_industry": "IT",
+    }
+))
+
+print("=" * 70)
+print("4c. Candidate Matching -- error case: neither resume nor resume_text given")
+print("=" * 70)
+check(
+    "POST /match-score (neither given, should fail)",
+    client.post("/match-score", json={"job": SAMPLE_JOB}),
+    expect_status=400,
+)
+
+print("=" * 70)
+print("5. Skill Gap Analysis (Module 17) -- old-style structured call (regression check)")
+print("=" * 70)
+check("POST /skill-gap (structured, old style)", client.post(
     "/skill-gap",
     json={"job": SAMPLE_JOB, "resume": SAMPLE_CANDIDATE_2}
 ))
 
 print("=" * 70)
-print("5. Candidate Ranking (Module 18)")
+print("5b. Skill Gap Analysis -- NEW: raw resume_text")
 print("=" * 70)
-check("POST /rank-candidates", client.post(
+check("POST /skill-gap (resume_text)", client.post(
+    "/skill-gap",
+    json={"job": SAMPLE_JOB, "resume_text": SAMPLE_RESUME_TEXT}
+))
+
+print("=" * 70)
+print("6. Candidate Ranking (Module 18) -- old-style structured call (regression check)")
+print("=" * 70)
+check("POST /rank-candidates (structured, old style)", client.post(
     "/rank-candidates",
     json={"job": SAMPLE_JOB, "candidates": [SAMPLE_RESUME, SAMPLE_CANDIDATE_2], "top_n": 5}
+))
+
+print("=" * 70)
+print("6b. Candidate Ranking -- NEW: mix of structured candidates AND raw texts")
+print("=" * 70)
+check("POST /rank-candidates (mixed)", client.post(
+    "/rank-candidates",
+    json={
+        "job": SAMPLE_JOB,
+        "candidates": [SAMPLE_CANDIDATE_2],
+        "candidate_texts": [SAMPLE_RESUME_TEXT],
+        "top_n": 5,
+    }
 ))
 
 print("=" * 70)

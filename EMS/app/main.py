@@ -17,9 +17,9 @@ Docs available at http://localhost:8000/docs once running.
 from fastapi import FastAPI, HTTPException
 
 from app.schemas import (
-    JobInput, ResumeInput, MatchScoreResponse,
+    JobInput, ResumeInput, MatchScoreRequest, MatchScoreResponse,
     ScreeningRequest, ScreeningResponse,
-    SkillGapResponse, RankCandidatesRequest, RankedCandidate,
+    SkillGapRequest, SkillGapResponse, RankCandidatesRequest, RankedCandidate,
     InterviewQuestionsRequest, InterviewQuestionsResponse,
     ResumeParseRequest, ResumeParseResponse,
     EmployeeInput, AttritionResponse,
@@ -85,12 +85,24 @@ def screen_resume_endpoint(payload: ScreeningRequest):
 # ---------------------------------------------------------------------------
 
 @app.post("/match-score", response_model=MatchScoreResponse, tags=["matching"])
-def match_score_endpoint(job: JobInput, resume: ResumeInput, explain: bool = False):
+def match_score_endpoint(payload: MatchScoreRequest, explain: bool = False):
     from app.matching import score_candidate
-    result = score_candidate(job.dict(), resume.dict(), explain=explain)
+
+    if (payload.resume is None) == (payload.resume_text is None):
+        raise HTTPException(status_code=400, detail="Provide exactly one of 'resume' or 'resume_text'.")
+
+    if payload.resume is not None:
+        resume_dict = payload.resume.dict()
+    else:
+        from app.resume_parsing import build_resume_dict_from_text
+        resume_dict = build_resume_dict_from_text(
+            payload.resume_text, seniority=payload.resume_seniority, industry=payload.resume_industry
+        )
+
+    result = score_candidate(payload.job.dict(), resume_dict, explain=explain)
     return {
-        "job_id": job.job_id,
-        "resume_id": resume.resume_id,
+        "job_id": payload.job.job_id,
+        "resume_id": resume_dict["resume_id"],
         "result": result["result"],
         "match_probability_pct": result["match_probability_pct"],
         "features": result["features"],
@@ -103,9 +115,19 @@ def match_score_endpoint(job: JobInput, resume: ResumeInput, explain: bool = Fal
 # ---------------------------------------------------------------------------
 
 @app.post("/skill-gap", response_model=SkillGapResponse, tags=["skill-gap"])
-def skill_gap_endpoint(job: JobInput, resume: ResumeInput):
+def skill_gap_endpoint(payload: SkillGapRequest):
     from app.skill_gap import skill_gap_analysis
-    return skill_gap_analysis(job.dict(), resume.dict())
+
+    if (payload.resume is None) == (payload.resume_text is None):
+        raise HTTPException(status_code=400, detail="Provide exactly one of 'resume' or 'resume_text'.")
+
+    if payload.resume is not None:
+        resume_dict = payload.resume.dict()
+    else:
+        from app.resume_parsing import build_resume_dict_from_text
+        resume_dict = build_resume_dict_from_text(payload.resume_text)
+
+    return skill_gap_analysis(payload.job.dict(), resume_dict)
 
 
 # ---------------------------------------------------------------------------
@@ -115,10 +137,16 @@ def skill_gap_endpoint(job: JobInput, resume: ResumeInput):
 @app.post("/rank-candidates", response_model=list[RankedCandidate], tags=["ranking"])
 def rank_candidates_endpoint(payload: RankCandidatesRequest):
     from app.skill_gap import rank_candidates_for_job
-    if not payload.candidates:
-        raise HTTPException(status_code=400, detail="candidates list must not be empty")
-    job_dict = payload.job.dict()
+    from app.resume_parsing import build_resume_dict_from_text
+
     candidates_dicts = [c.dict() for c in payload.candidates]
+    for i, text in enumerate(payload.candidate_texts):
+        candidates_dicts.append(build_resume_dict_from_text(text, resume_id=f"TEXT_{i}"))
+
+    if not candidates_dicts:
+        raise HTTPException(status_code=400, detail="Provide at least one candidate via 'candidates' or 'candidate_texts'.")
+
+    job_dict = payload.job.dict()
     return rank_candidates_for_job(job_dict, candidates_dicts, top_n=payload.top_n)
 
 
