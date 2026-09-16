@@ -68,6 +68,43 @@ class MatchScoreResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Candidate Decision Recommendation (supports Hiring Manager approve/reject)
+# ---------------------------------------------------------------------------
+
+class InterviewFeedback(BaseModel):
+    technical_skills: Optional[float] = Field(default=None, ge=0, le=10, example=9)
+    communication: Optional[float] = Field(default=None, ge=0, le=10, example=8)
+    problem_solving: Optional[float] = Field(default=None, ge=0, le=10, example=9)
+    teamwork: Optional[float] = Field(default=None, ge=0, le=10, example=8)
+    leadership: Optional[float] = Field(default=None, ge=0, le=10, example=7)
+
+
+class CandidateDecisionRequest(BaseModel):
+    job: Optional[JobInput] = Field(
+        default=None, description="Provide job+resume to compute the match score fresh, "
+                                    "OR provide match_probability_pct directly -- not both."
+    )
+    resume: Optional[ResumeInput] = None
+    match_probability_pct: Optional[float] = Field(
+        default=None, ge=0, le=100, description="Use this if you already have a match score "
+                                                   "from a previous /match-score call, instead "
+                                                   "of recomputing it here."
+    )
+    interview_feedback: InterviewFeedback
+
+
+class CandidateDecisionResponse(BaseModel):
+    job_id: Optional[str] = None
+    resume_id: Optional[str] = None
+    match_probability_pct: float
+    interview_average_score: float
+    combined_score_pct: float
+    recommendation: str = Field(description="Recommended | Hold | Not Recommended")
+    rationale: str
+    note: str
+
+
+# ---------------------------------------------------------------------------
 # Module 6 -- AI Resume Screening (standalone from Module 7 matching)
 # ---------------------------------------------------------------------------
 
