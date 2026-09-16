@@ -139,6 +139,12 @@ public class AuthService {
             }
 
             User user = new User();
+            System.out.println("===== SIGNUP REQUEST =====");
+            System.out.println("Name       : " + signupDto.getUserName());
+            System.out.println("Email      : " + signupDto.getEmail());
+            System.out.println("Role       : " + signupDto.getRole());
+            System.out.println("Department : " + signupDto.getDepartment());
+            System.out.println("==========================");
 
             user.setUserName(
                     signupDto.getUserName()
