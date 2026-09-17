@@ -315,5 +315,81 @@ public class PythonAIClient {
             );
         }
     }
+    public PythonInterviewQuestionResponseDto generateInterviewQuestions(
+            PythonInterviewQuestionRequestDto request) {
 
+        try {
+
+            if (request == null) {
+                throw new RuntimeException(
+                        "Python interview question request is null"
+                );
+            }
+
+            if (request.getJob() == null) {
+                throw new RuntimeException(
+                        "Interview question job data is null"
+                );
+            }
+
+            if (request.getResume() == null) {
+                throw new RuntimeException(
+                        "Interview question resume data is null"
+                );
+            }
+
+            String jsonBody =
+                    objectMapper.writeValueAsString(request);
+
+            System.out.println("=================================");
+            System.out.println(
+                    "CALLING PYTHON AI - INTERVIEW QUESTION GENERATION"
+            );
+            System.out.println(
+                    "URL = "
+                            + AI_BASE_URL
+                            + "/generate-interview-questions"
+            );
+            System.out.println("JSON SENT TO PYTHON:");
+            System.out.println(jsonBody);
+            System.out.println("=================================");
+
+            HttpResponse<String> response =
+                    sendPostRequest(
+                            AI_BASE_URL
+                                    + "/generate-interview-questions",
+                            jsonBody
+                    );
+
+            System.out.println(
+                    "PYTHON INTERVIEW QUESTION STATUS = "
+                            + response.statusCode()
+            );
+
+            System.out.println(
+                    "PYTHON INTERVIEW QUESTION RESPONSE = "
+                            + response.body()
+            );
+
+            validateResponse(
+                    response,
+                    "Interview Question Generation"
+            );
+
+            return objectMapper.readValue(
+                    response.body(),
+                    PythonInterviewQuestionResponseDto.class
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            throw new RuntimeException(
+                    "Python Interview Question Generation call failed: "
+                            + e.getMessage(),
+                    e
+            );
+        }
+    }
 }
