@@ -7,6 +7,7 @@ import com.ems.entity.Job;
 import com.ems.entity.Resume;
 import com.ems.mapper.AIResumeScreeningMapper;
 import com.ems.repository.AIResumeScreeningRepository;
+import com.ems.repository.CandidateRepository;
 import com.ems.repository.JobRepository;
 import com.ems.repository.ResumeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,10 +18,20 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
+import jakarta.persistence.PrePersist;
+import java.time.LocalDateTime;
 @Service
 public class AIResumeScreeningService {
+    private LocalDateTime screenedAt;
 
+    @PrePersist
+    public void prePersist() {
+        if (screenedAt == null) {
+            screenedAt = LocalDateTime.now();
+        }
+    }
+    @Autowired
+    private CandidateRepository candidateRepository;
     @Autowired
     private AIResumeScreeningRepository screeningRepository;
 
@@ -577,5 +588,253 @@ public class AIResumeScreeningService {
     private String safeText(String value) {
 
         return value == null ? "" : value.trim();
+    }
+    public ResponseEntity<ApiResponse<List<AIScreeningManagementDto>>>
+    getScreeningManagementData() {
+
+        try {
+
+            List<AIResumeScreening> screenings =
+                    screeningRepository.findAll();
+
+            List<AIScreeningManagementDto> result =
+                    new ArrayList<>();
+
+            for (AIResumeScreening screening : screenings) {
+
+                AIScreeningManagementDto dto =
+                        new AIScreeningManagementDto();
+
+                dto.setScreeningId(screening.getId());
+
+                dto.setCandidateId(screening.getCandidateId());
+                dto.setJobId(screening.getJobId());
+
+                dto.setYearsOfExperience(
+                        screening.getYearsOfExperience()
+                );
+
+                dto.setSkills(screening.getSkills());
+
+                dto.setAiMatch(
+                        screening.getScreeningScore()
+                );
+
+                dto.setResult(
+                        screening.getScreeningResult()
+                );
+
+                dto.setRecommendation(
+                        screening.getRecommendation()
+                );
+
+                dto.setScreenedAt(
+                        screening.getScreenedAt()
+                );
+
+
+                // Candidate
+                candidateRepository
+                        .findById(screening.getCandidateId())
+                        .ifPresent(candidate -> {
+
+                            dto.setCandidateName(
+                                    candidate.getName()
+                            );
+
+                            dto.setCandidateEmail(
+                                    candidate.getEmail()
+                            );
+                        });
+
+
+                // Job
+                jobRepository
+                        .findById(screening.getJobId())
+                        .ifPresent(job ->
+                                dto.setPosition(job.getTitle())
+                        );
+
+
+                result.add(dto);
+            }
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "AI screening management data retrieved successfully",
+                            result
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to retrieve AI screening management data",
+                                    null
+                            )
+                    );
+        }
+    }
+    public ResponseEntity<ApiResponse<AIScreeningStatsDto>>
+    getScreeningStats() {
+
+        try {
+
+            long totalScreened =
+                    screeningRepository.count();
+
+            long highMatch =
+                    screeningRepository
+                            .countByScreeningScoreGreaterThanEqual(80.0);
+
+            long recommended =
+                    screeningRepository
+                            .countByScreeningResultIgnoreCase(
+                                    "QUALIFIED"
+                            );
+
+            long needsReview =
+                    screeningRepository
+                            .countByScreeningResultIgnoreCase(
+                                    "REVIEW"
+                            );
+
+            AIScreeningStatsDto stats =
+                    new AIScreeningStatsDto(
+                            totalScreened,
+                            highMatch,
+                            recommended,
+                            needsReview
+                    );
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "AI screening statistics retrieved successfully",
+                            stats
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to retrieve AI screening statistics",
+                                    null
+                            )
+                    );
+        }
+    }
+    public ResponseEntity<ApiResponse<List<AIScreeningManagementDto>>>
+    searchScreenings(String keyword) {
+
+        try {
+
+            ResponseEntity<ApiResponse<List<AIScreeningManagementDto>>> response =
+                    getScreeningManagementData();
+
+            List<AIScreeningManagementDto> screenings =
+                    response.getBody() != null
+                            ? response.getBody().getData()
+                            : new ArrayList<>();
+
+            String search = keyword == null
+                    ? ""
+                    : keyword.trim().toLowerCase();
+
+            List<AIScreeningManagementDto> filtered =
+                    screenings.stream()
+                            .filter(dto ->
+                                    containsIgnoreCase(dto.getCandidateName(), search)
+                                            || containsIgnoreCase(dto.getCandidateEmail(), search)
+                                            || containsIgnoreCase(dto.getPosition(), search)
+                                            || containsIgnoreCase(dto.getSkills(), search)
+                            )
+                            .toList();
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "AI screening search completed successfully",
+                            filtered
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to search AI screenings",
+                                    null
+                            )
+                    );
+        }
+    }
+
+    private boolean containsIgnoreCase(String value, String search) {
+        return value != null &&
+                value.toLowerCase().contains(search);
+    }
+    public ResponseEntity<ApiResponse<List<AIScreeningManagementDto>>>
+    filterByResult(String result) {
+
+        try {
+
+            ResponseEntity<ApiResponse<List<AIScreeningManagementDto>>> response =
+                    getScreeningManagementData();
+
+            List<AIScreeningManagementDto> screenings =
+                    response.getBody() != null
+                            ? response.getBody().getData()
+                            : new ArrayList<>();
+
+            List<AIScreeningManagementDto> filtered =
+                    screenings.stream()
+                            .filter(dto ->
+                                    dto.getResult() != null &&
+                                            dto.getResult()
+                                                    .equalsIgnoreCase(result)
+                            )
+                            .toList();
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "AI screenings filtered successfully",
+                            filtered
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to filter AI screenings",
+                                    null
+                            )
+                    );
+        }
     }
 }

@@ -30,4 +30,17 @@ public class ApplicationController {
         return applicationService
                 .getCandidateReview(applicationId);
     }
+    @PutMapping("/shortlist")
+    public ResponseEntity<ApiResponse<Application>>
+    shortlistCandidate(
+            @RequestParam Long candidateId,
+            @RequestParam Long jobId
+    ) {
+
+        return applicationService
+                .shortlistCandidate(
+                        candidateId,
+                        jobId
+                );
+    }
 }

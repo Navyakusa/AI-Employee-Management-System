@@ -42,4 +42,15 @@ public class Resume {
             uploadedAt = LocalDateTime.now();
         }
     }
+
+    private Double screeningScore;
+
+    @Column(columnDefinition = "TEXT")
+    private String screeningResult;
+
+    @Column(columnDefinition = "TEXT")
+    private String recommendation;
+
+    private LocalDateTime screenedAt;
+
 }

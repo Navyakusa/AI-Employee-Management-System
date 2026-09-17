@@ -29,5 +29,9 @@ public interface AIResumeScreeningRepository
             Long jobId
     );
 
-    long countByScreeningScoreGreaterThanEqual(Double score);
+
+    List<AIResumeScreening>
+    findByScreeningResultIgnoreCase(String screeningResult);
+
+    long countByScreeningScoreGreaterThanEqual(double v);
 }

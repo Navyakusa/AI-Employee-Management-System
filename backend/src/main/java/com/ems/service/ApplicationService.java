@@ -280,4 +280,182 @@ public class ApplicationService {
                     );
         }
     }
+    public ResponseEntity<ApiResponse<Application>>
+    shortlistCandidate(
+            Long candidateId,
+            Long jobId
+    ) {
+
+        try {
+
+            // ============================================
+            // 1. AI Screening candidateId = Candidate.id
+            // ============================================
+
+            Candidate candidate = candidateRepository
+                    .findById(candidateId)
+                    .orElse(null);
+
+            if (candidate == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Candidate not found",
+                                        null
+                                )
+                        );
+            }
+
+
+            // ============================================
+            // 2. Find User through candidate email
+            // ============================================
+
+            User user = userRepository
+                    .findByEmailIgnoreCase(
+                            candidate.getEmail()
+                    )
+                    .orElse(null);
+
+            if (user == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Candidate user account not found",
+                                        null
+                                )
+                        );
+            }
+
+
+            // ============================================
+            // 3. Verify role
+            // ============================================
+
+            if (user.getRole() == null ||
+                    !user.getRole()
+                            .equalsIgnoreCase("CANDIDATE")) {
+
+                return ResponseEntity
+                        .status(HttpStatus.BAD_REQUEST)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "User is not a candidate",
+                                        null
+                                )
+                        );
+            }
+
+
+            // ============================================
+            // 4. Verify Job
+            // ============================================
+
+            Job job = jobRepository
+                    .findById(jobId)
+                    .orElse(null);
+
+            if (job == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Job not found",
+                                        null
+                                )
+                        );
+            }
+
+
+            // ============================================
+            // 5. Find Application
+            //
+            // IMPORTANT:
+            // Application.candidateId = User.userId
+            // ============================================
+
+            Application application =
+                    applicationRepository
+                            .findByCandidateIdAndJobId(
+                                    user.getUserId(),
+                                    jobId
+                            )
+                            .orElse(null);
+
+            if (application == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Application not found for candidate and job",
+                                        null
+                                )
+                        );
+            }
+
+
+            // ============================================
+            // 6. Already shortlisted
+            // ============================================
+
+            if (application.getStatus()
+                    == ApplicationStatus.SHORTLISTED) {
+
+                return ResponseEntity.ok(
+                        new ApiResponse<>(
+                                true,
+                                "Candidate is already shortlisted",
+                                application
+                        )
+                );
+            }
+
+
+            // ============================================
+            // 7. Update application status
+            // ============================================
+
+            application.setStatus(
+                    ApplicationStatus.SHORTLISTED
+            );
+
+            Application savedApplication =
+                    applicationRepository.save(application);
+
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Candidate shortlisted successfully",
+                            savedApplication
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to shortlist candidate: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
+        }
+    }
 }
