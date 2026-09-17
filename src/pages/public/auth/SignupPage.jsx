@@ -74,7 +74,7 @@ function SignupPage() {
             email,
             password,
             role: "CANDIDATE",
-            department: "Candidate",
+            department: "candidate",
           }
       );
 

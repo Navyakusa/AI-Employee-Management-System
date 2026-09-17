@@ -234,7 +234,44 @@ function LoginPage() {
 
             <div className="feature-item">
               <div className="feature-icon">
-                ✓
+                ✓<form onSubmit={handleLogin}>
+              {/* ROLE */}
+              <div className="form-group">
+                <label htmlFor="role">Login As</label>
+
+                <select
+                    id="role"
+                    value={role}
+                    onChange={handleRoleChange}
+                    className="role-select"
+                >
+                  <option value="HR">HR</option>
+
+                  <option value="HIRING_MANAGER">
+                    Hiring Manager
+                  </option>
+
+                  <option value="SUPER_ADMIN">
+                    Super Admin
+                  </option>
+
+                  <option value="RECRUITER">
+                    Recruiter
+                  </option>
+
+                  <option value="INTERVIEWER">
+                    Interviewer
+                  </option>
+
+                  <option value="EMPLOYEE">
+                    Employee
+                  </option>
+
+                  <option value="CANDIDATE">
+                    Candidate
+                  </option>
+                </select>
+>>>>>>> Stashed changes
               </div>
 
               <div>

@@ -10,7 +10,6 @@ import {
   BriefcaseBusiness,
   Mail,
   MessageSquareText,
-  ExternalLink,
 } from "lucide-react";
 
 import HiringManagerSidebar from "./HiringManagerSidebar";
@@ -34,9 +33,8 @@ function HiringManagerInterviewDetails() {
       time: "11:00 AM",
       mode: "Online",
       location: "Google Meet",
-      meetingLink: "https://meet.google.com/",
       status: "Scheduled",
-      interviewer: "Technical Interview Panel",
+      interviewer: "Raj Kumar",
       notes:
         "Evaluate Java fundamentals, Spring Boot knowledge, REST APIs and backend problem-solving skills.",
     },
@@ -49,9 +47,8 @@ function HiringManagerInterviewDetails() {
       time: "2:30 PM",
       mode: "Offline",
       location: "Hyderabad Office",
-      meetingLink: null,
       status: "Scheduled",
-      interviewer: "Frontend Interview Panel",
+      interviewer: "Priya Reddy",
       notes:
         "Evaluate React fundamentals, JavaScript, component design and frontend problem-solving skills.",
     },
@@ -64,11 +61,10 @@ function HiringManagerInterviewDetails() {
       time: "10:00 AM",
       mode: "Online",
       location: "Microsoft Teams",
-      meetingLink: "https://teams.microsoft.com/",
       status: "Completed",
-      interviewer: "QA Interview Panel",
+      interviewer: "Arjun Kumar",
       notes:
-        "Candidate completed the technical interview. Review testing knowledge, API testing and automation experience.",
+        "Candidate completed the technical interview. Interview feedback is available for Hiring Manager review.",
     },
   ];
 
@@ -109,8 +105,8 @@ function HiringManagerInterviewDetails() {
             <h1>Interview Details</h1>
 
             <p>
-              View candidate and scheduled interview
-              information.
+              Monitor candidate interview information,
+              assigned interviewer and interview status.
             </p>
 
           </div>
@@ -131,7 +127,6 @@ function HiringManagerInterviewDetails() {
 
                 <div>
                   <h2>{interview.candidate}</h2>
-
                   <p>{interview.job}</p>
                 </div>
 
@@ -166,6 +161,7 @@ function HiringManagerInterviewDetails() {
 
                   <div>
                     <span>Email</span>
+
                     <strong>
                       {interview.email}
                     </strong>
@@ -179,6 +175,7 @@ function HiringManagerInterviewDetails() {
 
                   <div>
                     <span>Applied Position</span>
+
                     <strong>
                       {interview.job}
                     </strong>
@@ -190,7 +187,7 @@ function HiringManagerInterviewDetails() {
 
             </div>
 
-            {/* SCHEDULE */}
+            {/* INTERVIEW SCHEDULE */}
 
             <div className="hm-interview-details-section">
 
@@ -207,6 +204,7 @@ function HiringManagerInterviewDetails() {
 
                   <div>
                     <span>Date</span>
+
                     <strong>
                       {interview.date}
                     </strong>
@@ -220,6 +218,7 @@ function HiringManagerInterviewDetails() {
 
                   <div>
                     <span>Time</span>
+
                     <strong>
                       {interview.time}
                     </strong>
@@ -237,6 +236,7 @@ function HiringManagerInterviewDetails() {
 
                   <div>
                     <span>Interview Mode</span>
+
                     <strong>
                       {interview.mode}
                     </strong>
@@ -249,6 +249,7 @@ function HiringManagerInterviewDetails() {
                   <MapPin size={18} />
 
                   <div>
+
                     <span>
                       {interview.mode === "Online"
                         ? "Platform"
@@ -258,6 +259,7 @@ function HiringManagerInterviewDetails() {
                     <strong>
                       {interview.location}
                     </strong>
+
                   </div>
 
                 </div>
@@ -266,13 +268,13 @@ function HiringManagerInterviewDetails() {
 
             </div>
 
-            {/* INTERVIEWER */}
+            {/* ASSIGNED INTERVIEWER */}
 
             <div className="hm-interview-details-section">
 
               <h3>
                 <User size={18} />
-                Interview Panel
+                Assigned Interviewer
               </h3>
 
               <div className="hm-interview-panel-box">
@@ -282,18 +284,20 @@ function HiringManagerInterviewDetails() {
                 </div>
 
                 <div>
-                  <span>Assigned Interviewer</span>
+
+                  <span>Interviewer</span>
 
                   <strong>
                     {interview.interviewer}
                   </strong>
+
                 </div>
 
               </div>
 
             </div>
 
-            {/* NOTES */}
+            {/* INTERVIEW NOTES */}
 
             <div className="hm-interview-details-section">
 
@@ -308,46 +312,11 @@ function HiringManagerInterviewDetails() {
 
             </div>
 
-            {/* ONLINE MEETING */}
-
-            {interview.mode === "Online" &&
-              interview.meetingLink &&
-              !isCompleted && (
-
-                <div className="hm-interview-details-section">
-
-                  <h3>
-                    <Video size={18} />
-                    Online Interview
-                  </h3>
-
-                  <p>
-                    Use the meeting link below to join
-                    the scheduled interview.
-                  </p>
-
-                  <button
-                    type="button"
-                    className="hm-interview-join-button"
-                    onClick={() =>
-                      window.open(
-                        interview.meetingLink,
-                        "_blank"
-                      )
-                    }
-                  >
-                    <Video size={17} />
-                    Join Interview
-                    <ExternalLink size={15} />
-                  </button>
-
-                </div>
-
-              )}
-
             {/* ACTIONS */}
 
             <div className="hm-interview-details-actions">
+
+              {/* BACK */}
 
               <button
                 type="button"
@@ -362,6 +331,8 @@ function HiringManagerInterviewDetails() {
                 Back to Interviews
               </button>
 
+              {/* VIEW FEEDBACK ONLY IF COMPLETED */}
+
               {isCompleted && (
 
                 <button
@@ -374,7 +345,7 @@ function HiringManagerInterviewDetails() {
                   }
                 >
                   <MessageSquareText size={16} />
-                  Give Feedback
+                  View Feedback
                 </button>
 
               )}
