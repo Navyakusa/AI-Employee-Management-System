@@ -2,7 +2,10 @@ package com.ems.controller;
 
 import com.ems.common.ApiResponse;
 import com.ems.dto.CandidateDecisionDto;
+import com.ems.dto.CandidateDecisionRequestDto;
+import com.ems.dto.CandidateDecisionResponseDto;
 import com.ems.service.CandidateDecisionService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -62,5 +65,14 @@ public class CandidateDecisionController {
             @PathVariable Long applicationId
     ) {
         return candidateDecisionService.rejectCandidate(applicationId);
+    }
+    @PostMapping("/recommend")
+    public ResponseEntity<ApiResponse<CandidateDecisionResponseDto>>
+    recommendCandidateDecision(
+            @Valid
+            @RequestBody CandidateDecisionRequestDto request) {
+
+        return candidateDecisionService
+                .recommendDecision(request);
     }
 }

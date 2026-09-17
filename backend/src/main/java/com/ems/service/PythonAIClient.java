@@ -392,4 +392,81 @@ public class PythonAIClient {
             );
         }
     }
+    public PythonDecisionResponseDto recommendCandidateDecision(
+            PythonDecisionRequestDto request) {
+
+        try {
+
+            if (request == null) {
+                throw new RuntimeException(
+                        "Python candidate decision request is null"
+                );
+            }
+
+            if (request.getMatchProbabilityPct() == null) {
+                throw new RuntimeException(
+                        "Match probability is required"
+                );
+            }
+
+            if (request.getInterviewFeedback() == null) {
+                throw new RuntimeException(
+                        "Interview feedback is required"
+                );
+            }
+
+            String jsonBody =
+                    objectMapper.writeValueAsString(request);
+
+            System.out.println("=================================");
+            System.out.println(
+                    "CALLING PYTHON AI - CANDIDATE DECISION"
+            );
+            System.out.println(
+                    "URL = "
+                            + AI_BASE_URL
+                            + "/recommend-candidate-decision"
+            );
+            System.out.println("JSON SENT TO PYTHON:");
+            System.out.println(jsonBody);
+            System.out.println("=================================");
+
+            HttpResponse<String> response =
+                    sendPostRequest(
+                            AI_BASE_URL
+                                    + "/recommend-candidate-decision",
+                            jsonBody
+                    );
+
+            System.out.println(
+                    "PYTHON DECISION STATUS = "
+                            + response.statusCode()
+            );
+
+            System.out.println(
+                    "PYTHON DECISION RESPONSE = "
+                            + response.body()
+            );
+
+            validateResponse(
+                    response,
+                    "Candidate Decision"
+            );
+
+            return objectMapper.readValue(
+                    response.body(),
+                    PythonDecisionResponseDto.class
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            throw new RuntimeException(
+                    "Python Candidate Decision call failed: "
+                            + e.getMessage(),
+                    e
+            );
+        }
+    }
 }

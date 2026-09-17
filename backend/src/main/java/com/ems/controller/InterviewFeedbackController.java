@@ -6,6 +6,7 @@ import com.ems.entity.InterviewFeedback;
 import com.ems.service.InterviewFeedbackService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,12 +21,11 @@ public class InterviewFeedbackController {
     private InterviewFeedbackService feedbackService;
 
     @PostMapping
-    public ResponseEntity<ResponseEntity<ApiResponse<InterviewFeedback>>> submitFeedback(
-            @RequestBody InterviewFeedbackDto dto, Authentication authentication) {
+    public ResponseEntity<ApiResponse<InterviewFeedback>> submitFeedback(
+            @RequestBody InterviewFeedbackDto dto,
+            Authentication authentication) {
 
-        return ResponseEntity.ok(
-                feedbackService.submitFeedback(dto,authentication)
-        );
+        return feedbackService.submitFeedback(dto, authentication);
     }
 
     @GetMapping("/interview/{interviewId}")
