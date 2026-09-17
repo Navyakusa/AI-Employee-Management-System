@@ -287,7 +287,7 @@ public class CandidateDecisionService {
             // 2. Get latest interview for candidate + job
             // =====================================================
 
-            Interview interview = interviewRepository.findFirstByCandidateIdAndJobIdOrderByInterviewDateTimeDesc(candidateId, jobId).orElseThrow(() -> new RuntimeException("Interview not found for candidate ID: " + candidateId + " and job ID: " + jobId));
+            Interview interview = (Interview) interviewRepository.findFirstByCandidateIdAndJobIdOrderByInterviewDateTimeDesc(candidateId, jobId).orElseThrow(() -> new RuntimeException("Interview not found for candidate ID: " + candidateId + " and job ID: " + jobId));
 
             // =====================================================
             // 3. Get feedback for that interview

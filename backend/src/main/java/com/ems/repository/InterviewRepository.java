@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface InterviewRepository
         extends JpaRepository<Interview, Long> {
@@ -70,4 +71,6 @@ public interface InterviewRepository
             LocalDateTime start,
             LocalDateTime end
     );
+
+    Optional<Object> findFirstByCandidateIdAndJobIdOrderByInterviewDateTimeDesc(Long candidateId, Long jobId);
 }
