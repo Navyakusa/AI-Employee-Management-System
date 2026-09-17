@@ -58,6 +58,9 @@ public class InterviewService {
             interview.setJobId(
                     application.getJobId()
             );
+            interview.setInterviewerId(
+                    dto.getInterviewerId()
+            );
 
             interview.setInterviewDateTime(
                     dto.getInterviewDateTime()
