@@ -10,6 +10,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 
 @Service
 public class PythonAIClient {
@@ -234,6 +235,84 @@ public class PythonAIClient {
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
 
             throw new RuntimeException("Python " + moduleName + " returned HTTP " + response.statusCode() + ": " + response.body());
+        }
+    }
+    public List<PythonRankingResponseDto> rankCandidates(
+            PythonRankingRequestDto request) {
+
+        try {
+
+            if (request == null) {
+                throw new RuntimeException(
+                        "Python ranking request is null"
+                );
+            }
+
+            if (request.getJob() == null) {
+                throw new RuntimeException(
+                        "Ranking job data is null"
+                );
+            }
+
+            if (request.getCandidates() == null
+                    || request.getCandidates().isEmpty()) {
+
+                throw new RuntimeException(
+                        "No candidates provided for ranking"
+                );
+            }
+
+            String jsonBody =
+                    objectMapper.writeValueAsString(request);
+
+            System.out.println("=================================");
+            System.out.println("CALLING PYTHON AI - CANDIDATE RANKING");
+            System.out.println(
+                    "URL = " + AI_BASE_URL + "/rank-candidates"
+            );
+            System.out.println("JSON SENT TO PYTHON:");
+            System.out.println(jsonBody);
+            System.out.println("=================================");
+
+            HttpResponse<String> response =
+                    sendPostRequest(
+                            AI_BASE_URL + "/rank-candidates",
+                            jsonBody
+                    );
+
+            System.out.println(
+                    "PYTHON RANKING STATUS = "
+                            + response.statusCode()
+            );
+
+            System.out.println(
+                    "PYTHON RANKING RESPONSE = "
+                            + response.body()
+            );
+
+            validateResponse(
+                    response,
+                    "Candidate Ranking"
+            );
+
+            return objectMapper.readValue(
+                    response.body(),
+                    objectMapper.getTypeFactory()
+                            .constructCollectionType(
+                                    List.class,
+                                    PythonRankingResponseDto.class
+                            )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            throw new RuntimeException(
+                    "Python Candidate Ranking call failed: "
+                            + e.getMessage(),
+                    e
+            );
         }
     }
 
