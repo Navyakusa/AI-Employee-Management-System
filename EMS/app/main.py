@@ -24,6 +24,7 @@ from app.schemas import (
     ResumeParseRequest, ResumeParseResponse,
     EmployeeInput, AttritionResponse,
     JobPostingInput, SalaryResponse,
+    CandidateDecisionRequest, CandidateDecisionResponse,
 )
 
 app = FastAPI(
@@ -187,3 +188,41 @@ def predict_attrition_endpoint(employee: EmployeeInput):
 def predict_salary_endpoint(job_posting: JobPostingInput):
     from app.salary import predict_salary_range
     return predict_salary_range(job_posting.dict())
+
+
+# ---------------------------------------------------------------------------
+# Candidate Decision Recommendation -- supports Hiring Manager's
+# "Approve/Reject Candidates" permission. Returns a SUGGESTED recommendation
+# only; the actual approve/reject decision is made and stored by the backend.
+# ---------------------------------------------------------------------------
+
+@app.post("/recommend-candidate-decision", response_model=CandidateDecisionResponse, tags=["decision"])
+def recommend_candidate_decision_endpoint(payload: CandidateDecisionRequest):
+    from app.decision import recommend_candidate_decision
+
+    if payload.match_probability_pct is None and (payload.job is None or payload.resume is None):
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either 'match_probability_pct' directly, or both 'job' and 'resume' to compute it fresh."
+        )
+    if payload.match_probability_pct is not None and (payload.job is not None or payload.resume is not None):
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either 'match_probability_pct' OR 'job'+'resume', not both."
+        )
+
+    job_id = payload.job.job_id if payload.job else None
+    resume_id = payload.resume.resume_id if payload.resume else None
+
+    if payload.match_probability_pct is not None:
+        match_pct = payload.match_probability_pct
+    else:
+        from app.matching import score_candidate
+        result = score_candidate(payload.job.dict(), payload.resume.dict())
+        match_pct = result["match_probability_pct"]
+
+    feedback_dict = {k: v for k, v in payload.interview_feedback.dict().items() if v is not None}
+    result = recommend_candidate_decision(match_pct, feedback_dict)
+    result["job_id"] = job_id
+    result["resume_id"] = resume_id
+    return result
