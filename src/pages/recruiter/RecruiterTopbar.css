@@ -17,25 +17,27 @@
 
   padding: 0 22px;
 
-  z-index: 900;
+  z-index: 1000;
 }
 
-/* SEARCH */
+/* =========================
+   SEARCH
+========================= */
 
 .recruiter-topbar-search {
-  width: 245px;
-  height: 36px;
+  width: 405px;
+  height: 42px;
 
   border: 1px solid #dfe4ec;
 
-  border-radius: 7px;
+  border-radius: 8px;
 
   display: flex;
   align-items: center;
 
-  gap: 8px;
+  gap: 10px;
 
-  padding: 0 11px;
+  padding: 0 13px;
 
   background: #fafbfc;
 
@@ -52,43 +54,49 @@
 
   color: #364158;
 
-  font-size: 10px;
+  font-size: 13px;
 }
 
 .recruiter-topbar-search input::placeholder {
   color: #98a2b5;
 }
 
-/* RIGHT */
+/* =========================
+   RIGHT SIDE
+========================= */
 
 .recruiter-topbar-right {
   display: flex;
   align-items: center;
 
-  gap: 12px;
+  gap: 14px;
 }
 
-/* NOTIFICATION */
+/* =========================
+   NOTIFICATION
+========================= */
 
 .recruiter-notification-btn {
   position: relative;
 
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
 
   border: 1px solid #e1e5ed;
 
-  border-radius: 8px;
+  border-radius: 9px;
 
-  background: white;
+  background: #ffffff;
 
-  color: #69758c;
+  color: #68748a;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
   cursor: pointer;
+
+  transition: 0.2s;
 }
 
 .recruiter-notification-btn:hover {
@@ -99,18 +107,20 @@
 .notification-dot {
   position: absolute;
 
-  top: 7px;
-  right: 7px;
+  top: 8px;
+  right: 8px;
 
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 
   border-radius: 50%;
 
   background: #ef4444;
 }
 
-/* PROFILE */
+/* =========================
+   PROFILE
+========================= */
 
 .recruiter-profile-container {
   position: relative;
@@ -124,7 +134,7 @@
   display: flex;
   align-items: center;
 
-  gap: 8px;
+  gap: 9px;
 
   cursor: pointer;
 
@@ -132,20 +142,20 @@
 }
 
 .recruiter-profile-avatar {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
 
   border-radius: 9px;
 
-  background: #5a6fe5;
+  background: #586fe3;
 
-  color: white;
+  color: #ffffff;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -159,42 +169,47 @@
 .recruiter-profile-info strong {
   color: #1d2944;
 
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .recruiter-profile-info span {
-  margin-top: 2px;
+  margin-top: 3px;
 
   color: #8a94a9;
 
-  font-size: 8px;
+  font-size: 9px;
 }
 
-.recruiter-profile-arrow {
-  color: #6f7890;
+.recruiter-arrow {
+  color: #667188;
 
-  font-size: 14px;
-
-  margin-left: 3px;
+  transition: transform 0.2s;
 }
 
-/* DROPDOWN */
+.recruiter-arrow.open {
+  transform: rotate(180deg);
+}
+
+/* =========================
+   DROPDOWN
+========================= */
 
 .recruiter-profile-dropdown {
   position: absolute;
 
-  top: 48px;
+  top: 52px;
   right: 0;
 
-  width: 235px;
+  width: 245px;
 
-  background: white;
+  background: #ffffff;
 
   border: 1px solid #e2e6ed;
 
   border-radius: 10px;
 
-  box-shadow: 0 12px 35px rgba(18, 31, 58, 0.14);
+  box-shadow:
+    0 12px 35px rgba(18, 31, 58, 0.14);
 
   padding: 7px;
 
@@ -210,12 +225,12 @@
 
   border-radius: 7px;
 
-  padding: 10px;
+  padding: 11px;
 
   display: flex;
   align-items: center;
 
-  gap: 10px;
+  gap: 11px;
 
   text-align: left;
 
@@ -242,7 +257,7 @@
 .recruiter-profile-dropdown button strong {
   color: #25314b;
 
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .recruiter-profile-dropdown button span {
@@ -250,7 +265,7 @@
 
   color: #929bad;
 
-  font-size: 8px;
+  font-size: 9px;
 }
 
 .recruiter-dropdown-divider {
@@ -261,10 +276,14 @@
   margin: 5px 4px;
 }
 
-.recruiter-profile-dropdown .recruiter-logout-btn svg {
+/* LOGOUT */
+
+.recruiter-profile-dropdown
+.recruiter-logout-btn svg {
   color: #e05252;
 }
 
-.recruiter-profile-dropdown .recruiter-logout-btn strong {
+.recruiter-profile-dropdown
+.recruiter-logout-btn strong {
   color: #d64f4f;
 }

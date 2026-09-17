@@ -66,7 +66,7 @@ function SignupPage() {
 
       // ==============================
       // CALL SPRING BOOT SIGNUP API
-<<<<<<< Updated upstream
+
       const response = await apiClient.post(
           "/auth/signup",
           {
@@ -77,9 +77,9 @@ function SignupPage() {
             department: "Candidate",
           }
       );
-=======
-      // ==============================
-      const response = await apiClient.post("/auth/signup", {
+
+      
+      response = await apiClient.post("/auth/signup", {
         userName,
         email,
         password,
@@ -92,7 +92,7 @@ function SignupPage() {
         // Role is selected on the Login page.
         role: "EMPLOYEE",
       });
->>>>>>> Stashed changes
+
 
       const apiResponse = response.data;
 

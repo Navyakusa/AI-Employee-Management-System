@@ -1,9 +1,14 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 // Recruiter pages
 import RecruiterDashboard from "./pages/recruiter/RecruiterDashboard";
-
-
-
+import RecruiterNotifications from "./pages/recruiter/RecruiterNotifications";
+import RecruiterProfile from "./pages/recruiter/RecruiterProfile";
+import RecruiterSettings from "./pages/recruiter/RecruiterSettings";
+import RecruiterCandidates from "./pages/recruiter/RecruiterCandidates";
+import RecruiterResumes from "./pages/recruiter/RecruiterResumes";
+import RecruiterScreening from "./pages/recruiter/RecruiterScreening";
+import RecruiterQuestions from "./pages/recruiter/RecruiterQuestions";
+import RecruiterInterviews from "./pages/recruiter/RecruiterInterviews";
 
 
 
@@ -89,6 +94,46 @@ function App() {
   path="/recruiter/dashboard"
   element={<RecruiterDashboard />}
 />
+  
+  <Route
+  path="/recruiter/notifications"
+  element={<RecruiterNotifications />}
+/>
+
+<Route
+  path="/recruiter/profile"
+  element={<RecruiterProfile />}
+/> 
+
+<Route
+  path="/recruiter/settings"
+  element={<RecruiterSettings />}
+/>
+
+<Route
+  path="/recruiter/candidates"
+  element={<RecruiterCandidates />}
+/>
+<Route
+  path="/recruiter/resumes"
+  element={<RecruiterResumes />}
+/>
+<Route
+  path="/recruiter/screening"
+  element={<RecruiterScreening />}
+/>
+<Route
+  path="/recruiter/questions"
+  element={<RecruiterQuestions />}
+/>
+
+<Route
+  path="/recruiter/interviews"
+  element={<RecruiterInterviews />}
+/>
+
+
+
 
 
         {/* ================= EMPLOYEE ROUTES ================= */}
@@ -243,7 +288,6 @@ function App() {
           path="/super-admin/organization"
           element={<AdminOrganization />}
         />
-<<<<<<< Updated upstream
         <Route
   path="/hiring-manager/dashboard"
   element={<HiringManagerDashboard />}
@@ -282,16 +326,6 @@ function App() {
 />
         {/* Not Found */}
         <Route path="*" element={<NotFoundPage />} />
-=======
-
-
-        {/* ================= NOT FOUND ================= */}
-
-        <Route
-          path="*"
-          element={<NotFoundPage />}
-        />
->>>>>>> Stashed changes
 
       </Routes>
     </BrowserRouter>

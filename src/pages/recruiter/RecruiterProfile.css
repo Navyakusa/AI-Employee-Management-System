@@ -1,0 +1,326 @@
+/* =========================================
+   PAGE
+========================================= */
+
+.recruiter-profile-page {
+  min-height: 100vh;
+  background: #f5f7fb;
+}
+
+
+/* =========================================
+   MAIN CONTENT
+========================================= */
+
+.recruiter-profile-main {
+  margin-left: 173px;
+
+  padding: 105px 32px 40px;
+
+  min-height: 100vh;
+
+  box-sizing: border-box;
+}
+
+
+/* =========================================
+   HEADER
+========================================= */
+
+.recruiter-profile-header {
+  margin-bottom: 25px;
+}
+
+.recruiter-profile-label {
+  color: #526fe3;
+
+  font-size: 10px;
+
+  font-weight: 700;
+
+  letter-spacing: 1.2px;
+}
+
+.recruiter-profile-header h1 {
+  margin: 7px 0 4px;
+
+  color: #17233f;
+
+  font-size: 29px;
+
+  font-weight: 700;
+}
+
+.recruiter-profile-header p {
+  margin: 0;
+
+  color: #8290aa;
+
+  font-size: 13px;
+}
+
+
+/* =========================================
+   MAIN PROFILE CARD
+========================================= */
+
+.recruiter-profile-card {
+  background: #ffffff;
+
+  border: 1px solid #e1e6ee;
+
+  border-radius: 10px;
+
+  overflow: hidden;
+}
+
+
+/* =========================================
+   PROFILE CARD HEADER
+========================================= */
+
+.recruiter-profile-card-header {
+  padding: 25px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 16px;
+
+  border-bottom: 1px solid #e8ecf2;
+}
+
+.recruiter-large-avatar {
+  width: 70px;
+  height: 70px;
+
+  border-radius: 14px;
+
+  background: #586fe3;
+
+  color: #ffffff;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  font-size: 25px;
+
+  font-weight: 700;
+}
+
+.recruiter-profile-title h2 {
+  margin: 0;
+
+  color: #17233f;
+
+  font-size: 21px;
+}
+
+.recruiter-profile-title p {
+  margin: 5px 0 8px;
+
+  color: #7f8ca4;
+
+  font-size: 12px;
+}
+
+.recruiter-status {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 6px;
+
+  padding: 4px 9px;
+
+  border-radius: 20px;
+
+  background: #eaf9f1;
+
+  color: #15945c;
+
+  font-size: 9px;
+
+  font-weight: 600;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+
+  border-radius: 50%;
+
+  background: #20b56e;
+
+  display: inline-block;
+}
+
+
+/* =========================================
+   SECTION
+========================================= */
+
+.recruiter-profile-section {
+  padding: 24px 25px;
+
+  border-bottom: 1px solid #e8ecf2;
+}
+
+.recruiter-profile-section:last-child {
+  border-bottom: none;
+}
+
+
+/* =========================================
+   SECTION TITLE
+========================================= */
+
+.recruiter-section-title {
+  display: flex;
+
+  align-items: center;
+
+  gap: 11px;
+
+  margin-bottom: 22px;
+}
+
+.recruiter-section-title > svg {
+  width: 38px;
+  height: 38px;
+
+  padding: 9px;
+
+  box-sizing: border-box;
+
+  border-radius: 9px;
+
+  background: #edf3ff;
+
+  color: #526fe3;
+}
+
+.recruiter-section-title h3 {
+  margin: 0;
+
+  color: #1c2945;
+
+  font-size: 15px;
+}
+
+.recruiter-section-title p {
+  margin: 4px 0 0;
+
+  color: #8995aa;
+
+  font-size: 10px;
+}
+
+
+/* =========================================
+   INFORMATION GRID
+========================================= */
+
+.recruiter-info-grid {
+  display: grid;
+
+  grid-template-columns: repeat(2, 1fr);
+
+  column-gap: 35px;
+
+  row-gap: 20px;
+}
+
+
+/* =========================================
+   INFORMATION ITEM
+========================================= */
+
+.recruiter-info-item {
+  min-height: 58px;
+
+  padding-bottom: 13px;
+
+  border-bottom: 1px solid #edf0f4;
+}
+
+.info-label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #7c89a0;
+
+  font-size: 10px;
+
+  font-weight: 500;
+}
+
+.info-value {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  color: #24314b;
+
+  font-size: 12px;
+
+  font-weight: 600;
+}
+
+.info-value svg {
+  color: #536fe0;
+
+  flex-shrink: 0;
+}
+
+
+/* =========================================
+   STATUS VALUE
+========================================= */
+
+.status-value {
+  color: #15945c;
+}
+
+
+/* =========================================
+   RESPONSIVE
+========================================= */
+
+@media (max-width: 800px) {
+
+  .recruiter-profile-main {
+    margin-left: 173px;
+
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .recruiter-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+
+@media (max-width: 600px) {
+
+  .recruiter-profile-main {
+    margin-left: 0;
+  }
+
+  .recruiter-profile-card-header {
+    padding: 20px;
+  }
+
+  .recruiter-profile-section {
+    padding: 20px;
+  }
+
+}

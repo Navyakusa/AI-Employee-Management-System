@@ -5,8 +5,8 @@ import {
   UserRound,
   Settings,
   LogOut,
+  ChevronDown,
 } from "lucide-react";
-
 import { useNavigate } from "react-router-dom";
 
 import "./RecruiterTopbar.css";
@@ -19,37 +19,41 @@ function RecruiterTopbar() {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("loggedInUser");
+    localStorage.removeItem("role");
 
     navigate("/login");
+  };
+
+  const handleProfile = () => {
+    setShowProfileMenu(false);
+    navigate("/recruiter/profile");
+  };
+
+  const handleSettings = () => {
+    setShowProfileMenu(false);
+    navigate("/recruiter/settings");
   };
 
   return (
     <header className="recruiter-topbar">
 
-      {/* Search */}
-
+      {/* SEARCH */}
       <div className="recruiter-topbar-search">
-
-        <Search size={16} />
+        <Search size={17} />
 
         <input
           type="text"
           placeholder="Search candidates, jobs..."
         />
-
       </div>
 
-      {/* Right Side */}
-
+      {/* RIGHT SIDE */}
       <div className="recruiter-topbar-right">
 
-        {/* Notification */}
-
+        {/* NOTIFICATION */}
         <button
           className="recruiter-notification-btn"
-          onClick={() =>
-            navigate("/recruiter/notifications")
-          }
+          onClick={() => navigate("/recruiter/notifications")}
           title="Notifications"
         >
           <Bell size={18} />
@@ -57,14 +61,14 @@ function RecruiterTopbar() {
           <span className="notification-dot"></span>
         </button>
 
-        {/* Profile */}
-
+        {/* RECRUITER PROFILE */}
         <div className="recruiter-profile-container">
 
           <button
+            type="button"
             className="recruiter-profile-btn"
             onClick={() =>
-              setShowProfileMenu(!showProfileMenu)
+              setShowProfileMenu((prev) => !prev)
             }
           >
 
@@ -77,62 +81,68 @@ function RecruiterTopbar() {
               <span>Recruiter</span>
             </div>
 
-            <span className="recruiter-profile-arrow">
-              {showProfileMenu ? "⌃" : "⌄"}
-            </span>
+            <ChevronDown
+              size={15}
+              className={`recruiter-arrow ${
+                showProfileMenu ? "open" : ""
+              }`}
+            />
 
           </button>
 
-          {/* Dropdown */}
-
+          {/* PROFILE MENU */}
           {showProfileMenu && (
-
             <div className="recruiter-profile-dropdown">
 
+              {/* MY PROFILE */}
               <button
-                onClick={() => {
-                  setShowProfileMenu(false);
-                  navigate("/recruiter/profile");
-                }}
+                type="button"
+                onClick={handleProfile}
               >
-                <UserRound size={16} />
+                <UserRound size={17} />
 
                 <div>
                   <strong>My Profile</strong>
-                  <span>View your profile</span>
+                  <span>
+                    View your profile
+                  </span>
                 </div>
               </button>
 
+              {/* SETTINGS */}
               <button
-                onClick={() => {
-                  setShowProfileMenu(false);
-                  navigate("/recruiter/settings");
-                }}
+                type="button"
+                onClick={handleSettings}
               >
-                <Settings size={16} />
+                <Settings size={17} />
 
                 <div>
                   <strong>Settings</strong>
-                  <span>Account preferences</span>
+                  <span>
+                    Account preferences
+                  </span>
                 </div>
               </button>
 
               <div className="recruiter-dropdown-divider"></div>
 
+              {/* LOGOUT */}
               <button
+                type="button"
                 className="recruiter-logout-btn"
                 onClick={handleLogout}
               >
-                <LogOut size={16} />
+                <LogOut size={17} />
 
                 <div>
                   <strong>Logout</strong>
-                  <span>Sign out of your account</span>
+                  <span>
+                    Sign out of your account
+                  </span>
                 </div>
               </button>
 
             </div>
-
           )}
 
         </div>
