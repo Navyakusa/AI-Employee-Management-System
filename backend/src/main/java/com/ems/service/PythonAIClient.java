@@ -469,4 +469,43 @@ public class PythonAIClient {
             );
         }
     }
+    public SalaryPredictionResponseDto predictSalary(
+            SalaryPredictionRequestDto request) {
+
+        try {
+
+            if (request == null) {
+                throw new RuntimeException(
+                        "Salary prediction request is null"
+                );
+            }
+
+            String jsonBody =
+                    objectMapper.writeValueAsString(request);
+
+            HttpResponse<String> response =
+                    sendPostRequest(
+                            AI_BASE_URL + "/predict-salary",
+                            jsonBody
+                    );
+
+            validateResponse(
+                    response,
+                    "Salary Prediction"
+            );
+
+            return objectMapper.readValue(
+                    response.body(),
+                    SalaryPredictionResponseDto.class
+            );
+
+        } catch (Exception e) {
+
+            throw new RuntimeException(
+                    "Python Salary Prediction call failed: "
+                            + e.getMessage(),
+                    e
+            );
+        }
+    }
 }
