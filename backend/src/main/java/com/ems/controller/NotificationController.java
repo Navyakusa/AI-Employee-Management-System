@@ -1,6 +1,7 @@
 package com.ems.controller;
 
 import com.ems.common.ApiResponse;
+import com.ems.dto.NotificationStatsDto;
 import com.ems.entity.Notification;
 import com.ems.service.NotificationService;
 import org.springframework.http.ResponseEntity;
@@ -84,6 +85,28 @@ public class NotificationController {
 
         return notificationService
                 .markAllAsRead(
+                        authentication
+                );
+    }
+    @GetMapping("/stats")
+    public ResponseEntity<ApiResponse<NotificationStatsDto>>
+    getNotificationStats(
+            Authentication authentication
+    ) {
+
+        return notificationService
+                .getNotificationStats(authentication);
+    }
+    @DeleteMapping("/{notificationId}")
+    public ResponseEntity<ApiResponse<Void>>
+    deleteNotification(
+            @PathVariable Long notificationId,
+            Authentication authentication
+    ) {
+
+        return notificationService
+                .deleteNotification(
+                        notificationId,
                         authentication
                 );
     }

@@ -1,6 +1,7 @@
 package com.ems.service;
 
 import com.ems.common.ApiResponse;
+import com.ems.dto.NotificationStatsDto;
 import com.ems.entity.Notification;
 import com.ems.entity.User;
 import com.ems.repository.NotificationRepository;
@@ -274,6 +275,122 @@ public class NotificationService {
                     response,
                     HttpStatus.BAD_REQUEST
             );
+        }
+    }
+    public ResponseEntity<ApiResponse<NotificationStatsDto>>
+    getNotificationStats(Authentication authentication) {
+
+        try {
+
+            String email = authentication.getName();
+
+            User user = userRepository
+                    .findByEmailIgnoreCase(email)
+                    .orElseThrow(() ->
+                            new RuntimeException("User not found")
+                    );
+
+            long total =
+                    notificationRepository
+                            .countByUserId(
+                                    user.getUserId()
+                            );
+
+            long unread =
+                    notificationRepository
+                            .countByUserIdAndReadStatusFalse(
+                                    user.getUserId()
+                            );
+
+            NotificationStatsDto stats =
+                    new NotificationStatsDto(
+                            total,
+                            unread
+                    );
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Notification statistics fetched successfully",
+                            stats
+                    )
+            );
+
+        } catch (Exception e) {
+
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    e.getMessage(),
+                                    null
+                            )
+                    );
+        }
+    }
+    public ResponseEntity<ApiResponse<Void>>
+    deleteNotification(
+            Long notificationId,
+            Authentication authentication
+    ) {
+
+        try {
+
+            String email = authentication.getName();
+
+            User user = userRepository
+                    .findByEmailIgnoreCase(email)
+                    .orElseThrow(() ->
+                            new RuntimeException("User not found")
+                    );
+
+            Notification notification =
+                    notificationRepository
+                            .findById(notificationId)
+                            .orElseThrow(() ->
+                                    new RuntimeException(
+                                            "Notification not found"
+                                    )
+                            );
+
+            // User can delete only their own notification
+            if (!notification.getUserId()
+                    .equals(user.getUserId())) {
+
+                return ResponseEntity
+                        .status(HttpStatus.FORBIDDEN)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "You are not allowed to delete this notification",
+                                        null
+                                )
+                        );
+            }
+
+            notificationRepository
+                    .delete(notification);
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Notification deleted successfully",
+                            null
+                    )
+            );
+
+        } catch (Exception e) {
+
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    e.getMessage(),
+                                    null
+                            )
+                    );
         }
     }
 }

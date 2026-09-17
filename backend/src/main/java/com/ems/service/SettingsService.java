@@ -15,7 +15,6 @@ public class SettingsService {
         this.settingsRepository = settingsRepository;
     }
 
-    // Get settings
     public Settings getSettings() {
 
         List<Settings> settings = settingsRepository.findAll();

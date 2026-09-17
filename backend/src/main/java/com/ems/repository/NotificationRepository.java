@@ -19,4 +19,6 @@ public interface NotificationRepository
     List<Notification> findByUserIdAndReadStatusFalse(
             Long userId
     );
+
+    long countByUserId(Long userId);
 }

@@ -1,7 +1,9 @@
 package com.ems.controller;
 
 import com.ems.common.ApiResponse;
+import com.ems.dto.InterviewManagementDto;
 import com.ems.dto.InterviewRequestDto;
+import com.ems.dto.InterviewStatsDto;
 import com.ems.entity.Interview;
 import com.ems.service.InterviewService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,5 +72,51 @@ public class InterviewController {
                 interviewId,
                 status
         );
+    }
+    @GetMapping("/management")
+    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
+    getInterviewManagementData() {
+
+        return interviewService
+                .getInterviewManagementData();
+    }
+    @GetMapping("/stats")
+    public ResponseEntity<ApiResponse<InterviewStatsDto>>
+    getInterviewStats() {
+
+        return interviewService.getInterviewStats();
+    }
+    @GetMapping("/upcoming")
+    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
+    getUpcomingInterviews() {
+
+        return interviewService
+                .getUpcomingInterviews();
+    }
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
+    searchInterviews(
+            @RequestParam String keyword
+    ) {
+
+        return interviewService.searchInterviews(keyword);
+    }
+    @GetMapping("/status/{status}")
+    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
+    getInterviewsByStatus(
+            @PathVariable String status
+    ) {
+
+        return interviewService
+                .getInterviewsByStatus(status);
+    }
+    @GetMapping("/{interviewId}")
+    public ResponseEntity<ApiResponse<InterviewManagementDto>>
+    getInterviewDetails(
+            @PathVariable Long interviewId
+    ) {
+
+        return interviewService
+                .getInterviewDetails(interviewId);
     }
 }

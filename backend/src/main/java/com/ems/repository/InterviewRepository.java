@@ -73,4 +73,13 @@ public interface InterviewRepository
     );
 
     Optional<Object> findFirstByCandidateIdAndJobIdOrderByInterviewDateTimeDesc(Long candidateId, Long jobId);
+
+
+    List<Interview> findByStatus(InterviewStatus status);
+
+
+    List<Interview>
+    findByInterviewDateTimeGreaterThanEqualOrderByInterviewDateTimeAsc(
+            LocalDateTime dateTime
+    );
 }

@@ -27,7 +27,7 @@ public class Interview {
     private Long interviewerId;
 
     private LocalDateTime interviewDateTime;
-
+    private String interviewType;
     private String interviewMode;
 
     private String meetingLink;

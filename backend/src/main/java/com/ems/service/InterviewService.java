@@ -1,12 +1,15 @@
 package com.ems.service;
 
 import com.ems.common.ApiResponse;
+import com.ems.dto.InterviewManagementDto;
 import com.ems.dto.InterviewRequestDto;
+import com.ems.dto.InterviewStatsDto;
 import com.ems.entity.Application;
 import com.ems.entity.Interview;
 import com.ems.entity.User;
 import com.ems.repository.ApplicationRepository;
 import com.ems.repository.InterviewRepository;
+import com.ems.repository.JobRepository;
 import com.ems.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -20,7 +23,8 @@ import com.ems.common.InterviewStatus;
 
 @Service
 public class InterviewService {
-
+    @Autowired
+    private JobRepository jobRepository;
     @Autowired
     private InterviewRepository interviewRepository;
 
@@ -54,7 +58,9 @@ public class InterviewService {
             interview.setCandidateId(
                     application.getCandidateId()
             );
-
+            interview.setInterviewType(
+                    dto.getInterviewType()
+            );
             interview.setJobId(
                     application.getJobId()
             );
@@ -239,7 +245,9 @@ public class InterviewService {
             interview.setInterviewDateTime(
                     dto.getInterviewDateTime()
             );
-
+            interview.setInterviewType(
+                    dto.getInterviewType()
+            );
             interview.setInterviewMode(
                     dto.getInterviewMode()
             );
@@ -363,6 +371,382 @@ public class InterviewService {
                     response,
                     HttpStatus.BAD_REQUEST
             );
+        }
+    }
+    private InterviewManagementDto toManagementDto(
+            Interview interview
+    ) {
+
+        InterviewManagementDto dto =
+                new InterviewManagementDto();
+
+        dto.setInterviewId(
+                interview.getInterviewId()
+        );
+
+        dto.setApplicationId(
+                interview.getApplicationId()
+        );
+
+        dto.setCandidateId(
+                interview.getCandidateId()
+        );
+
+        dto.setJobId(
+                interview.getJobId()
+        );
+
+        dto.setInterviewerId(
+                interview.getInterviewerId()
+        );
+
+        dto.setInterviewDateTime(
+                interview.getInterviewDateTime()
+        );
+
+        dto.setInterviewType(
+                interview.getInterviewType()
+        );
+
+        dto.setInterviewMode(
+                interview.getInterviewMode()
+        );
+
+        dto.setMeetingLink(
+                interview.getMeetingLink()
+        );
+
+        dto.setLocation(
+                interview.getLocation()
+        );
+
+        dto.setNotes(
+                interview.getNotes()
+        );
+
+        dto.setStatus(
+                interview.getStatus()
+        );
+
+
+        // Candidate
+        if (interview.getCandidateId() != null) {
+
+            userRepository
+                    .findById(interview.getCandidateId())
+                    .ifPresent(user -> {
+
+                        dto.setCandidateName(
+                                user.getUserName()
+                        );
+
+                        dto.setCandidateEmail(
+                                user.getEmail()
+                        );
+                    });
+        }
+
+
+        // Job
+        if (interview.getJobId() != null) {
+
+            jobRepository
+                    .findById(interview.getJobId())
+                    .ifPresent(job ->
+                            dto.setPosition(
+                                    job.getTitle()
+                            )
+                    );
+        }
+
+
+        // Interviewer
+        if (interview.getInterviewerId() != null) {
+
+            userRepository
+                    .findById(interview.getInterviewerId())
+                    .ifPresent(user ->
+                            dto.setInterviewerName(
+                                    user.getUserName()
+                            )
+                    );
+        }
+
+        return dto;
+    }
+    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
+    getInterviewManagementData() {
+
+        try {
+
+            List<InterviewManagementDto> result =
+                    interviewRepository
+                            .findAll()
+                            .stream()
+                            .map(this::toManagementDto)
+                            .toList();
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Interview management data retrieved successfully",
+                            result
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to retrieve interviews",
+                                    null
+                            )
+                    );
+        }
+    }
+    public ResponseEntity<ApiResponse<InterviewStatsDto>>
+    getInterviewStats() {
+
+        try {
+
+            long total =
+                    interviewRepository.count();
+
+            long scheduled =
+                    interviewRepository.countByStatus(
+                            InterviewStatus.SCHEDULED
+                    );
+
+            long completed =
+                    interviewRepository.countByStatus(
+                            InterviewStatus.COMPLETED
+                    );
+
+            long cancelled =
+                    interviewRepository.countByStatus(
+                            InterviewStatus.CANCELLED
+                    );
+
+            InterviewStatsDto stats =
+                    new InterviewStatsDto(
+                            total,
+                            scheduled,
+                            completed,
+                            cancelled
+                    );
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Interview statistics retrieved successfully",
+                            stats
+                    )
+            );
+
+        } catch (Exception e) {
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to retrieve interview statistics",
+                                    null
+                            )
+                    );
+        }
+    }
+    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
+    getUpcomingInterviews() {
+
+        try {
+
+            List<InterviewManagementDto> result =
+                    interviewRepository
+                            .findByInterviewDateTimeGreaterThanEqualOrderByInterviewDateTimeAsc(
+                                    LocalDateTime.now()
+                            )
+                            .stream()
+                            .filter(interview ->
+                                    interview.getStatus()
+                                            == InterviewStatus.SCHEDULED
+                                            ||
+                                            interview.getStatus()
+                                                    == InterviewStatus.RESCHEDULED
+                            )
+                            .map(this::toManagementDto)
+                            .toList();
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Upcoming interviews retrieved successfully",
+                            result
+                    )
+            );
+
+        } catch (Exception e) {
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to retrieve upcoming interviews",
+                                    null
+                            )
+                    );
+        }
+    }
+    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
+    searchInterviews(String keyword) {
+
+        try {
+
+            String search = keyword == null
+                    ? ""
+                    : keyword.trim().toLowerCase();
+
+            List<InterviewManagementDto> result =
+                    interviewRepository.findAll()
+                            .stream()
+                            .map(this::toManagementDto)
+                            .filter(dto ->
+                                    containsIgnoreCase(dto.getCandidateName(), search)
+                                            || containsIgnoreCase(dto.getCandidateEmail(), search)
+                                            || containsIgnoreCase(dto.getPosition(), search)
+                                            || containsIgnoreCase(dto.getInterviewerName(), search)
+                            )
+                            .toList();
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Interview search completed successfully",
+                            result
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(
+                            false,
+                            "Failed to search interviews",
+                            null
+                    ));
+        }
+    }
+
+    private boolean containsIgnoreCase(
+            String value,
+            String search
+    ) {
+        return value != null &&
+                value.toLowerCase().contains(search);
+    }
+    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
+    getInterviewsByStatus(String status) {
+
+        try {
+
+            InterviewStatus interviewStatus;
+
+            try {
+                interviewStatus =
+                        InterviewStatus.valueOf(
+                                status.trim().toUpperCase()
+                        );
+            } catch (IllegalArgumentException e) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(new ApiResponse<>(
+                                false,
+                                "Invalid interview status: " + status,
+                                null
+                        ));
+            }
+
+            List<InterviewManagementDto> result =
+                    interviewRepository
+                            .findByStatus(interviewStatus)
+                            .stream()
+                            .map(this::toManagementDto)
+                            .toList();
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Interviews filtered successfully",
+                            result
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(
+                            false,
+                            "Failed to filter interviews",
+                            null
+                    ));
+        }
+    }
+    public ResponseEntity<ApiResponse<InterviewManagementDto>>
+    getInterviewDetails(Long interviewId) {
+
+        try {
+
+            Interview interview =
+                    interviewRepository
+                            .findById(interviewId)
+                            .orElse(null);
+
+            if (interview == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Interview not found",
+                                null
+                        ));
+            }
+
+            InterviewManagementDto dto =
+                    toManagementDto(interview);
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Interview details retrieved successfully",
+                            dto
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(
+                            false,
+                            "Failed to retrieve interview details",
+                            null
+                    ));
         }
     }
 }

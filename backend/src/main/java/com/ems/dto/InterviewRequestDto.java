@@ -22,4 +22,6 @@ public class InterviewRequestDto {
     private String location;
 
     private String notes;
+
+    private String interviewType;
 }
