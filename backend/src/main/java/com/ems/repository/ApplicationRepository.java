@@ -33,6 +33,10 @@ public interface ApplicationRepository
 
     List<Application> findTop5ByOrderByAppliedAtDesc();
 
+    long countByCandidateId(Long candidateId);
+
+    List<Application> findTop5ByCandidateIdOrderByAppliedAtDesc(Long candidateId);
+
     @Query("""
        SELECT a.status, COUNT(a)
        FROM Application a

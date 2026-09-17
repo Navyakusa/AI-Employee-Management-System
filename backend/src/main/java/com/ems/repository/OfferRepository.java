@@ -18,8 +18,7 @@ public interface OfferRepository
             OfferStatus status
     );
 
-    List<Offer>
-    findByCandidateNameContainingIgnoreCaseOrPositionContainingIgnoreCaseOrOfferCodeContainingIgnoreCase(
+    List<Offer> findByCandidateNameContainingIgnoreCaseOrPositionContainingIgnoreCaseOrOfferCodeContainingIgnoreCase(
             String candidateName,
             String position,
             String offerCode
@@ -28,4 +27,8 @@ public interface OfferRepository
     long countByStatus(
             OfferStatus status
     );
+
+    List<Offer> findByCandidateId(Long candidateId);
+
+    long countByCandidateId(Long candidateId);
 }

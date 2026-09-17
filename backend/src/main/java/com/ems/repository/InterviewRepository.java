@@ -13,23 +13,18 @@ import java.util.Optional;
 public interface InterviewRepository
         extends JpaRepository<Interview, Long> {
 
-    // Existing: get interviews for a candidate
     List<Interview> findByCandidateId(Long candidateId);
 
-    // Existing: get interviews for a job
     List<Interview> findByJobId(Long jobId);
 
-    // Existing: count interviews by status
     long countByStatus(InterviewStatus status);
 
-    // Existing: get upcoming interviews
     List<Interview>
     findTop5ByStatusAndInterviewDateTimeAfterOrderByInterviewDateTimeAsc(
             InterviewStatus interviewStatus,
             LocalDateTime now
     );
 
-    // Existing: dashboard interview status counts
     @Query("""
        SELECT i.status, COUNT(i)
        FROM Interview i
@@ -38,7 +33,6 @@ public interface InterviewRepository
        """)
     List<Object[]> countInterviewsByStatus();
 
-    // Existing: count interviews by department
     @Query("""
        SELECT COUNT(i)
        FROM Interview i
@@ -52,26 +46,22 @@ public interface InterviewRepository
             @Param("department") String department
     );
 
-    // ---------------------------------------------------------
     // Interviewer - My Interviews
-    // ---------------------------------------------------------
 
-    // Get all interviews assigned to a specific interviewer
     List<Interview> findByInterviewerId(Long interviewerId);
 
-    // Get interviews assigned to an interviewer with a specific status
     List<Interview> findByInterviewerIdAndStatus(
             Long interviewerId,
             InterviewStatus status
     );
 
-    // Get interviews assigned to an interviewer within a date/time range
     List<Interview> findByInterviewerIdAndInterviewDateTimeBetween(
             Long interviewerId,
             LocalDateTime start,
             LocalDateTime end
     );
 
+<<<<<<< Updated upstream
     Optional<Object> findFirstByCandidateIdAndJobIdOrderByInterviewDateTimeDesc(Long candidateId, Long jobId);
 
 
@@ -81,5 +71,12 @@ public interface InterviewRepository
     List<Interview>
     findByInterviewDateTimeGreaterThanEqualOrderByInterviewDateTimeAsc(
             LocalDateTime dateTime
+=======
+    // Existing Candidate Decision functionality
+
+    Optional<Interview> findFirstByCandidateIdAndJobIdOrderByInterviewDateTimeDesc(
+            Long candidateId,
+            Long jobId
+>>>>>>> Stashed changes
     );
 }
