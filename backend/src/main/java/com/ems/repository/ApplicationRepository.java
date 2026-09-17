@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ApplicationRepository
         extends JpaRepository<Application, Long> {
@@ -56,4 +57,7 @@ public interface ApplicationRepository
     List<Application> findByStatusIn(
             List<ApplicationStatus> statuses
     );
+    Optional<Application>
+    findFirstByCandidateIdOrderByAppliedAtDesc(Long candidateId);
+
 }

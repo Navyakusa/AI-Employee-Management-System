@@ -14,7 +14,33 @@ public class CandidateController {
     public CandidateController(CandidateService candidateService) {
         this.candidateService = candidateService;
     }
+    @GetMapping("/search")
+    public ResponseEntity<?> searchCandidates(
+            @RequestParam String keyword) {
 
+        return ResponseEntity.ok(
+                candidateService.searchCandidates(keyword)
+        );
+    }
+
+
+    @GetMapping("/status/{status}")
+    public ResponseEntity<?> getCandidatesByStatus(
+            @PathVariable String status) {
+
+        return ResponseEntity.ok(
+                candidateService.getCandidatesByStatus(status)
+        );
+    }
+
+
+    @GetMapping("/stats")
+    public ResponseEntity<?> getCandidateStats() {
+
+        return ResponseEntity.ok(
+                candidateService.getCandidateStats()
+        );
+    }
     // Create a candidate
     @PostMapping("/create")
     public ResponseEntity<Candidate> createCandidate(

@@ -4,11 +4,11 @@ spring:
   ai:
     service:
       base-url: http://localhost:8000
- 
+
   datasource:
-    url: {POSTGRES_URL}
-    username: {POSTGRES_USERNAME}
-    password: {"POSTGRES_PASSWORD"}
+    url: {DATABASE_URL}
+    username: {DATABSE_USERNAME}
+    password: {"DATABASE_PASSWORD"}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 5
@@ -27,6 +27,9 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
- 
+
 server:
   port: 8080
+ml:
+  service:
+    base-url: http://localhost:8000

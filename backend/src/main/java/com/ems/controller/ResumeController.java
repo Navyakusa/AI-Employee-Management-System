@@ -1,8 +1,10 @@
 package com.ems.controller;
 
 import com.ems.common.ApiResponse;
+import com.ems.dto.ResumeManagementDto;
 import com.ems.dto.ResumeRequestDto;
 import com.ems.dto.ResumeResponseDto;
+import com.ems.dto.ResumeStatsDto;
 import com.ems.service.ResumeService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -79,5 +81,41 @@ public class ResumeController {
             @PathVariable Long id) {
 
         return resumeService.viewResume(id);
+    }
+    @GetMapping("/{id}/download")
+    public ResponseEntity<?> downloadResume(
+            @PathVariable Long id) {
+
+        return resumeService.downloadResume(id);
+    }
+    @GetMapping("/management")
+    public ResponseEntity<ApiResponse<List<ResumeManagementDto>>>
+    getResumeManagementData() {
+
+        return resumeService.getResumeManagementData();
+    }
+
+
+    @GetMapping("/stats")
+    public ResponseEntity<ApiResponse<ResumeStatsDto>>
+    getResumeStats() {
+
+        return resumeService.getResumeStats();
+    }
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<List<ResumeManagementDto>>>
+    searchResumes(
+            @RequestParam String keyword) {
+
+        return resumeService.searchResumes(keyword);
+    }
+
+
+    @GetMapping("/status/{status}")
+    public ResponseEntity<ApiResponse<List<ResumeManagementDto>>>
+    getResumesByStatus(
+            @PathVariable String status) {
+
+        return resumeService.getResumesByStatus(status);
     }
 }

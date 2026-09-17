@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface AIResumeScreeningRepository
@@ -21,4 +22,12 @@ public interface AIResumeScreeningRepository
     Double getAverageScreeningScore();
 
     List<AIResumeScreening> findTop5ByOrderByScreeningScoreDesc();
+
+    Optional<AIResumeScreening>
+    findFirstByCandidateIdAndJobIdOrderByIdDesc(
+            Long candidateId,
+            Long jobId
+    );
+
+    long countByScreeningScoreGreaterThanEqual(Double score);
 }

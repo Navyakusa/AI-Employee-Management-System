@@ -1,5 +1,6 @@
 package com.ems.service;
 
+import com.ems.dto.CandidateStatsDto;
 import com.ems.entity.Candidate;
 import com.ems.repository.CandidateRepository;
 import org.springframework.stereotype.Service;
@@ -14,7 +15,37 @@ public class CandidateService {
     public CandidateService(CandidateRepository candidateRepository) {
         this.candidateRepository = candidateRepository;
     }
+    // Search candidate by name or email
+    public List<Candidate> searchCandidates(String keyword) {
 
+        return candidateRepository
+                .findByNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
+                        keyword,
+                        keyword
+                );
+    }
+
+
+    // Filter candidates by status
+    public List<Candidate> getCandidatesByStatus(String status) {
+
+        return candidateRepository.findByStatusIgnoreCase(status);
+    }
+
+
+    // Candidate statistics
+    public CandidateStatsDto getCandidateStats() {
+
+        long totalCandidates = candidateRepository.count();
+
+        long shortlisted =
+                candidateRepository.countByStatusIgnoreCase("SHORTLISTED");
+
+        return new CandidateStatsDto(
+                totalCandidates,
+                shortlisted
+        );
+    }
     // Create a candidate
     public Candidate createCandidate(Candidate candidate) {
         return candidateRepository.save(candidate);
