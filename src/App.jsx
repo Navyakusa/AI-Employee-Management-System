@@ -9,6 +9,7 @@ import RecruiterResumes from "./pages/recruiter/RecruiterResumes";
 import RecruiterScreening from "./pages/recruiter/RecruiterScreening";
 import RecruiterQuestions from "./pages/recruiter/RecruiterQuestions";
 import RecruiterInterviews from "./pages/recruiter/RecruiterInterviews";
+import CandidateDashboard from "./pages/candidate/CandidateDashboard";
 
 
 
@@ -85,7 +86,6 @@ import InterviewerCandidates from "./pages/interviewer/InterviewerCandidates";
 import InterviewerNotifications from "./pages/interviewer/InterviewerNotifications";
 import InterviewerProfile from "./pages/interviewer/InterviewerProfile";
 import InterviewerSettings from "./pages/interviewer/InterviewerSettings";
-import CandidateDashboard from "./pages/candidate/CandidateDashboard";
 import CandidateJobs from "./pages/candidate/CandidateJobs";
 import CandidateJobDetails from "./pages/candidate/CandidateJobDetails";
 import CandidateJobApplication from "./pages/candidate/CandidateJobApplication";
