@@ -10,43 +10,45 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-public interface InterviewRepository
-        extends JpaRepository<Interview, Long> {
+public interface InterviewRepository extends JpaRepository<Interview, Long> {
 
     List<Interview> findByCandidateId(Long candidateId);
 
     List<Interview> findByJobId(Long jobId);
 
+    List<Interview> findByStatus(InterviewStatus status);
+
     long countByStatus(InterviewStatus status);
 
-    List<Interview>
-    findTop5ByStatusAndInterviewDateTimeAfterOrderByInterviewDateTimeAsc(
-            InterviewStatus interviewStatus,
-            LocalDateTime now
+    List<Interview> findByInterviewDateTimeGreaterThanEqualOrderByInterviewDateTimeAsc(
+            LocalDateTime dateTime
+    );
+
+    List<Interview> findTop5ByStatusAndInterviewDateTimeAfterOrderByInterviewDateTimeAsc(
+            InterviewStatus status,
+            LocalDateTime dateTime
     );
 
     @Query("""
-       SELECT i.status, COUNT(i)
-       FROM Interview i
-       WHERE i.status IS NOT NULL
-       GROUP BY i.status
-       """)
+        SELECT i.status, COUNT(i)
+        FROM Interview i
+        WHERE i.status IS NOT NULL
+        GROUP BY i.status
+        """)
     List<Object[]> countInterviewsByStatus();
 
     @Query("""
-       SELECT COUNT(i)
-       FROM Interview i
-       WHERE i.jobId IN (
-           SELECT j.id
-           FROM Job j
-           WHERE LOWER(j.department) = LOWER(:department)
-       )
-       """)
+        SELECT COUNT(i)
+        FROM Interview i
+        WHERE i.jobId IN (
+            SELECT j.id
+            FROM Job j
+            WHERE LOWER(j.department) = LOWER(:department)
+        )
+        """)
     long countInterviewsByDepartment(
             @Param("department") String department
     );
-
-    // Interviewer - My Interviews
 
     List<Interview> findByInterviewerId(Long interviewerId);
 
@@ -61,22 +63,8 @@ public interface InterviewRepository
             LocalDateTime end
     );
 
-<<<<<<< Updated upstream
-    Optional<Object> findFirstByCandidateIdAndJobIdOrderByInterviewDateTimeDesc(Long candidateId, Long jobId);
-
-
-    List<Interview> findByStatus(InterviewStatus status);
-
-
-    List<Interview>
-    findByInterviewDateTimeGreaterThanEqualOrderByInterviewDateTimeAsc(
-            LocalDateTime dateTime
-=======
-    // Existing Candidate Decision functionality
-
     Optional<Interview> findFirstByCandidateIdAndJobIdOrderByInterviewDateTimeDesc(
             Long candidateId,
             Long jobId
->>>>>>> Stashed changes
     );
 }

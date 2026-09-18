@@ -17,11 +17,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -36,32 +35,42 @@ public class CandidateDashboardService {
     private final OfferRepository offerRepository;
     private final JobRepository jobRepository;
 
-    public CandidateDashboardDto getDashboard(
-            String email
-    ) {
+    public CandidateDashboardDto getDashboard(String email) {
 
+        /*
+         * Find the candidate using the email stored in the
+         * authenticated JWT.
+         */
         Candidate candidate = candidateRepository
                 .findByEmailIgnoreCase(email)
                 .orElseThrow(() ->
-                        new RuntimeException("Candidate not found")
+                        new RuntimeException(
+                                "Candidate profile not found for authenticated user"
+                        )
                 );
 
         Long candidateId = candidate.getId();
 
         /*
-         * 1. Total applications
+         * ---------------------------------------------------------
+         * 1. TOTAL APPLICATIONS
+         * ---------------------------------------------------------
          */
         long totalApplications =
                 applicationRepository.countByCandidateId(candidateId);
 
         /*
-         * 2. Total offers
+         * ---------------------------------------------------------
+         * 2. TOTAL OFFERS
+         * ---------------------------------------------------------
          */
         long totalOffers =
                 offerRepository.countByCandidateId(candidateId);
 
         /*
-         * 3. Candidate interviews
+         * ---------------------------------------------------------
+         * 3. CANDIDATE INTERVIEWS
+         * ---------------------------------------------------------
          */
         List<Interview> candidateInterviews =
                 interviewRepository.findByCandidateId(candidateId);
@@ -69,13 +78,15 @@ public class CandidateDashboardService {
         LocalDateTime now = LocalDateTime.now();
 
         /*
-         * Only future interviews are considered upcoming.
+         * Only interviews whose date/time is in the future
+         * are counted as upcoming.
          */
         List<Interview> upcomingInterviews =
                 candidateInterviews.stream()
                         .filter(interview ->
                                 interview.getInterviewDateTime() != null
-                                        && interview.getInterviewDateTime().isAfter(now)
+                                        && interview.getInterviewDateTime()
+                                        .isAfter(now)
                         )
                         .sorted(
                                 Comparator.comparing(
@@ -88,7 +99,9 @@ public class CandidateDashboardService {
                 upcomingInterviews.size();
 
         /*
-         * 4. Upcoming interview shown on dashboard
+         * ---------------------------------------------------------
+         * 4. NEXT UPCOMING INTERVIEW
+         * ---------------------------------------------------------
          */
         CandidateDashboardInterviewDto upcomingInterview = null;
 
@@ -99,8 +112,12 @@ public class CandidateDashboardService {
 
             upcomingInterview =
                     CandidateDashboardInterviewDto.builder()
-                            .interviewId(interview.getInterviewId())
-                            .jobId(interview.getJobId())
+                            .interviewId(
+                                    interview.getInterviewId()
+                            )
+                            .jobId(
+                                    interview.getJobId()
+                            )
                             .interviewDateTime(
                                     interview.getInterviewDateTime()
                             )
@@ -125,7 +142,9 @@ public class CandidateDashboardService {
         }
 
         /*
-         * 5. Recent applications
+         * ---------------------------------------------------------
+         * 5. RECENT APPLICATIONS
+         * ---------------------------------------------------------
          */
         List<Application> applications =
                 applicationRepository
@@ -133,12 +152,18 @@ public class CandidateDashboardService {
                                 candidateId
                         );
 
+        /*
+         * Get all job IDs used by the recent applications.
+         */
         Set<Long> applicationJobIds =
                 applications.stream()
                         .map(Application::getJobId)
-                        .filter(java.util.Objects::nonNull)
+                        .filter(Objects::nonNull)
                         .collect(Collectors.toSet());
 
+        /*
+         * Load the corresponding jobs in one repository call.
+         */
         Map<Long, Job> applicationJobs =
                 jobRepository.findAllById(applicationJobIds)
                         .stream()
@@ -149,6 +174,9 @@ public class CandidateDashboardService {
                                 )
                         );
 
+        /*
+         * Convert applications into dashboard DTOs.
+         */
         List<CandidateDashboardApplicationDto> recentApplications =
                 applications.stream()
                         .map(application -> {
@@ -183,7 +211,9 @@ public class CandidateDashboardService {
                                     )
                                     .status(
                                             application.getStatus() != null
-                                                    ? application.getStatus().name()
+                                                    ? application
+                                                    .getStatus()
+                                                    .name()
                                                     : null
                                     )
                                     .appliedAt(
@@ -194,47 +224,73 @@ public class CandidateDashboardService {
                         .toList();
 
         /*
-         * 6. Profile completion
+         * ---------------------------------------------------------
+         * 6. PROFILE COMPLETION
+         * ---------------------------------------------------------
          */
         int profileCompletionPercentage =
                 calculateProfileCompletion(candidate);
 
         /*
-         * 7. Recommended jobs
-         *
-         * We use currently OPEN jobs and exclude jobs
-         * that this candidate has already applied for.
-         *
-         * This is the dashboard recommendation list.
+         * ---------------------------------------------------------
+         * 7. RECOMMENDED JOBS
+         * ---------------------------------------------------------
          */
         List<CandidateDashboardJobDto> recommendedJobs =
-                getRecommendedJobs(
-                        candidateId
-                );
+                getRecommendedJobs(candidateId);
 
         /*
-         * 8. Final dashboard response
+         * ---------------------------------------------------------
+         * 8. FINAL DASHBOARD RESPONSE
+         * ---------------------------------------------------------
          */
         return CandidateDashboardDto.builder()
-                .candidateId(candidate.getId())
-                .candidateName(candidate.getName())
-                .email(candidate.getEmail())
-                .totalApplications(totalApplications)
-                .upcomingInterviews(upcomingInterviewCount)
-                .totalOffers(totalOffers)
+                .candidateId(
+                        candidate.getId()
+                )
+                .candidateName(
+                        candidate.getName()
+                )
+                .email(
+                        candidate.getEmail()
+                )
+                .totalApplications(
+                        totalApplications
+                )
+                .upcomingInterviews(
+                        upcomingInterviewCount
+                )
+                .totalOffers(
+                        totalOffers
+                )
                 .profileCompletionPercentage(
                         profileCompletionPercentage
                 )
-                .recentApplications(recentApplications)
-                .upcomingInterview(upcomingInterview)
-                .recommendedJobs(recommendedJobs)
+                .recentApplications(
+                        recentApplications
+                )
+                .upcomingInterview(
+                        upcomingInterview
+                )
+                .recommendedJobs(
+                        recommendedJobs
+                )
                 .build();
     }
 
+    /*
+     * =============================================================
+     * PROFILE COMPLETION
+     * =============================================================
+     */
     private int calculateProfileCompletion(
             Candidate candidate
     ) {
 
+        /*
+         * Candidate fields used for the profile completion
+         * percentage.
+         */
         int totalFields = 12;
         int completedFields = 0;
 
@@ -289,16 +345,27 @@ public class CandidateDashboardService {
         return (completedFields * 100) / totalFields;
     }
 
+    /*
+     * Check whether a String has usable content.
+     */
     private boolean hasText(String value) {
 
         return value != null
                 && !value.trim().isEmpty();
     }
 
+    /*
+     * =============================================================
+     * RECOMMENDED JOBS
+     * =============================================================
+     */
     private List<CandidateDashboardJobDto> getRecommendedJobs(
             Long candidateId
     ) {
 
+        /*
+         * Find jobs for which the candidate has already applied.
+         */
         List<Application> applications =
                 applicationRepository.findByCandidateId(
                         candidateId
@@ -307,9 +374,14 @@ public class CandidateDashboardService {
         Set<Long> appliedJobIds =
                 applications.stream()
                         .map(Application::getJobId)
-                        .filter(java.util.Objects::nonNull)
+                        .filter(Objects::nonNull)
                         .collect(Collectors.toSet());
 
+        /*
+         * Get currently OPEN jobs.
+         *
+         * We exclude jobs that this candidate has already applied for.
+         */
         return jobRepository.findAll()
                 .stream()
                 .filter(job ->
@@ -333,27 +405,62 @@ public class CandidateDashboardService {
                 .toList();
     }
 
+    /*
+     * Convert Job entity to Candidate Dashboard Job DTO.
+     */
     private CandidateDashboardJobDto toJobDto(
             Job job
     ) {
 
         return CandidateDashboardJobDto.builder()
-                .jobId(job.getId())
-                .title(job.getTitle())
-                .department(job.getDepartment())
-                .location(job.getLocation())
-                .employmentType(job.getEmploymentType())
-                .experienceMin(job.getExperienceMin())
-                .experienceMax(job.getExperienceMax())
-                .salaryMin(job.getSalaryMin())
-                .salaryMax(job.getSalaryMax())
-                .requiredSkills(job.getRequiredSkills())
-                .preferredSkills(job.getPreferredSkills())
-                .education(job.getEducation())
-                .description(job.getDescription())
-                .responsibilities(job.getResponsibilities())
-                .openings(job.getOpenings())
-                .status(job.getStatus())
+                .jobId(
+                        job.getId()
+                )
+                .title(
+                        job.getTitle()
+                )
+                .department(
+                        job.getDepartment()
+                )
+                .location(
+                        job.getLocation()
+                )
+                .employmentType(
+                        job.getEmploymentType()
+                )
+                .experienceMin(
+                        job.getExperienceMin()
+                )
+                .experienceMax(
+                        job.getExperienceMax()
+                )
+                .salaryMin(
+                        job.getSalaryMin()
+                )
+                .salaryMax(
+                        job.getSalaryMax()
+                )
+                .requiredSkills(
+                        job.getRequiredSkills()
+                )
+                .preferredSkills(
+                        job.getPreferredSkills()
+                )
+                .education(
+                        job.getEducation()
+                )
+                .description(
+                        job.getDescription()
+                )
+                .responsibilities(
+                        job.getResponsibilities()
+                )
+                .openings(
+                        job.getOpenings()
+                )
+                .status(
+                        job.getStatus()
+                )
                 .build();
     }
 }
