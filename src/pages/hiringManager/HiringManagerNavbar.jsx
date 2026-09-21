@@ -81,11 +81,14 @@ function HiringManagerNavbar() {
       <div className="hiring-manager-navbar-actions">
 
         <button
-          type="button"
-          className="hiring-manager-notification-button"
-        >
-          <Bell size={20} />
-        </button>
+  type="button"
+  className="hiring-manager-notification-button"
+  onClick={() =>
+    navigate("/hiring-manager/notifications")
+  }
+>
+  <Bell size={20} />
+</button>
 
         <div className="hiring-manager-profile-wrapper">
 

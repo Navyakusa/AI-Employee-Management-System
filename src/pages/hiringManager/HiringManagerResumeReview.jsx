@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import {
   ArrowLeft,
@@ -24,22 +24,26 @@ import "./HiringManagerDashboard.css";
 
 function HiringManagerResumeReview() {
   const navigate = useNavigate();
+const { candidateId } = useParams();
 
   const [showRejectBox, setShowRejectBox] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
   // Temporary frontend data.
   // Backend integration will replace this later.
-  const candidate = {
+  const candidates = [
+  // =========================
+  // ANANYA SHARMA
+  // =========================
+  {
     id: 1,
+
     name: "Ananya Sharma",
     email: "ananya@gmail.com",
     phone: "+91 98765 43210",
     location: "Hyderabad",
 
     job: "Java Backend Developer",
-    department: "Engineering",
-
     experience: "3 Years",
     education: "B.Tech - Computer Science",
 
@@ -56,18 +60,108 @@ function HiringManagerResumeReview() {
       "Git",
     ],
 
-    resume: "Ananya_Sharma_Resume.pdf",
-
     professionalSummary:
-      "Backend developer with 3 years of experience building scalable applications using Java, Spring Boot, REST APIs and PostgreSQL. Experienced in developing secure backend services and working with modern development tools.",
+      "Backend developer with experience in Java, Spring Boot, REST APIs and PostgreSQL. Strong understanding of object-oriented programming and backend application development.",
+
+    resume: "Ananya_Sharma_Resume.pdf",
 
     aiAnalysis: {
       skillsMatch: 95,
-      experienceMatch: 88,
-      educationMatch: 90,
+      experienceMatch: 90,
+      educationMatch: 92,
       overallFit: 92,
     },
-  };
+  },
+
+  // =========================
+  // RAHUL VERMA
+  // =========================
+  {
+    id: 2,
+
+    name: "Rahul Verma",
+    email: "rahul@gmail.com",
+    phone: "+91 98765 12345",
+    location: "Bangalore",
+
+    job: "React Frontend Developer",
+    experience: "2 Years",
+    education: "B.Tech - Information Technology",
+
+    applicationDate: "11 Sep 2026",
+
+    matchScore: 87,
+
+    skills: [
+      "React",
+      "JavaScript",
+      "HTML",
+      "CSS",
+      "Vite",
+      "Git",
+    ],
+
+    professionalSummary:
+      "Frontend developer with experience in React, JavaScript, responsive UI development and reusable component design. Strong understanding of modern frontend development practices.",
+
+    resume: "Rahul_Verma_Resume.pdf",
+
+    aiAnalysis: {
+      skillsMatch: 90,
+      experienceMatch: 84,
+      educationMatch: 88,
+      overallFit: 87,
+    },
+  },
+
+  // =========================
+  // SNEHA REDDY
+  // =========================
+  {
+    id: 3,
+
+    name: "Sneha Reddy",
+    email: "sneha@gmail.com",
+    phone: "+91 98765 67890",
+    location: "Hyderabad",
+
+    job: "QA Engineer",
+    experience: "4 Years",
+    education: "B.Tech - Computer Science",
+
+    applicationDate: "12 Sep 2026",
+
+    matchScore: 83,
+
+    skills: [
+      "Selenium",
+      "Postman",
+      "Java",
+      "API Testing",
+      "Automation Testing",
+      "Git",
+    ],
+
+    professionalSummary:
+      "QA Engineer with experience in manual testing, API testing and automation testing. Strong knowledge of Selenium, Postman and software testing processes.",
+
+    resume: "Sneha_Reddy_Resume.pdf",
+
+    aiAnalysis: {
+      skillsMatch: 86,
+      experienceMatch: 85,
+      educationMatch: 82,
+      overallFit: 83,
+    },
+  },
+];
+const candidate = candidates.find(
+  (item) => item.id === Number(candidateId)
+);
+
+if (!candidate) {
+  return <h2>Candidate not found</h2>;
+}
 
   const initials = candidate.name
     .split(" ")

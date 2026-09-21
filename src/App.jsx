@@ -9,6 +9,7 @@ import RecruiterResumes from "./pages/recruiter/RecruiterResumes";
 import RecruiterScreening from "./pages/recruiter/RecruiterScreening";
 import RecruiterQuestions from "./pages/recruiter/RecruiterQuestions";
 import RecruiterInterviews from "./pages/recruiter/RecruiterInterviews";
+import CandidateDashboard from "./pages/candidate/CandidateDashboard";
 
 
 
@@ -73,6 +74,34 @@ import HiringManagerDecisions from "./pages/hiringManager/HiringManagerDecisions
 import HiringManagerJobDetails from "./pages/hiringManager/HiringManagerJobDetails";
 import HiringManagerCandidateReview from "./pages/hiringManager/HiringManagerCandidateReview";
 import HiringManagerInterviewDetails from "./pages/hiringManager/HiringManagerInterviewDetails";
+import HiringManagerInterviewFeedback from "./pages/hiringManager/HiringManagerInterviewFeedback";
+import HiringManagerCandidateDecisionDetails from "./pages/hiringManager/HiringManagerCandidateDecisionDetails";
+import HiringManagerNotifications from "./pages/hiringManager/HiringManagerNotifications";
+import HiringManagerProfile from "./pages/hiringManager/HiringManagerProfile";
+import HiringManagerSettings from "./pages/hiringManager/HiringManagerSettings";
+import InterviewerDashboard from "./pages/interviewer/InterviewerDashboard";
+import InterviewerInterviews from "./pages/interviewer/InterviewerInterviews";
+import InterviewerInterviewDetails from "./pages/interviewer/InterviewerInterviewDetails";
+import InterviewerCandidateDetails from "./pages/interviewer/InterviewerCandidateDetails";
+import InterviewerEvaluations from "./pages/interviewer/InterviewerEvaluations";
+import InterviewerEvaluationForm from "./pages/interviewer/InterviewerEvaluationForm";
+import InterviewerEvaluationView from "./pages/interviewer/InterviewerEvaluationView";
+import InterviewerCandidates from "./pages/interviewer/InterviewerCandidates";
+import InterviewerNotifications from "./pages/interviewer/InterviewerNotifications";
+import InterviewerProfile from "./pages/interviewer/InterviewerProfile";
+import InterviewerSettings from "./pages/interviewer/InterviewerSettings";
+import CandidateJobs from "./pages/candidate/CandidateJobs";
+import CandidateJobDetails from "./pages/candidate/CandidateJobDetails";
+import CandidateJobApplication from "./pages/candidate/CandidateJobApplication";
+import CandidateApplications from "./pages/candidate/CandidateApplications";
+import CandidateApplicationDetails from "./pages/candidate/CandidateApplicationDetails";
+import CandidateInterviews from "./pages/candidate/CandidateInterviews";
+import CandidateInterviewDetails from "./pages/candidate/CandidateInterviewDetails";
+import CandidateOffers from "./pages/candidate/CandidateOffers";
+import CandidateOfferDetails from "./pages/candidate/CandidateOfferDetails";
+import CandidateProfile from "./pages/candidate/CandidateProfile";
+import CandidateNotifications from "./pages/candidate/CandidateNotifications";
+import CandidateSettings from "./pages/candidate/CandidateSettings";
 function App() {
   return (
     <BrowserRouter>
@@ -335,6 +364,122 @@ function App() {
 <Route
   path="/hiring-manager/interviews/:interviewId"
   element={<HiringManagerInterviewDetails />}
+/>
+<Route
+  path="/hiring-manager/interviews/:interviewId/feedback"
+  element={<HiringManagerInterviewFeedback />}
+/>
+<Route
+  path="/hiring-manager/decisions/:candidateId"
+  element={<HiringManagerCandidateDecisionDetails />}
+/>
+<Route
+  path="/hiring-manager/notifications"
+  element={<HiringManagerNotifications />}
+/>
+<Route
+  path="/hiring-manager/profile"
+  element={<HiringManagerProfile />}
+/>
+<Route
+  path="/hiring-manager/settings"
+  element={<HiringManagerSettings />}
+/>
+<Route
+  path="/interviewer/dashboard"
+  element={<InterviewerDashboard />}
+/>
+<Route
+  path="/interviewer/interviews"
+  element={<InterviewerInterviews />}
+/>
+<Route
+  path="/interviewer/interviews/:interviewId"
+  element={<InterviewerInterviewDetails />}
+/>
+<Route
+  path="/interviewer/candidates/:candidateId"
+  element={<InterviewerCandidateDetails />}
+/>
+<Route
+  path="/interviewer/evaluations"
+  element={<InterviewerEvaluations />}
+/>
+<Route
+  path="/interviewer/evaluations/:interviewId"
+  element={<InterviewerEvaluationForm />}
+/>
+<Route
+  path="/interviewer/evaluations/:interviewId/view"
+  element={<InterviewerEvaluationView />}
+/>
+<Route
+  path="/interviewer/candidates"
+  element={<InterviewerCandidates />}
+/>
+<Route
+  path="/interviewer/notifications"
+  element={<InterviewerNotifications />}
+/>
+<Route
+  path="/interviewer/profile"
+  element={<InterviewerProfile />}
+/>
+<Route
+  path="/interviewer/settings"
+  element={<InterviewerSettings />}
+/>
+<Route
+  path="/candidate/dashboard"
+  element={<CandidateDashboard />}
+/>
+<Route
+  path="/candidate/jobs"
+  element={<CandidateJobs />}
+/>
+<Route
+  path="/candidate/jobs/:jobId"
+  element={<CandidateJobDetails />}
+/>
+<Route
+  path="/candidate/jobs/:jobId/apply"
+  element={<CandidateJobApplication />}
+/>
+<Route
+  path="/candidate/applications"
+  element={<CandidateApplications />}
+/>
+<Route
+  path="/candidate/applications/:applicationId"
+  element={<CandidateApplicationDetails />}
+/>
+<Route
+  path="/candidate/interviews"
+  element={<CandidateInterviews />}
+/>
+<Route
+  path="/candidate/interviews/:interviewId"
+  element={<CandidateInterviewDetails />}
+/>
+<Route
+  path="/candidate/offers"
+  element={<CandidateOffers />}
+/>
+<Route
+  path="/candidate/offers/:offerId"
+  element={<CandidateOfferDetails />}
+/>
+<Route
+  path="/candidate/profile"
+  element={<CandidateProfile />}
+/>
+<Route
+  path="/candidate/notifications"
+  element={<CandidateNotifications />}
+/>
+<Route
+  path="/candidate/settings"
+  element={<CandidateSettings />}
 />
         {/* Not Found */}
 

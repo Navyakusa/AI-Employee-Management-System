@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import HRSidebar from "./HRSidebar";
 import "./HRDashboard.css";
+
 import {
   fetchDashboardSummary,
   fetchApplicationsByStatus,
@@ -9,240 +10,489 @@ import {
 
 function HRDashboard() {
   const navigate = useNavigate();
+
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
-  // Real candidate count from the AI backend — no hardcoded number.
-  // null = still loading, "error" = backend unreachable.
- const [summary, setSummary] = useState(null);
-const [dashboardError, setDashboardError] = useState(false);
-const [applicationsByStatus, setApplicationsByStatus] = useState([]);
-const [applicationsStatusError, setApplicationsStatusError] = useState(false);
+  const [summary, setSummary] = useState(null);
+  const [dashboardError, setDashboardError] = useState(false);
+
+  const [applicationsByStatus, setApplicationsByStatus] = useState([]);
+  const [applicationsStatusError, setApplicationsStatusError] =
+    useState(false);
 
   useEffect(() => {
-  // Dashboard summary
-  fetchDashboardSummary()
-    .then((data) => {
-      console.log("Dashboard Summary:", data);
-      setSummary(data);
-    })
-    .catch((error) => {
-      console.error("Dashboard summary error:", error);
-      setDashboardError(true);
-    });
+    // ==============================
+    // DASHBOARD SUMMARY
+    // ==============================
 
-  // Applications by status
-  fetchApplicationsByStatus()
-    .then((data) => {
-      console.log("Applications By Status:", data);
-      setApplicationsByStatus(data);
-    })
-    .catch((error) => {
-      console.error(
-        "Applications by status error:",
-        error
-      );
-      setApplicationsStatusError(true);
-    });
-}, []);
+    fetchDashboardSummary()
+      .then((data) => {
+        console.log("Dashboard Summary:", data);
+        setSummary(data);
+      })
+      .catch((error) => {
+        console.error("Dashboard summary error:", error);
+        setDashboardError(true);
+      });
 
-const getApplicationStatusCount = (status) => {
-  const item = applicationsByStatus.find(
-    (item) =>
-      item.status?.toUpperCase() === status.toUpperCase()
-  );
+    // ==============================
+    // APPLICATIONS BY STATUS
+    // ==============================
 
-  return item?.count ?? 0;
-}; 
+    fetchApplicationsByStatus()
+      .then((data) => {
+        console.log("Applications By Status:", data);
+        setApplicationsByStatus(data);
+      })
+      .catch((error) => {
+        console.error(
+          "Applications by status error:",
+          error
+        );
+
+        setApplicationsStatusError(true);
+      });
+  }, []);
+
+  // ==============================
+  // GET APPLICATION STATUS COUNT
+  // ==============================
+
+  const getApplicationStatusCount = (status) => {
+    const item = applicationsByStatus.find(
+      (item) =>
+        item.status?.toUpperCase() === status.toUpperCase()
+    );
+
+    return item?.count ?? 0;
+  };
 
   return (
     <div className="hr-dashboard">
 
-      {/* Sidebar */}
+      {/* ==============================
+          SIDEBAR
+      ============================== */}
+
       <HRSidebar />
 
-      {/* Main Content */}
+      {/* ==============================
+          MAIN CONTENT
+      ============================== */}
+
       <main className="hr-main">
 
-        {/* Top Header */}
+        {/* ==============================
+            HEADER
+        ============================== */}
+
         <header className="hr-header">
+
           <div>
             <h1>HR Dashboard</h1>
-            <p>Welcome back, HR Manager 👋</p>
+
+            <p>
+              Welcome back, HR Manager 👋
+            </p>
           </div>
 
           <div className="hr-profile-wrapper">
-  <button
-    className="hr-profile"
-    onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-  >
-    <div className="hr-avatar">HR</div>
 
-    <div className="hr-profile-info">
-      <strong>HR Manager</strong>
-      <span>Human Resources</span>
-    </div>
+            <button
+              className="hr-profile"
+              onClick={() =>
+                setProfileMenuOpen(!profileMenuOpen)
+              }
+            >
 
-    <span className="profile-arrow">⌄</span>
-  </button>
+              <div className="hr-avatar">
+                HR
+              </div>
 
-  {profileMenuOpen && (
-    <div className="hr-profile-menu">
-      <button onClick={() => navigate("/hr/profile")}>
-        👤 <span>My Profile</span>
-      </button>
+              <div className="hr-profile-info">
 
-      <button onClick={() => navigate("/hr/settings")}>
-        ⚙️ <span>Settings</span>
-      </button>
+                <strong>
+                  HR Manager
+                </strong>
 
-      <button
-        className="logout-option"
-        onClick={() => {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          navigate("/login");
-        }}
-      >
-        🚪 <span>Logout</span>
-      </button>
-    </div>
-  )}
-</div>
-        </header>
+                <span>
+                  Human Resources
+                </span>
 
-        {/* Statistics */}
-        <section className="hr-stats">
+              </div>
 
-          <div className="hr-stat-card">
-            <div className="stat-icon">👥</div>
-            <div>
-              <p>Total Employees</p>
-              <h2>250</h2>
-              <span>237 active employees</span>
-            </div>
+              <span className="profile-arrow">
+                ⌄
+              </span>
+
+            </button>
+
+            {profileMenuOpen && (
+
+              <div className="hr-profile-menu">
+
+                <button
+                  onClick={() =>
+                    navigate("/hr/profile")
+                  }
+                >
+                  👤 <span>My Profile</span>
+                </button>
+
+                <button
+                  onClick={() =>
+                    navigate("/hr/settings")
+                  }
+                >
+                  ⚙️ <span>Settings</span>
+                </button>
+
+                <button
+                  className="logout-option"
+                  onClick={() => {
+
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("user");
+
+                    navigate("/login");
+                  }}
+                >
+                  🚪 <span>Logout</span>
+                </button>
+
+              </div>
+
+            )}
+
           </div>
 
-          <div className="hr-stat-card">
-  <div className="stat-icon">💼</div>
+        </header>
 
-  <div>
-    <p>Open Positions</p>
+        {/* ==============================
+            STATISTICS
+        ============================== */}
 
-    <h2>
-      {dashboardError
-        ? "—"
-        : summary === null
-        ? "…"
-        : summary.activeJobs}
-    </h2>
+        <section className="hr-stats">
 
-    <span>Currently hiring</span>
-  </div>
-</div>
+          {/* TOTAL EMPLOYEES */}
 
           <div className="hr-stat-card">
-  <div className="stat-icon">📄</div>
 
-  <div>
-    <p>Applications</p>
-
-    <h2>
-      {dashboardError
-        ? "—"
-        : summary === null
-        ? "…"
-        : summary.totalApplications}
-    </h2>
-
-    <span>
-      {dashboardError
-        ? "Dashboard backend not reachable"
-        : "Total applications"}
-    </span>
-  </div>
-</div>
-          <div className="hr-stat-card">
-            <div className="stat-icon">🎯</div>
-            <div>
-              <p>New Employees</p>
-              <h2>18</h2>
-              <span>This month</span>
+            <div className="stat-icon">
+              👥
             </div>
+
+            <div>
+
+              <p>
+                Total Employees
+              </p>
+
+              <h2>
+                —
+              </h2>
+
+              <span>
+                Employee API not connected
+              </span>
+
+            </div>
+
+          </div>
+
+          {/* OPEN POSITIONS */}
+
+          <div className="hr-stat-card">
+
+            <div className="stat-icon">
+              💼
+            </div>
+
+            <div>
+
+              <p>
+                Open Positions
+              </p>
+
+              <h2>
+
+                {dashboardError
+                  ? "—"
+                  : summary === null
+                  ? "…"
+                  : summary.activeJobs}
+
+              </h2>
+
+              <span>
+                Currently hiring
+              </span>
+
+            </div>
+
+          </div>
+
+          {/* APPLICATIONS */}
+
+          <div className="hr-stat-card">
+
+            <div className="stat-icon">
+              📄
+            </div>
+
+            <div>
+
+              <p>
+                Applications
+              </p>
+
+              <h2>
+
+                {dashboardError
+                  ? "—"
+                  : summary === null
+                  ? "…"
+                  : summary.totalApplications}
+
+              </h2>
+
+              <span>
+                {dashboardError
+                  ? "Dashboard backend not reachable"
+                  : "Total applications"}
+
+              </span>
+
+            </div>
+
+          </div>
+
+          {/* NEW EMPLOYEES */}
+
+          <div className="hr-stat-card">
+
+            <div className="stat-icon">
+              🎯
+            </div>
+
+            <div>
+
+              <p>
+                New Employees
+              </p>
+
+              <h2>
+                —
+              </h2>
+
+              <span>
+                Employee API not connected
+              </span>
+
+            </div>
+
           </div>
 
         </section>
 
-        {/* Bottom Section */}
+        {/* ==============================
+            BOTTOM SECTION
+        ============================== */}
+
         <section className="hr-dashboard-grid">
 
-          {/* Recruitment Overview */}
+          {/* ==============================
+              RECRUITMENT OVERVIEW
+          ============================== */}
+
           <div className="hr-panel">
+
             <div className="panel-header">
+
               <div>
-                <h2>Recruitment Overview</h2>
-                <p>Current recruitment pipeline</p>
+
+                <h2>
+                  Recruitment Overview
+                </h2>
+
+                <p>
+                  Current recruitment pipeline
+                </p>
+
               </div>
+
             </div>
 
-            <div className="recruitment-row">
-              <span>Applications</span>
-              <strong>1000</strong>
-            </div>
+            {/* APPLICATIONS */}
 
             <div className="recruitment-row">
-              <span>AI Screened</span>
-              <strong>650</strong>
+
+              <span>
+                Applications
+              </span>
+
+              <strong>
+
+                {dashboardError
+                  ? "—"
+                  : summary === null
+                  ? "…"
+                  : summary.totalApplications}
+
+              </strong>
+
             </div>
 
-            <div className="recruitment-row">
-              <span>Shortlisted</span>
-              <strong>250</strong>
-            </div>
+            {/* AI SCREENED */}
 
             <div className="recruitment-row">
-              <span>Interviewed</span>
-              <strong>100</strong>
+
+              <span>
+                AI Screened
+              </span>
+
+              <strong>
+                —
+              </strong>
+
             </div>
 
-            <div className="recruitment-row">
-              <span>Selected</span>
-              <strong>30</strong>
-            </div>
+            {/* SHORTLISTED */}
 
             <div className="recruitment-row">
-              <span>Joined</span>
-              <strong>25</strong>
+
+              <span>
+                Shortlisted
+              </span>
+
+              <strong>
+
+                {applicationsStatusError
+                  ? "—"
+                  : applicationsByStatus.length === 0
+                  ? "…"
+                  : getApplicationStatusCount(
+                      "SHORTLISTED"
+                    )}
+
+              </strong>
+
             </div>
+
+            {/* INTERVIEWS */}
+
+            <div className="recruitment-row">
+
+              <span>
+                Interviews
+              </span>
+
+              <strong>
+
+                {dashboardError
+                  ? "—"
+                  : summary === null
+                  ? "…"
+                  : summary.totalInterviews}
+
+              </strong>
+
+            </div>
+
+            {/* SELECTED */}
+
+            <div className="recruitment-row">
+
+              <span>
+                Selected
+              </span>
+
+              <strong>
+
+                {applicationsStatusError
+                  ? "—"
+                  : applicationsByStatus.length === 0
+                  ? "…"
+                  : getApplicationStatusCount(
+                      "SELECTED"
+                    )}
+
+              </strong>
+
+            </div>
+
+            {/* JOINED */}
+
+            <div className="recruitment-row">
+
+              <span>
+                Joined
+              </span>
+
+              <strong>
+                —
+              </strong>
+
+            </div>
+
           </div>
 
-          {/* Quick Actions */}
+          {/* ==============================
+              QUICK ACTIONS
+          ============================== */}
+
           <div className="hr-panel">
 
             <div className="panel-header">
+
               <div>
-                <h2>Quick Actions</h2>
-                <p>Frequently used HR actions</p>
+
+                <h2>
+                  Quick Actions
+                </h2>
+
+                <p>
+                  Frequently used HR actions
+                </p>
+
               </div>
+
             </div>
 
             <div className="quick-actions">
 
-              <button onClick={() => navigate("/hr/jobs/create")}>
-  <span>➕</span>
-  Create Job
-</button>
+              <button
+                onClick={() =>
+                  navigate("/hr/jobs/create")
+                }
+              >
+                <span>➕</span>
+                Create Job
+              </button>
 
-              <button onClick={() => navigate("/hr/candidates")}>
+              <button
+                onClick={() =>
+                  navigate("/hr/candidates")
+                }
+              >
                 <span>👥</span>
                 View Candidates
               </button>
 
-              <button onClick={() => navigate("/hr/interviews")}>
+              <button
+                onClick={() =>
+                  navigate("/hr/interviews")
+                }
+              >
                 <span>📅</span>
                 Schedule Interview
               </button>
 
-              <button onClick={() => navigate("/hr/analytics")}>
+              <button
+                onClick={() =>
+                  navigate("/hr/analytics")
+                }
+              >
                 <span>📊</span>
                 View Analytics
               </button>
