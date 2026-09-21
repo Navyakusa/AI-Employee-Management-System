@@ -4,8 +4,8 @@
 }
 
 .employee-dashboard-main {
-  margin-left: 250px;
-  padding: 30px;
+  margin-left: 260px;
+  padding: 105px 30px 40px;
   min-height: 100vh;
   box-sizing: border-box;
 }
@@ -402,7 +402,7 @@
 @media (max-width: 800px) {
   .employee-dashboard-main {
     margin-left: 0;
-    padding: 20px;
+    padding: 95px 20px 30px;
   }
 
   .employee-dashboard-content,

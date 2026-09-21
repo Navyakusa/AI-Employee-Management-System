@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   UserRound,
   Mail,
@@ -11,25 +11,146 @@ import {
   BadgeCheck,
   Hash,
   Pencil,
+  X,
 } from "lucide-react";
 import EmployeeSidebar from "./EmployeeSidebar";
 import EmployeeTopbar from "./EmployeeTopbar";
+import {
+  getEmployeeProfile,
+  updateEmployeeProfile,
+} from "../../services/employeeService";
+// This file lives at src/pages/employee/EmployeeProfile.jsx, so
+// services at src/services/ is two levels up.
 import "./EmployeeProfile.css";
 
 function EmployeeProfile() {
-  const employee = {
-    employeeId: "EMP-2026-001",
-    name: "Maheshwari",
-    email: "maheshwari@example.com",
-    phone: "+91 98765 43210",
-    department: "Engineering",
-    designation: "Software Engineer",
-    joiningDate: "15 June 2026",
-    reportingManager: "Manager Name",
-    location: "Hyderabad",
-    employmentType: "Full Time",
-    status: "Active",
+  const [employee, setEmployee] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({ phone: "", location: "" });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchProfile = async () => {
+      try {
+        const response = await getEmployeeProfile();
+
+        // Confirmed shape: every endpoint wraps its payload as
+        // { success, message, data, timestamp }.
+        const data = response.data?.data || {};
+
+        if (!isMounted) return;
+
+        // Mapped directly against the confirmed Employee schema:
+        // id, employeeId, name, email, department, designation,
+        // joiningDate, manager, location, employmentType, status.
+        // NOTE: this schema has no "phone" field. If /profile/get really
+        // returns this shape, the Phone row below will always show "--"
+        // until a phone field is added on the backend — that's not a
+        // bug in this component.
+        setEmployee({
+          employeeId: data.employeeId || "--",
+          name: data.name || "--",
+          email: data.email || "--",
+          phone: data.phone || "--",
+          department: data.department || "--",
+          designation: data.designation || "--",
+          joiningDate: data.joiningDate || "--",
+          reportingManager: data.manager || "--",
+          location: data.location || "--",
+          employmentType: data.employmentType || "--",
+          status: data.status || "Active",
+        });
+      } catch (err) {
+        console.error("Failed to load profile", err);
+        if (isMounted) {
+          setError("Unable to load your profile right now.");
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const openEditModal = () => {
+    setEditForm({
+      phone: employee.phone === "--" ? "" : employee.phone,
+      location: employee.location === "--" ? "" : employee.location,
+    });
+    setShowEditModal(true);
   };
+
+  const handleEditChange = (e) => {
+    setEditForm({ ...editForm, [e.target.name]: e.target.value });
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      // The confirmed Employee schema has NO "phone" field — only
+      // "location" is real. Sending "phone" was the most likely reason
+      // the save was failing, so it's dropped from the request here.
+      // Phone stays editable in the UI as a local-only field until the
+      // backend adds real support for it (needs a new column + field on
+      // whatever entity/DTO backs PUT /profile/update).
+      await updateEmployeeProfile({
+        location: editForm.location,
+      });
+
+      setEmployee((prev) => ({
+        ...prev,
+        phone: editForm.phone || prev.phone,
+        location: editForm.location || prev.location,
+      }));
+
+      setShowEditModal(false);
+    } catch (err) {
+      console.error("Failed to update profile", err);
+      // Surface the REAL backend error instead of a generic message, so
+      // if this still fails we know exactly why on the first try.
+      const backendMessage =
+        err.response?.data?.message || err.response?.data?.error || err.message;
+      alert(`Could not save your changes: ${backendMessage}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="employee-profile-layout">
+        <EmployeeSidebar />
+        <EmployeeTopbar />
+        <main className="employee-profile-main">
+          <p>Loading profile...</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (error || !employee) {
+    return (
+      <div className="employee-profile-layout">
+        <EmployeeSidebar />
+        <EmployeeTopbar />
+        <main className="employee-profile-main">
+          <p>{error || "Profile not found."}</p>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="employee-profile-layout">
@@ -58,7 +179,7 @@ function EmployeeProfile() {
             </p>
           </div>
 
-          <button className="edit-profile-button">
+          <button className="edit-profile-button" onClick={openEditModal}>
             <Pencil size={16} />
             Edit Profile
           </button>
@@ -321,6 +442,135 @@ function EmployeeProfile() {
         </section>
 
       </main>
+
+
+      {/* =========================
+          EDIT PROFILE MODAL
+          (only phone + location are editable here — everything else
+          on this page is HR-managed data, matching the "contact your
+          HR administrator" note above)
+      ========================= */}
+      {showEditModal && (
+        <div className="document-modal-overlay">
+          <div className="document-modal">
+
+            <div className="document-modal-header">
+              <div>
+                <h2>Edit Profile</h2>
+                <p>Update your contact details</p>
+              </div>
+
+              <button type="button" onClick={() => setShowEditModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} style={{ padding: "22px" }}>
+
+              <div style={{ marginBottom: "16px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "7px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "#344054",
+                  }}
+                >
+                  Phone
+                </label>
+                <input
+                  type="text"
+                  name="phone"
+                  value={editForm.phone}
+                  onChange={handleEditChange}
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    border: "1px solid #d0d5dd",
+                    borderRadius: "8px",
+                    padding: "11px 12px",
+                    fontSize: "13px",
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "7px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "#344054",
+                  }}
+                >
+                  Location
+                </label>
+                <input
+                  type="text"
+                  name="location"
+                  value={editForm.location}
+                  onChange={handleEditChange}
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    border: "1px solid #d0d5dd",
+                    borderRadius: "8px",
+                    padding: "11px 12px",
+                    fontSize: "13px",
+                  }}
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  style={{
+                    border: "1px solid #d0d5dd",
+                    background: "white",
+                    color: "#475467",
+                    borderRadius: "8px",
+                    padding: "10px 17px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={saving}
+                  style={{
+                    border: "none",
+                    background: "#3158d9",
+                    color: "white",
+                    borderRadius: "8px",
+                    padding: "10px 17px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    opacity: saving ? 0.7 : 1,
+                  }}
+                >
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

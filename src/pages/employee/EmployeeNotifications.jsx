@@ -1,51 +1,62 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Bell, Check, CheckCheck, Trash2 } from "lucide-react";
 
 import EmployeeSidebar from "./EmployeeSidebar";
 import EmployeeTopbar from "./EmployeeTopbar";
+import {
+  getMyNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+} from "../../services/employeeService";
+// This file lives at src/pages/employee/EmployeeNotifications.jsx, so
+// services at src/services/ is two levels up.
 
 import "./EmployeeNotifications.css";
 
-const initialNotifications = [
-  {
-    id: 1,
-    title: "Leave Request Approved",
-    message: "Your leave request has been approved by your manager.",
-    time: "Today, 10:30 AM",
-    type: "leave",
-    unread: true,
-  },
-  {
-    id: 2,
-    title: "Leave Request Rejected",
-    message: "Your leave request has been rejected. Please check the leave details.",
-    time: "Yesterday, 4:15 PM",
-    type: "leave",
-    unread: true,
-  },
-  {
-    id: 3,
-    title: "Document Verification Completed",
-    message: "Your submitted document has been verified successfully.",
-    time: "12 Sep 2026",
-    type: "document",
-    unread: false,
-  },
-  {
-    id: 4,
-    title: "Performance Review Updated",
-    message: "Your performance review details have been updated.",
-    time: "10 Sep 2026",
-    type: "performance",
-    unread: false,
-  },
-];
-
 function EmployeeNotifications() {
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const [notifications, setNotifications] = useState([]);
   const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const markAsRead = (id) => {
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await getMyNotifications();
+
+      // Backend wraps responses as ApiResponse<List<Notification>>
+      // (per the Swagger schema ApiResponseListNotification), so the
+      // real array usually sits under response.data.data. Confirm the
+      // exact field names below (title/message/read/createdAt) against
+      // the Notification schema in Swagger and adjust if they differ.
+      const list = response.data?.data || response.data || [];
+
+      const mapped = list.map((n) => ({
+        id: n.id,
+        title: n.title || n.subject || "Notification",
+        message: n.message || n.description || "",
+        time: n.createdAt || n.time || "",
+        type: n.type || "general",
+        unread: n.read === false || n.unread === true,
+      }));
+
+      setNotifications(mapped);
+    } catch (err) {
+      console.error("Failed to load notifications", err);
+      setError("Unable to load notifications right now.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markAsRead = async (id) => {
+    // Optimistic update, rolled back if the request fails
     setNotifications((prev) =>
       prev.map((notification) =>
         notification.id === id
@@ -53,17 +64,39 @@ function EmployeeNotifications() {
           : notification
       )
     );
+
+    try {
+      await markNotificationAsRead(id);
+    } catch (err) {
+      console.error("Failed to mark notification as read", err);
+      setNotifications((prev) =>
+        prev.map((notification) =>
+          notification.id === id
+            ? { ...notification, unread: true }
+            : notification
+        )
+      );
+    }
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    const previous = notifications;
+
     setNotifications((prev) =>
-      prev.map((notification) => ({
-        ...notification,
-        unread: false,
-      }))
+      prev.map((notification) => ({ ...notification, unread: false }))
     );
+
+    try {
+      await markAllNotificationsAsRead();
+    } catch (err) {
+      console.error("Failed to mark all notifications as read", err);
+      setNotifications(previous);
+    }
   };
 
+  // No DELETE endpoint exists on the backend for notifications yet.
+  // This only removes the item from the current view — it will
+  // reappear on next fetch until a delete endpoint is added.
   const deleteNotification = (id) => {
     setNotifications((prev) =>
       prev.filter((notification) => notification.id !== id)
@@ -150,7 +183,18 @@ function EmployeeNotifications() {
             </div>
 
             <div className="notification-list">
-              {filteredNotifications.length === 0 ? (
+              {loading ? (
+                <div className="empty-notifications">
+                  <Bell size={42} />
+                  <h3>Loading notifications...</h3>
+                </div>
+              ) : error ? (
+                <div className="empty-notifications">
+                  <Bell size={42} />
+                  <h3>Something went wrong</h3>
+                  <p>{error}</p>
+                </div>
+              ) : filteredNotifications.length === 0 ? (
                 <div className="empty-notifications">
                   <Bell size={42} />
                   <h3>No notifications</h3>

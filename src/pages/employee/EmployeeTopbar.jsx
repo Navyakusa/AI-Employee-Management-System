@@ -1,14 +1,44 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Search, Bell, UserRound, Settings, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { getEmployeeProfile } from "../../services/employeeService";
 import "./EmployeeTopbar.css";
 
 function EmployeeTopbar() {
   const navigate = useNavigate();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  const employeeName = "Maheshwari";
-  const designation = "Software Engineer";
+  // FIXED: this used to be hardcoded to "Maheshwari" / "Software Engineer"
+  // regardless of who actually logged in — that's why the topbar showed
+  // a different person than the page content below it.
+  const [employeeName, setEmployeeName] = useState("");
+  const [designation, setDesignation] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchProfile = async () => {
+      try {
+        const response = await getEmployeeProfile();
+        const data = response.data?.data || {};
+
+        if (isMounted) {
+          setEmployeeName(data.name || "Employee");
+          setDesignation(data.designation || "");
+        }
+      } catch (err) {
+        console.error("Failed to load topbar profile", err);
+      }
+    };
+
+    fetchProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const avatarInitial = employeeName ? employeeName.charAt(0).toUpperCase() : "E";
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -61,7 +91,7 @@ function EmployeeTopbar() {
             onClick={handleProfileClick}
           >
             <div className="employee-avatar">
-              M
+              {avatarInitial}
             </div>
 
             <div className="employee-profile-info">
@@ -76,7 +106,7 @@ function EmployeeTopbar() {
 
               <div className="employee-profile-menu-header">
                 <div className="employee-menu-avatar">
-                  M
+                  {avatarInitial}
                 </div>
 
                 <div>
