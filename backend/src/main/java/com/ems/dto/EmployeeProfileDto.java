@@ -1,12 +1,10 @@
 package com.ems.dto;
 
 import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class EmployeeProfileDto {
@@ -18,6 +16,8 @@ public class EmployeeProfileDto {
     private String name;
 
     private String email;
+
+    private String phone;
 
     private String department;
 

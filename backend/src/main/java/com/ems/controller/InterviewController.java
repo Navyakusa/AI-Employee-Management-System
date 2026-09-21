@@ -1,11 +1,13 @@
 package com.ems.controller;
 
 import com.ems.common.ApiResponse;
+import com.ems.dto.AvailableInterviewerDto;
 import com.ems.dto.InterviewManagementDto;
 import com.ems.dto.InterviewRequestDto;
 import com.ems.dto.InterviewStatsDto;
 import com.ems.entity.Interview;
 import com.ems.service.InterviewService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -22,7 +24,10 @@ public class InterviewController {
     private InterviewService interviewService;
 
 
-    // Employer schedules interview
+    // =========================================================
+    // SCHEDULE INTERVIEW
+    // =========================================================
+
     @PostMapping("/schedule")
     public ResponseEntity<ApiResponse<Interview>> scheduleInterview(
             @RequestBody InterviewRequestDto dto) {
@@ -31,7 +36,22 @@ public class InterviewController {
     }
 
 
-    // Candidate views own interviews
+    // =========================================================
+    // AVAILABLE INTERVIEWERS
+    // =========================================================
+
+    @GetMapping("/available-interviewers")
+    public ResponseEntity<ApiResponse<List<AvailableInterviewerDto>>>
+    getAvailableInterviewers() {
+
+        return interviewService.getAvailableInterviewers();
+    }
+
+
+    // =========================================================
+    // CANDIDATE - MY INTERVIEWS
+    // =========================================================
+
     @GetMapping("/my")
     public ResponseEntity<ApiResponse<List<Interview>>> getMyInterviews(
             Authentication authentication) {
@@ -40,7 +60,10 @@ public class InterviewController {
     }
 
 
-    // Employer/Admin views interviews for a job
+    // =========================================================
+    // INTERVIEWS BY JOB
+    // =========================================================
+
     @GetMapping("/job/{jobId}")
     public ResponseEntity<ApiResponse<List<Interview>>> getInterviewsByJob(
             @PathVariable Long jobId) {
@@ -49,7 +72,10 @@ public class InterviewController {
     }
 
 
-    // Employer reschedules interview
+    // =========================================================
+    // RESCHEDULE INTERVIEW
+    // =========================================================
+
     @PutMapping("/{interviewId}/reschedule")
     public ResponseEntity<ApiResponse<Interview>> rescheduleInterview(
             @PathVariable Long interviewId,
@@ -62,7 +88,10 @@ public class InterviewController {
     }
 
 
-    // Employer updates interview status
+    // =========================================================
+    // UPDATE INTERVIEW STATUS
+    // =========================================================
+
     @PutMapping("/{interviewId}/status")
     public ResponseEntity<ApiResponse<Interview>> updateInterviewStatus(
             @PathVariable Long interviewId,
@@ -73,50 +102,79 @@ public class InterviewController {
                 status
         );
     }
+
+
+    // =========================================================
+    // INTERVIEW MANAGEMENT
+    // =========================================================
+
     @GetMapping("/management")
     public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
     getInterviewManagementData() {
 
-        return interviewService
-                .getInterviewManagementData();
+        return interviewService.getInterviewManagementData();
     }
+
+
+    // =========================================================
+    // INTERVIEW STATISTICS
+    // =========================================================
+
     @GetMapping("/stats")
     public ResponseEntity<ApiResponse<InterviewStatsDto>>
     getInterviewStats() {
 
         return interviewService.getInterviewStats();
     }
+
+
+    // =========================================================
+    // UPCOMING INTERVIEWS
+    // =========================================================
+
     @GetMapping("/upcoming")
     public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
     getUpcomingInterviews() {
 
-        return interviewService
-                .getUpcomingInterviews();
+        return interviewService.getUpcomingInterviews();
     }
+
+
+    // =========================================================
+    // SEARCH INTERVIEWS
+    // =========================================================
+
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
     searchInterviews(
-            @RequestParam String keyword
-    ) {
+            @RequestParam String keyword) {
 
         return interviewService.searchInterviews(keyword);
     }
+
+
+    // =========================================================
+    // INTERVIEWS BY STATUS
+    // =========================================================
+
     @GetMapping("/status/{status}")
     public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
     getInterviewsByStatus(
-            @PathVariable String status
-    ) {
+            @PathVariable String status) {
 
-        return interviewService
-                .getInterviewsByStatus(status);
+        return interviewService.getInterviewsByStatus(status);
     }
+
+
+    // =========================================================
+    // INTERVIEW DETAILS
+    // =========================================================
+
     @GetMapping("/{interviewId}")
     public ResponseEntity<ApiResponse<InterviewManagementDto>>
     getInterviewDetails(
-            @PathVariable Long interviewId
-    ) {
+            @PathVariable Long interviewId) {
 
-        return interviewService
-                .getInterviewDetails(interviewId);
+        return interviewService.getInterviewDetails(interviewId);
     }
 }

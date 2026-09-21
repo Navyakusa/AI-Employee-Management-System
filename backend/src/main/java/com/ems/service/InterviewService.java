@@ -1,16 +1,22 @@
 package com.ems.service;
 
 import com.ems.common.ApiResponse;
+import com.ems.common.InterviewStatus;
+import com.ems.dto.AvailableInterviewerDto;
 import com.ems.dto.InterviewManagementDto;
 import com.ems.dto.InterviewRequestDto;
 import com.ems.dto.InterviewStatsDto;
 import com.ems.entity.Application;
+import com.ems.entity.Candidate;
 import com.ems.entity.Interview;
+import com.ems.entity.Job;
 import com.ems.entity.User;
 import com.ems.repository.ApplicationRepository;
+import com.ems.repository.CandidateRepository;
 import com.ems.repository.InterviewRepository;
 import com.ems.repository.JobRepository;
 import com.ems.repository.UserRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,17 +25,21 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import com.ems.common.InterviewStatus;
 
 @Service
 public class InterviewService {
+
     @Autowired
     private JobRepository jobRepository;
+
     @Autowired
     private InterviewRepository interviewRepository;
 
     @Autowired
     private ApplicationRepository applicationRepository;
+
+    @Autowired
+    private CandidateRepository candidateRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -38,34 +48,203 @@ public class InterviewService {
     private NotificationService notificationService;
 
 
+    // =========================================================
+    // SCHEDULE INTERVIEW
+    // =========================================================
+
     public ResponseEntity<ApiResponse<Interview>> scheduleInterview(
             InterviewRequestDto dto) {
 
         try {
 
-            Application application = applicationRepository
-                    .findById(dto.getApplicationId())
-                    .orElseThrow(() ->
-                            new RuntimeException("Application not found")
-                    );
+            if (dto.getApplicationId() == null) {
 
-            Interview interview = new Interview();
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Application ID is required",
+                                        null
+                                )
+                        );
+            }
+
+            if (dto.getInterviewerId() == null) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Interviewer ID is required",
+                                        null
+                                )
+                        );
+            }
+
+            // -------------------------------------------------
+            // 1. Find application
+            // -------------------------------------------------
+
+            Application application =
+                    applicationRepository
+                            .findById(dto.getApplicationId())
+                            .orElse(null);
+
+            if (application == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Application not found",
+                                        null
+                                )
+                        );
+            }
+
+            // -------------------------------------------------
+            // 2. Application must be shortlisted
+            // -------------------------------------------------
+
+            if (application.getStatus() != null &&
+                    application.getStatus()
+                            != com.ems.common.ApplicationStatus.SHORTLISTED) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Only shortlisted applications can be scheduled for interview",
+                                        null
+                                )
+                        );
+            }
+
+            // -------------------------------------------------
+            // 3. Find candidate
+            //
+            // IMPORTANT:
+            // application.candidateId -> Candidate.id
+            // -------------------------------------------------
+
+            Candidate candidate =
+                    candidateRepository
+                            .findById(
+                                    application.getCandidateId()
+                            )
+                            .orElse(null);
+
+            if (candidate == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Candidate not found for application",
+                                        null
+                                )
+                        );
+            }
+
+            // -------------------------------------------------
+            // 4. Find job
+            // -------------------------------------------------
+
+            Job job =
+                    jobRepository
+                            .findById(
+                                    application.getJobId()
+                            )
+                            .orElse(null);
+
+            if (job == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Job not found for application",
+                                        null
+                                )
+                        );
+            }
+
+            // -------------------------------------------------
+            // 5. Find interviewer
+            // -------------------------------------------------
+
+            User interviewer =
+                    userRepository
+                            .findById(
+                                    dto.getInterviewerId()
+                            )
+                            .orElse(null);
+
+            if (interviewer == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Interviewer not found",
+                                        null
+                                )
+                        );
+            }
+
+            // -------------------------------------------------
+            // 6. Verify interviewer role
+            // -------------------------------------------------
+
+            if (interviewer.getRole() == null ||
+                    !interviewer.getRole()
+                            .equalsIgnoreCase("INTERVIEWER")) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Selected user is not an interviewer",
+                                        null
+                                )
+                        );
+            }
+
+            // -------------------------------------------------
+            // 7. Create interview
+            // -------------------------------------------------
+
+            Interview interview =
+                    new Interview();
 
             interview.setApplicationId(
                     application.getApplicationId()
             );
 
+            // IMPORTANT:
+            // Store Candidate.id.
             interview.setCandidateId(
-                    application.getCandidateId()
+                    candidate.getId()
             );
+
             interview.setInterviewType(
                     dto.getInterviewType()
             );
+
             interview.setJobId(
-                    application.getJobId()
+                    job.getId()
             );
+
             interview.setInterviewerId(
-                    dto.getInterviewerId()
+                    interviewer.getUserId()
             );
 
             interview.setInterviewDateTime(
@@ -88,108 +267,204 @@ public class InterviewService {
                     dto.getNotes()
             );
 
-            interview.setStatus(InterviewStatus.SCHEDULED);
+            interview.setStatus(
+                    InterviewStatus.SCHEDULED
+            );
 
             interview.setCreatedAt(
                     LocalDateTime.now()
             );
 
-            // Save interview
             Interview savedInterview =
-                    interviewRepository.save(interview);
+                    interviewRepository.save(
+                            interview
+                    );
 
+            // -------------------------------------------------
+            // 8. Candidate notification
+            //
+            // Candidate may or may not have a User account.
+            // Only create notification when a User account exists.
+            // -------------------------------------------------
 
-            // =========================
-            // CANDIDATE NOTIFICATION
-            // =========================
+            User candidateUser =
+                    userRepository
+                            .findByEmailIgnoreCase(
+                                    candidate.getEmail()
+                            )
+                            .orElse(null);
+
+            if (candidateUser != null) {
+
+                notificationService.createNotification(
+                        candidateUser.getUserId(),
+                        "Your interview for "
+                                + job.getTitle()
+                                + " has been scheduled on "
+                                + interview.getInterviewDateTime(),
+                        "INTERVIEW_SCHEDULED"
+                );
+            }
+
+            // -------------------------------------------------
+            // 9. Interviewer notification
+            // -------------------------------------------------
 
             notificationService.createNotification(
-                    application.getCandidateId(),
-                    "Your interview has been scheduled on "
+                    interviewer.getUserId(),
+                    "You have been assigned an interview for "
+                            + candidate.getName()
+                            + " on "
                             + interview.getInterviewDateTime(),
                     "INTERVIEW_SCHEDULED"
             );
 
-
-            ApiResponse<Interview> response =
-                    new ApiResponse<>(
-                            true,
-                            "Interview scheduled successfully",
-                            savedInterview
+            return ResponseEntity
+                    .status(HttpStatus.CREATED)
+                    .body(
+                            new ApiResponse<>(
+                                    true,
+                                    "Interview scheduled successfully",
+                                    savedInterview
+                            )
                     );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.CREATED
-            );
 
         } catch (Exception e) {
 
-            ApiResponse<Interview> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
-                    );
+            e.printStackTrace();
 
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.BAD_REQUEST
-            );
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to schedule interview: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
         }
     }
 
 
-    // Candidate views own interviews
-    public ResponseEntity<ApiResponse<List<Interview>>> getMyInterviews(
+    // =========================================================
+    // AVAILABLE INTERVIEWERS
+    // =========================================================
+
+    public ResponseEntity<ApiResponse<List<AvailableInterviewerDto>>>
+    getAvailableInterviewers() {
+
+        try {
+
+            List<User> users =
+                    userRepository.findByRole("INTERVIEWER");
+
+            List<AvailableInterviewerDto> interviewers =
+                    users.stream()
+                            .map(user ->
+                                    new AvailableInterviewerDto(
+                                            user.getUserId(),
+                                            user.getUserName(),
+                                            user.getRole()
+                                    )
+                            )
+                            .toList();
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Available interviewers fetched successfully",
+                            interviewers
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to fetch available interviewers: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
+        }
+    }
+
+
+    // =========================================================
+    // CANDIDATE - MY INTERVIEWS
+    // =========================================================
+
+    public ResponseEntity<ApiResponse<List<Interview>>>
+    getMyInterviews(
             Authentication authentication) {
 
         try {
 
-            String email = authentication.getName();
+            String email =
+                    authentication.getName();
 
-            User candidate = userRepository
-                    .findByEmailIgnoreCase(email)
-                    .orElseThrow(() ->
-                            new RuntimeException("Candidate not found")
-                    );
+            Candidate candidate =
+                    candidateRepository
+                            .findByEmailIgnoreCase(email)
+                            .orElse(null);
+
+            if (candidate == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Candidate profile not found",
+                                        null
+                                )
+                        );
+            }
 
             List<Interview> interviews =
                     interviewRepository.findByCandidateId(
-                            candidate.getUserId()
+                            candidate.getId()
                     );
 
-            ApiResponse<List<Interview>> response =
+            return ResponseEntity.ok(
                     new ApiResponse<>(
                             true,
                             "Interviews fetched successfully",
                             interviews
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.OK
+                    )
             );
 
         } catch (Exception e) {
 
-            ApiResponse<List<Interview>> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
-                    );
+            e.printStackTrace();
 
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.BAD_REQUEST
-            );
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    e.getMessage(),
+                                    null
+                            )
+                    );
         }
     }
 
 
-    // Employer views interviews for a particular job
-    public ResponseEntity<ApiResponse<List<Interview>>> getInterviewsByJob(
+    // =========================================================
+    // EMPLOYER - INTERVIEWS BY JOB
+    // =========================================================
+
+    public ResponseEntity<ApiResponse<List<Interview>>>
+    getInterviewsByJob(
             Long jobId) {
 
         try {
@@ -197,37 +472,35 @@ public class InterviewService {
             List<Interview> interviews =
                     interviewRepository.findByJobId(jobId);
 
-            ApiResponse<List<Interview>> response =
+            return ResponseEntity.ok(
                     new ApiResponse<>(
                             true,
                             "Interviews fetched successfully",
                             interviews
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.OK
+                    )
             );
 
         } catch (Exception e) {
 
-            ApiResponse<List<Interview>> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    e.getMessage(),
+                                    null
+                            )
                     );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.BAD_REQUEST
-            );
         }
     }
 
 
-    // Employer reschedules interview
-    public ResponseEntity<ApiResponse<Interview>> rescheduleInterview(
+    // =========================================================
+    // RESCHEDULE INTERVIEW
+    // =========================================================
+
+    public ResponseEntity<ApiResponse<Interview>>
+    rescheduleInterview(
             Long interviewId,
             InterviewRequestDto dto) {
 
@@ -245,9 +518,11 @@ public class InterviewService {
             interview.setInterviewDateTime(
                     dto.getInterviewDateTime()
             );
+
             interview.setInterviewType(
                     dto.getInterviewType()
             );
+
             interview.setInterviewMode(
                     dto.getInterviewMode()
             );
@@ -264,55 +539,83 @@ public class InterviewService {
                     dto.getNotes()
             );
 
-            interview.setStatus(InterviewStatus.RESCHEDULED);
+            interview.setStatus(
+                    InterviewStatus.RESCHEDULED
+            );
 
             Interview updatedInterview =
-                    interviewRepository.save(interview);
-            notificationService.createNotification(
-                    interview.getCandidateId(),
-                    "Your interview has been rescheduled to "
-                            + interview.getInterviewDateTime(),
-                    "INTERVIEW_RESCHEDULED"
-            );
+                    interviewRepository.save(
+                            interview
+                    );
 
-            notificationService.createNotification(
-                    interview.getInterviewerId(),
-                    "Your assigned interview has been rescheduled to "
-                            + interview.getInterviewDateTime(),
-                    "INTERVIEW_RESCHEDULED"
-            );
+            // Candidate notification
+            Candidate candidate =
+                    candidateRepository
+                            .findById(
+                                    interview.getCandidateId()
+                            )
+                            .orElse(null);
 
-            ApiResponse<Interview> response =
+            if (candidate != null) {
+
+                User candidateUser =
+                        userRepository
+                                .findByEmailIgnoreCase(
+                                        candidate.getEmail()
+                                )
+                                .orElse(null);
+
+                if (candidateUser != null) {
+
+                    notificationService.createNotification(
+                            candidateUser.getUserId(),
+                            "Your interview has been rescheduled to "
+                                    + interview.getInterviewDateTime(),
+                            "INTERVIEW_RESCHEDULED"
+                    );
+                }
+            }
+
+            // Interviewer notification
+            if (interview.getInterviewerId() != null) {
+
+                notificationService.createNotification(
+                        interview.getInterviewerId(),
+                        "Your assigned interview has been rescheduled to "
+                                + interview.getInterviewDateTime(),
+                        "INTERVIEW_RESCHEDULED"
+                );
+            }
+
+            return ResponseEntity.ok(
                     new ApiResponse<>(
                             true,
                             "Interview rescheduled successfully",
                             updatedInterview
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.OK
+                    )
             );
 
         } catch (Exception e) {
 
-            ApiResponse<Interview> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    e.getMessage(),
+                                    null
+                            )
                     );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.BAD_REQUEST
-            );
         }
     }
 
 
-    // Employer updates interview status
-    public ResponseEntity<ApiResponse<Interview>> updateInterviewStatus(
+    // =========================================================
+    // UPDATE INTERVIEW STATUS
+    // =========================================================
+
+    public ResponseEntity<ApiResponse<Interview>>
+    updateInterviewStatus(
             Long interviewId,
             String status) {
 
@@ -327,55 +630,86 @@ public class InterviewService {
                                     )
                             );
 
-            interview.setStatus(InterviewStatus.valueOf(status.toUpperCase()));
+            interview.setStatus(
+                    InterviewStatus.valueOf(
+                            status.toUpperCase()
+                    )
+            );
 
             Interview updatedInterview =
-                    interviewRepository.save(interview);
+                    interviewRepository.save(
+                            interview
+                    );
+
             if ("CANCELLED".equalsIgnoreCase(status)) {
 
-                notificationService.createNotification(
-                        interview.getCandidateId(),
-                        "Your interview has been cancelled.",
-                        "INTERVIEW_CANCELLED"
-                );
+                // Candidate notification
+                Candidate candidate =
+                        candidateRepository
+                                .findById(
+                                        interview.getCandidateId()
+                                )
+                                .orElse(null);
 
-                notificationService.createNotification(
-                        interview.getInterviewerId(),
-                        "Your assigned interview has been cancelled.",
-                        "INTERVIEW_CANCELLED"
-                );
+                if (candidate != null) {
+
+                    User candidateUser =
+                            userRepository
+                                    .findByEmailIgnoreCase(
+                                            candidate.getEmail()
+                                    )
+                                    .orElse(null);
+
+                    if (candidateUser != null) {
+
+                        notificationService.createNotification(
+                                candidateUser.getUserId(),
+                                "Your interview has been cancelled.",
+                                "INTERVIEW_CANCELLED"
+                        );
+                    }
+                }
+
+                // Interviewer notification
+                if (interview.getInterviewerId() != null) {
+
+                    notificationService.createNotification(
+                            interview.getInterviewerId(),
+                            "Your assigned interview has been cancelled.",
+                            "INTERVIEW_CANCELLED"
+                    );
+                }
             }
 
-            ApiResponse<Interview> response =
+            return ResponseEntity.ok(
                     new ApiResponse<>(
                             true,
                             "Interview status updated successfully",
                             updatedInterview
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.OK
+                    )
             );
 
         } catch (Exception e) {
 
-            ApiResponse<Interview> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    e.getMessage(),
+                                    null
+                            )
                     );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.BAD_REQUEST
-            );
         }
     }
+
+
+    // =========================================================
+    // INTERVIEW MANAGEMENT DTO
+    // =========================================================
+
     private InterviewManagementDto toManagementDto(
-            Interview interview
-    ) {
+            Interview interview) {
 
         InterviewManagementDto dto =
                 new InterviewManagementDto();
@@ -428,53 +762,77 @@ public class InterviewService {
                 interview.getStatus()
         );
 
-
+        // -------------------------------------------------
         // Candidate
+        // -------------------------------------------------
+
         if (interview.getCandidateId() != null) {
 
-            userRepository
-                    .findById(interview.getCandidateId())
-                    .ifPresent(user -> {
+            Candidate candidate =
+                    candidateRepository
+                            .findById(
+                                    interview.getCandidateId()
+                            )
+                            .orElse(null);
 
-                        dto.setCandidateName(
-                                user.getUserName()
-                        );
+            if (candidate != null) {
 
-                        dto.setCandidateEmail(
-                                user.getEmail()
-                        );
-                    });
+                dto.setCandidateName(
+                        candidate.getName()
+                );
+
+                dto.setCandidateEmail(
+                        candidate.getEmail()
+                );
+            }
         }
 
-
+        // -------------------------------------------------
         // Job
+        // -------------------------------------------------
+
         if (interview.getJobId() != null) {
 
             jobRepository
-                    .findById(interview.getJobId())
-                    .ifPresent(job ->
-                            dto.setPosition(
-                                    job.getTitle()
-                            )
+                    .findById(
+                            interview.getJobId()
+                    )
+                    .ifPresent(
+                            job ->
+                                    dto.setPosition(
+                                            job.getTitle()
+                                    )
                     );
         }
 
-
+        // -------------------------------------------------
         // Interviewer
+        // -------------------------------------------------
+
         if (interview.getInterviewerId() != null) {
 
             userRepository
-                    .findById(interview.getInterviewerId())
-                    .ifPresent(user ->
-                            dto.setInterviewerName(
-                                    user.getUserName()
-                            )
+                    .findById(
+                            interview.getInterviewerId()
+                    )
+                    .ifPresent(
+                            user ->
+                                    dto.setInterviewerName(
+                                            user.getUserName()
+                                    )
                     );
         }
 
         return dto;
     }
-    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
+
+
+    // =========================================================
+    // INTERVIEW MANAGEMENT
+    // =========================================================
+
+    public ResponseEntity<
+            ApiResponse<List<InterviewManagementDto>>>
     getInterviewManagementData() {
 
         try {
@@ -499,7 +857,9 @@ public class InterviewService {
             e.printStackTrace();
 
             return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -509,6 +869,12 @@ public class InterviewService {
                     );
         }
     }
+
+
+    // =========================================================
+    // INTERVIEW STATISTICS
+    // =========================================================
+
     public ResponseEntity<ApiResponse<InterviewStatsDto>>
     getInterviewStats() {
 
@@ -551,7 +917,9 @@ public class InterviewService {
         } catch (Exception e) {
 
             return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -561,7 +929,14 @@ public class InterviewService {
                     );
         }
     }
-    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
+
+
+    // =========================================================
+    // UPCOMING INTERVIEWS
+    // =========================================================
+
+    public ResponseEntity<
+            ApiResponse<List<InterviewManagementDto>>>
     getUpcomingInterviews() {
 
         try {
@@ -572,12 +947,13 @@ public class InterviewService {
                                     LocalDateTime.now()
                             )
                             .stream()
-                            .filter(interview ->
-                                    interview.getStatus()
-                                            == InterviewStatus.SCHEDULED
-                                            ||
+                            .filter(
+                                    interview ->
                                             interview.getStatus()
-                                                    == InterviewStatus.RESCHEDULED
+                                                    == InterviewStatus.SCHEDULED
+                                                    ||
+                                                    interview.getStatus()
+                                                            == InterviewStatus.RESCHEDULED
                             )
                             .map(this::toManagementDto)
                             .toList();
@@ -593,7 +969,9 @@ public class InterviewService {
         } catch (Exception e) {
 
             return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -603,24 +981,50 @@ public class InterviewService {
                     );
         }
     }
-    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
-    searchInterviews(String keyword) {
+
+
+    // =========================================================
+    // SEARCH INTERVIEWS
+    // =========================================================
+
+    public ResponseEntity<
+            ApiResponse<List<InterviewManagementDto>>>
+    searchInterviews(
+            String keyword) {
 
         try {
 
-            String search = keyword == null
-                    ? ""
-                    : keyword.trim().toLowerCase();
+            String search =
+                    keyword == null
+                            ? ""
+                            : keyword.trim().toLowerCase();
 
             List<InterviewManagementDto> result =
-                    interviewRepository.findAll()
+                    interviewRepository
+                            .findAll()
                             .stream()
                             .map(this::toManagementDto)
-                            .filter(dto ->
-                                    containsIgnoreCase(dto.getCandidateName(), search)
-                                            || containsIgnoreCase(dto.getCandidateEmail(), search)
-                                            || containsIgnoreCase(dto.getPosition(), search)
-                                            || containsIgnoreCase(dto.getInterviewerName(), search)
+                            .filter(
+                                    dto ->
+                                            containsIgnoreCase(
+                                                    dto.getCandidateName(),
+                                                    search
+                                            )
+                                                    ||
+                                                    containsIgnoreCase(
+                                                            dto.getCandidateEmail(),
+                                                            search
+                                                    )
+                                                    ||
+                                                    containsIgnoreCase(
+                                                            dto.getPosition(),
+                                                            search
+                                                    )
+                                                    ||
+                                                    containsIgnoreCase(
+                                                            dto.getInterviewerName(),
+                                                            search
+                                                    )
                             )
                             .toList();
 
@@ -637,48 +1041,70 @@ public class InterviewService {
             e.printStackTrace();
 
             return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(
-                            false,
-                            "Failed to search interviews",
-                            null
-                    ));
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to search interviews",
+                                    null
+                            )
+                    );
         }
     }
 
+
     private boolean containsIgnoreCase(
             String value,
-            String search
-    ) {
+            String search) {
+
         return value != null &&
-                value.toLowerCase().contains(search);
+                value.toLowerCase()
+                        .contains(search);
     }
-    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
-    getInterviewsByStatus(String status) {
+
+
+    // =========================================================
+    // INTERVIEWS BY STATUS
+    // =========================================================
+
+    public ResponseEntity<
+            ApiResponse<List<InterviewManagementDto>>>
+    getInterviewsByStatus(
+            String status) {
 
         try {
 
             InterviewStatus interviewStatus;
 
             try {
+
                 interviewStatus =
                         InterviewStatus.valueOf(
-                                status.trim().toUpperCase()
+                                status.trim()
+                                        .toUpperCase()
                         );
+
             } catch (IllegalArgumentException e) {
 
                 return ResponseEntity
                         .badRequest()
-                        .body(new ApiResponse<>(
-                                false,
-                                "Invalid interview status: " + status,
-                                null
-                        ));
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Invalid interview status: "
+                                                + status,
+                                        null
+                                )
+                        );
             }
 
             List<InterviewManagementDto> result =
                     interviewRepository
-                            .findByStatus(interviewStatus)
+                            .findByStatus(
+                                    interviewStatus
+                            )
                             .stream()
                             .map(this::toManagementDto)
                             .toList();
@@ -696,16 +1122,28 @@ public class InterviewService {
             e.printStackTrace();
 
             return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(
-                            false,
-                            "Failed to filter interviews",
-                            null
-                    ));
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to filter interviews",
+                                    null
+                            )
+                    );
         }
     }
-    public ResponseEntity<ApiResponse<InterviewManagementDto>>
-    getInterviewDetails(Long interviewId) {
+
+
+    // =========================================================
+    // INTERVIEW DETAILS
+    // =========================================================
+
+    public ResponseEntity<
+            ApiResponse<InterviewManagementDto>>
+    getInterviewDetails(
+            Long interviewId) {
 
         try {
 
@@ -718,15 +1156,19 @@ public class InterviewService {
 
                 return ResponseEntity
                         .status(HttpStatus.NOT_FOUND)
-                        .body(new ApiResponse<>(
-                                false,
-                                "Interview not found",
-                                null
-                        ));
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Interview not found",
+                                        null
+                                )
+                        );
             }
 
             InterviewManagementDto dto =
-                    toManagementDto(interview);
+                    toManagementDto(
+                            interview
+                    );
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
@@ -741,12 +1183,16 @@ public class InterviewService {
             e.printStackTrace();
 
             return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(
-                            false,
-                            "Failed to retrieve interview details",
-                            null
-                    ));
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to retrieve interview details",
+                                    null
+                            )
+                    );
         }
     }
 }

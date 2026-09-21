@@ -3,11 +3,22 @@ package com.ems.service;
 import com.ems.common.ApiResponse;
 import com.ems.common.ApplicationStatus;
 import com.ems.dto.CandidateReviewDto;
+import com.ems.dto.InterviewEligibleApplicationDto;
 import com.ems.dto.ShortlistedCandidateDto;
-import com.ems.entity.*;
+import com.ems.entity.AICandidateMatching;
+import com.ems.entity.Application;
+import com.ems.entity.Candidate;
+import com.ems.entity.Job;
+import com.ems.entity.Resume;
+import com.ems.entity.User;
 import com.ems.mapper.CandidateReviewMapper;
 import com.ems.mapper.ShortlistedCandidateMapper;
-import com.ems.repository.*;
+import com.ems.repository.AICandidateMatchingRepository;
+import com.ems.repository.ApplicationRepository;
+import com.ems.repository.CandidateRepository;
+import com.ems.repository.JobRepository;
+import com.ems.repository.ResumeRepository;
+import com.ems.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,8 +39,102 @@ public class ApplicationService {
     private final CandidateRepository candidateRepository;
     private final ResumeRepository resumeRepository;
     private final AICandidateMatchingRepository aiCandidateMatchingRepository;
+
     private final ShortlistedCandidateMapper shortlistedCandidateMapper;
     private final CandidateReviewMapper candidateReviewMapper;
+
+    private final EmailNotificationService emailNotificationService;
+
+
+    // =========================================================
+    // HELPER
+    // FIND CANDIDATE FOR APPLICATION
+    // =========================================================
+    //
+    // Correct relationship:
+    //
+    // Application.candidateId -> Candidate.id
+    //
+    // Some older records may have been created using:
+    //
+    // Application.candidateId -> User.userId
+    //
+    // Therefore we support both.
+    // =========================================================
+
+    private Candidate findCandidateForApplication(
+            Application application
+    ) {
+
+        if (application == null ||
+                application.getCandidateId() == null) {
+
+            return null;
+        }
+
+        Long candidateId =
+                application.getCandidateId();
+
+        // First: correct relationship
+        // Application.candidateId -> Candidate.id
+
+        Candidate candidate =
+                candidateRepository
+                        .findById(candidateId)
+                        .orElse(null);
+
+        if (candidate != null) {
+            return candidate;
+        }
+
+        // Backward compatibility:
+        // older application may contain User.userId
+
+        User user =
+                userRepository
+                        .findById(candidateId)
+                        .orElse(null);
+
+        if (user != null &&
+                user.getEmail() != null) {
+
+            return candidateRepository
+                    .findByEmailIgnoreCase(
+                            user.getEmail()
+                    )
+                    .orElse(null);
+        }
+
+        return null;
+    }
+
+
+    // =========================================================
+    // HELPER
+    // FIND USER FROM CANDIDATE
+    // =========================================================
+    //
+    // User is optional for recruiter candidate information.
+    // A Candidate profile can exist without a login account.
+    // =========================================================
+
+    private User findUserForCandidate(
+            Candidate candidate
+    ) {
+
+        if (candidate == null ||
+                candidate.getEmail() == null ||
+                candidate.getEmail().isBlank()) {
+
+            return null;
+        }
+
+        return userRepository
+                .findByEmailIgnoreCase(
+                        candidate.getEmail()
+                )
+                .orElse(null);
+    }
 
 
     // =========================================================
@@ -44,13 +149,10 @@ public class ApplicationService {
 
         try {
 
-            // -------------------------------------------------
-            // 1. Find logged-in user
-            // -------------------------------------------------
-
-            User user = userRepository
-                    .findByEmailIgnoreCase(email)
-                    .orElse(null);
+            User user =
+                    userRepository
+                            .findByEmailIgnoreCase(email)
+                            .orElse(null);
 
             if (user == null) {
 
@@ -64,10 +166,6 @@ public class ApplicationService {
                                 )
                         );
             }
-
-            // -------------------------------------------------
-            // 2. Verify candidate role
-            // -------------------------------------------------
 
             if (user.getRole() == null ||
                     !user.getRole()
@@ -84,13 +182,10 @@ public class ApplicationService {
                         );
             }
 
-            // -------------------------------------------------
-            // 3. Find candidate profile
-            // -------------------------------------------------
-
-            Candidate candidate = candidateRepository
-                    .findByEmailIgnoreCase(email)
-                    .orElse(null);
+            Candidate candidate =
+                    candidateRepository
+                            .findByEmailIgnoreCase(email)
+                            .orElse(null);
 
             if (candidate == null) {
 
@@ -105,13 +200,10 @@ public class ApplicationService {
                         );
             }
 
-            // -------------------------------------------------
-            // 4. Find job
-            // -------------------------------------------------
-
-            Job job = jobRepository
-                    .findById(jobId)
-                    .orElse(null);
+            Job job =
+                    jobRepository
+                            .findById(jobId)
+                            .orElse(null);
 
             if (job == null) {
 
@@ -126,12 +218,9 @@ public class ApplicationService {
                         );
             }
 
-            // -------------------------------------------------
-            // 5. Check job status
-            // -------------------------------------------------
-
             if (job.getStatus() == null ||
-                    !job.getStatus().equalsIgnoreCase("OPEN")) {
+                    !job.getStatus()
+                            .equalsIgnoreCase("OPEN")) {
 
                 return ResponseEntity
                         .status(HttpStatus.BAD_REQUEST)
@@ -144,19 +233,26 @@ public class ApplicationService {
                         );
             }
 
-            // -------------------------------------------------
-            // 6. Prevent duplicate application
-            //
-            // Application.candidateId = User.userId
-            // -------------------------------------------------
-
+            // Check correct Candidate ID
             boolean alreadyApplied =
                     applicationRepository
                             .findByCandidateIdAndJobId(
-                                    user.getUserId(),
+                                    candidate.getId(),
                                     jobId
                             )
                             .isPresent();
+
+            // Also check old User ID records
+            if (!alreadyApplied) {
+
+                alreadyApplied =
+                        applicationRepository
+                                .findByCandidateIdAndJobId(
+                                        user.getUserId(),
+                                        jobId
+                                )
+                                .isPresent();
+            }
 
             if (alreadyApplied) {
 
@@ -171,14 +267,13 @@ public class ApplicationService {
                         );
             }
 
-            // -------------------------------------------------
-            // 7. Create application
-            // -------------------------------------------------
+            Application application =
+                    new Application();
 
-            Application application = new Application();
-
+            // IMPORTANT:
+            // New applications store Candidate.id.
             application.setCandidateId(
-                    user.getUserId()
+                    candidate.getId()
             );
 
             application.setJobId(jobId);
@@ -188,7 +283,9 @@ public class ApplicationService {
             );
 
             Application savedApplication =
-                    applicationRepository.save(application);
+                    applicationRepository.save(
+                            application
+                    );
 
             return ResponseEntity
                     .status(HttpStatus.CREATED)
@@ -205,7 +302,9 @@ public class ApplicationService {
             e.printStackTrace();
 
             return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -229,9 +328,10 @@ public class ApplicationService {
 
         try {
 
-            User user = userRepository
-                    .findByEmailIgnoreCase(email)
-                    .orElse(null);
+            User user =
+                    userRepository
+                            .findByEmailIgnoreCase(email)
+                            .orElse(null);
 
             if (user == null) {
 
@@ -261,11 +361,58 @@ public class ApplicationService {
                         );
             }
 
+            Candidate candidate =
+                    candidateRepository
+                            .findByEmailIgnoreCase(email)
+                            .orElse(null);
+
+            if (candidate == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Candidate profile not found",
+                                        null
+                                )
+                        );
+            }
+
             List<Application> applications =
+                    applicationRepository
+                            .findByCandidateId(
+                                    candidate.getId()
+                            );
+
+            // Backward compatibility for old records
+            List<Application> oldApplications =
                     applicationRepository
                             .findByCandidateId(
                                     user.getUserId()
                             );
+
+            for (Application oldApplication :
+                    oldApplications) {
+
+                boolean alreadyIncluded =
+                        applications.stream()
+                                .anyMatch(
+                                        existing ->
+                                                existing
+                                                        .getApplicationId()
+                                                        .equals(
+                                                                oldApplication
+                                                                        .getApplicationId()
+                                                        )
+                                );
+
+                if (!alreadyIncluded) {
+                    applications.add(
+                            oldApplication
+                    );
+                }
+            }
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
@@ -280,7 +427,9 @@ public class ApplicationService {
             e.printStackTrace();
 
             return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -305,9 +454,10 @@ public class ApplicationService {
 
         try {
 
-            User user = userRepository
-                    .findByEmailIgnoreCase(email)
-                    .orElse(null);
+            User user =
+                    userRepository
+                            .findByEmailIgnoreCase(email)
+                            .orElse(null);
 
             if (user == null) {
 
@@ -337,6 +487,24 @@ public class ApplicationService {
                         );
             }
 
+            Candidate candidate =
+                    candidateRepository
+                            .findByEmailIgnoreCase(email)
+                            .orElse(null);
+
+            if (candidate == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Candidate profile not found",
+                                        null
+                                )
+                        );
+            }
+
             Application application =
                     applicationRepository
                             .findById(applicationId)
@@ -355,13 +523,15 @@ public class ApplicationService {
                         );
             }
 
-            // -------------------------------------------------
-            // Security:
-            // Candidate can withdraw ONLY their own application
-            // -------------------------------------------------
+            Candidate applicationCandidate =
+                    findCandidateForApplication(
+                            application
+                    );
 
-            if (!application.getCandidateId()
-                    .equals(user.getUserId())) {
+            if (applicationCandidate == null ||
+                    !applicationCandidate
+                            .getId()
+                            .equals(candidate.getId())) {
 
                 return ResponseEntity
                         .status(HttpStatus.FORBIDDEN)
@@ -373,10 +543,6 @@ public class ApplicationService {
                                 )
                         );
             }
-
-            // -------------------------------------------------
-            // Do not withdraw already processed applications
-            // -------------------------------------------------
 
             if (application.getStatus() ==
                     ApplicationStatus.SHORTLISTED) {
@@ -392,16 +558,14 @@ public class ApplicationService {
                         );
             }
 
-            // -------------------------------------------------
-            // Update status
-            // -------------------------------------------------
-
             application.setStatus(
                     ApplicationStatus.WITHDRAWN
             );
 
             Application savedApplication =
-                    applicationRepository.save(application);
+                    applicationRepository.save(
+                            application
+                    );
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
@@ -416,7 +580,9 @@ public class ApplicationService {
             e.printStackTrace();
 
             return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -430,7 +596,7 @@ public class ApplicationService {
 
 
     // =========================================================
-    // EXISTING HR / RECRUITER
+    // HR / RECRUITER
     // GET SHORTLISTED CANDIDATES
     // =========================================================
 
@@ -444,67 +610,58 @@ public class ApplicationService {
                             ApplicationStatus.SHORTLISTED
                     );
 
-            List<ShortlistedCandidateDto> shortlistedCandidates =
+            List<ShortlistedCandidateDto>
+                    shortlistedCandidates =
                     new ArrayList<>();
 
-            for (Application application : applications) {
+            for (Application application :
+                    applications) {
 
-                /*
-                 * Application.candidateId currently points
-                 * to User.userId
-                 */
-                User user = userRepository
-                        .findById(application.getCandidateId())
-                        .orElse(null);
+                Candidate candidate =
+                        findCandidateForApplication(
+                                application
+                        );
 
-                Job job = jobRepository
-                        .findById(application.getJobId())
-                        .orElse(null);
+                if (candidate == null) {
+                    continue;
+                }
 
-                if (user == null || job == null) {
+                Job job =
+                        jobRepository
+                                .findById(
+                                        application.getJobId()
+                                )
+                                .orElse(null);
+
+                if (job == null) {
                     continue;
                 }
 
                 /*
-                 * Only CANDIDATE users should appear
+                 * User is optional here.
+                 *
+                 * The Candidate can exist without
+                 * a login account.
                  */
-                if (user.getRole() == null ||
-                        !user.getRole()
-                                .equalsIgnoreCase("CANDIDATE")) {
-                    continue;
-                }
+                User user =
+                        findUserForCandidate(
+                                candidate
+                        );
 
-                /*
-                 * Candidate profile is currently resolved
-                 * through the user's email.
-                 */
-                Candidate candidate = candidateRepository
-                        .findByEmailIgnoreCase(user.getEmail())
-                        .orElse(null);
+                Resume resume =
+                        resumeRepository
+                                .findFirstByCandidateIdOrderByIdDesc(
+                                        candidate.getId()
+                                )
+                                .orElse(null);
 
-                Resume resume = null;
-                AICandidateMatching aiMatching = null;
-
-                /*
-                 * Resume and AI tables use Candidate.id,
-                 * not User.userId.
-                 */
-                if (candidate != null) {
-
-                    resume = resumeRepository
-                            .findFirstByCandidateIdOrderByIdDesc(
-                                    candidate.getId()
-                            )
-                            .orElse(null);
-
-                    aiMatching =
-                            aiCandidateMatchingRepository
-                                    .findByCandidateIdAndJobId(
-                                            candidate.getId(),
-                                            job.getId()
-                                    )
-                                    .orElse(null);
-                }
+                AICandidateMatching aiMatching =
+                        aiCandidateMatchingRepository
+                                .findByCandidateIdAndJobId(
+                                        candidate.getId(),
+                                        job.getId()
+                                )
+                                .orElse(null);
 
                 ShortlistedCandidateDto dto =
                         shortlistedCandidateMapper.toDto(
@@ -529,8 +686,12 @@ public class ApplicationService {
 
         } catch (Exception e) {
 
+            e.printStackTrace();
+
             return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -544,18 +705,21 @@ public class ApplicationService {
 
 
     // =========================================================
-    // EXISTING HR / RECRUITER
+    // HR / RECRUITER
     // CANDIDATE REVIEW
     // =========================================================
 
     public ResponseEntity<ApiResponse<CandidateReviewDto>>
-    getCandidateReview(Long applicationId) {
+    getCandidateReview(
+            Long applicationId
+    ) {
 
         try {
 
-            Application application = applicationRepository
-                    .findById(applicationId)
-                    .orElse(null);
+            Application application =
+                    applicationRepository
+                            .findById(applicationId)
+                            .orElse(null);
 
             if (application == null) {
 
@@ -584,40 +748,43 @@ public class ApplicationService {
                         );
             }
 
-            User user = userRepository
-                    .findById(application.getCandidateId())
-                    .orElse(null);
+            // IMPORTANT:
+            // Application.candidateId -> Candidate.id
+            Candidate candidate =
+                    findCandidateForApplication(
+                            application
+                    );
 
-            if (user == null) {
+            if (candidate == null) {
 
                 return ResponseEntity
                         .status(HttpStatus.NOT_FOUND)
                         .body(
                                 new ApiResponse<>(
                                         false,
-                                        "Candidate user not found",
+                                        "Candidate profile not found",
                                         null
                                 )
                         );
             }
 
-            if (user.getRole() == null ||
-                    !user.getRole().equalsIgnoreCase("CANDIDATE")) {
+            /*
+             * User is OPTIONAL.
+             *
+             * Rahul has a Candidate record but no User record.
+             * Therefore we do not fail the review request.
+             */
+            User user =
+                    findUserForCandidate(
+                            candidate
+                    );
 
-                return ResponseEntity
-                        .status(HttpStatus.BAD_REQUEST)
-                        .body(
-                                new ApiResponse<>(
-                                        false,
-                                        "Application does not belong to a candidate",
-                                        null
-                                )
-                        );
-            }
-
-            Job job = jobRepository
-                    .findById(application.getJobId())
-                    .orElse(null);
+            Job job =
+                    jobRepository
+                            .findById(
+                                    application.getJobId()
+                            )
+                            .orElse(null);
 
             if (job == null) {
 
@@ -632,28 +799,20 @@ public class ApplicationService {
                         );
             }
 
-            Candidate candidate = candidateRepository
-                    .findByEmailIgnoreCase(user.getEmail())
-                    .orElse(null);
+            Resume resume =
+                    resumeRepository
+                            .findFirstByCandidateIdOrderByIdDesc(
+                                    candidate.getId()
+                            )
+                            .orElse(null);
 
-            Resume resume = null;
-            AICandidateMatching aiMatching = null;
-
-            if (candidate != null) {
-
-                resume = resumeRepository
-                        .findFirstByCandidateIdOrderByIdDesc(
-                                candidate.getId()
-                        )
-                        .orElse(null);
-
-                aiMatching = aiCandidateMatchingRepository
-                        .findByCandidateIdAndJobId(
-                                candidate.getId(),
-                                job.getId()
-                        )
-                        .orElse(null);
-            }
+            AICandidateMatching aiMatching =
+                    aiCandidateMatchingRepository
+                            .findByCandidateIdAndJobId(
+                                    candidate.getId(),
+                                    job.getId()
+                            )
+                            .orElse(null);
 
             CandidateReviewDto review =
                     candidateReviewMapper.toDto(
@@ -675,8 +834,12 @@ public class ApplicationService {
 
         } catch (Exception e) {
 
+            e.printStackTrace();
+
             return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -690,7 +853,7 @@ public class ApplicationService {
 
 
     // =========================================================
-    // EXISTING HR / RECRUITER
+    // HR / RECRUITER
     // SHORTLIST CANDIDATE
     // =========================================================
 
@@ -702,9 +865,10 @@ public class ApplicationService {
 
         try {
 
-            Candidate candidate = candidateRepository
-                    .findById(candidateId)
-                    .orElse(null);
+            Candidate candidate =
+                    candidateRepository
+                            .findById(candidateId)
+                            .orElse(null);
 
             if (candidate == null) {
 
@@ -719,43 +883,15 @@ public class ApplicationService {
                         );
             }
 
-            User user = userRepository
-                    .findByEmailIgnoreCase(
-                            candidate.getEmail()
-                    )
-                    .orElse(null);
+            User user =
+                    findUserForCandidate(
+                            candidate
+                    );
 
-            if (user == null) {
-
-                return ResponseEntity
-                        .status(HttpStatus.NOT_FOUND)
-                        .body(
-                                new ApiResponse<>(
-                                        false,
-                                        "Candidate user account not found",
-                                        null
-                                )
-                        );
-            }
-
-            if (user.getRole() == null ||
-                    !user.getRole()
-                            .equalsIgnoreCase("CANDIDATE")) {
-
-                return ResponseEntity
-                        .status(HttpStatus.BAD_REQUEST)
-                        .body(
-                                new ApiResponse<>(
-                                        false,
-                                        "User is not a candidate",
-                                        null
-                                )
-                        );
-            }
-
-            Job job = jobRepository
-                    .findById(jobId)
-                    .orElse(null);
+            Job job =
+                    jobRepository
+                            .findById(jobId)
+                            .orElse(null);
 
             if (job == null) {
 
@@ -770,13 +906,33 @@ public class ApplicationService {
                         );
             }
 
+            /*
+             * Correct relationship:
+             * Candidate.id
+             */
             Application application =
                     applicationRepository
                             .findByCandidateIdAndJobId(
-                                    user.getUserId(),
+                                    candidate.getId(),
                                     jobId
                             )
                             .orElse(null);
+
+            /*
+             * Backward compatibility for old data
+             * where User.userId was stored.
+             */
+            if (application == null &&
+                    user != null) {
+
+                application =
+                        applicationRepository
+                                .findByCandidateIdAndJobId(
+                                        user.getUserId(),
+                                        jobId
+                                )
+                                .orElse(null);
+            }
 
             if (application == null) {
 
@@ -791,8 +947,8 @@ public class ApplicationService {
                         );
             }
 
-            if (application.getStatus()
-                    == ApplicationStatus.SHORTLISTED) {
+            if (application.getStatus() ==
+                    ApplicationStatus.SHORTLISTED) {
 
                 return ResponseEntity.ok(
                         new ApiResponse<>(
@@ -803,12 +959,19 @@ public class ApplicationService {
                 );
             }
 
+            // Normalize new/updated records
+            application.setCandidateId(
+                    candidate.getId()
+            );
+
             application.setStatus(
                     ApplicationStatus.SHORTLISTED
             );
 
             Application savedApplication =
-                    applicationRepository.save(application);
+                    applicationRepository.save(
+                            application
+                    );
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
@@ -823,11 +986,244 @@ public class ApplicationService {
             e.printStackTrace();
 
             return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(
                             new ApiResponse<>(
                                     false,
                                     "Failed to shortlist candidate: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
+        }
+    }
+
+
+    // =========================================================
+    // HR / HIRING MANAGER
+    // UPDATE APPLICATION STATUS + EMAIL
+    // =========================================================
+
+    public ResponseEntity<ApiResponse<Application>>
+    updateApplicationStatus(
+            Long applicationId,
+            ApplicationStatus newStatus
+    ) {
+
+        try {
+
+            Application application =
+                    applicationRepository
+                            .findById(applicationId)
+                            .orElse(null);
+
+            if (application == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Application not found",
+                                        null
+                                )
+                        );
+            }
+
+            if (newStatus !=
+                    ApplicationStatus.ACCEPTED &&
+                    newStatus !=
+                            ApplicationStatus.REJECTED) {
+
+                return ResponseEntity
+                        .status(HttpStatus.BAD_REQUEST)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Only ACCEPTED or REJECTED status can be updated using this endpoint",
+                                        null
+                                )
+                        );
+            }
+
+            Candidate candidate =
+                    findCandidateForApplication(
+                            application
+                    );
+
+            if (candidate == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Candidate profile not found",
+                                        null
+                                )
+                        );
+            }
+
+            Job job =
+                    jobRepository
+                            .findById(
+                                    application.getJobId()
+                            )
+                            .orElse(null);
+
+            if (job == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Job not found",
+                                        null
+                                )
+                        );
+            }
+
+            application.setStatus(
+                    newStatus
+            );
+
+            Application savedApplication =
+                    applicationRepository.save(
+                            application
+                    );
+
+            /*
+             * Email is sent directly to Candidate.email.
+             *
+             * Candidate does not need a User account.
+             */
+
+            if (newStatus ==
+                    ApplicationStatus.ACCEPTED) {
+
+                emailNotificationService
+                        .sendApplicationAcceptedEmail(
+                                candidate.getEmail(),
+                                candidate.getName(),
+                                job.getTitle()
+                        );
+
+            } else {
+
+                emailNotificationService
+                        .sendApplicationRejectedEmail(
+                                candidate.getEmail(),
+                                candidate.getName(),
+                                job.getTitle()
+                        );
+            }
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Application status updated and email notification sent successfully",
+                            savedApplication
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to update application status: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
+        }
+    }
+
+
+    // =========================================================
+    // RECRUITER
+    // APPLICATIONS ELIGIBLE FOR INTERVIEW
+    // =========================================================
+
+    public ResponseEntity<
+            ApiResponse<List<InterviewEligibleApplicationDto>>>
+    getApplicationsEligibleForInterview() {
+
+        try {
+
+            List<Application> applications =
+                    applicationRepository.findByStatus(
+                            ApplicationStatus.SHORTLISTED
+                    );
+
+            List<InterviewEligibleApplicationDto>
+                    result =
+                    new ArrayList<>();
+
+            for (Application application :
+                    applications) {
+
+                Candidate candidate =
+                        findCandidateForApplication(
+                                application
+                        );
+
+                if (candidate == null) {
+                    continue;
+                }
+
+                Job job =
+                        jobRepository
+                                .findById(
+                                        application.getJobId()
+                                )
+                                .orElse(null);
+
+                if (job == null) {
+                    continue;
+                }
+
+                InterviewEligibleApplicationDto dto =
+                        new InterviewEligibleApplicationDto(
+                                application.getApplicationId(),
+                                candidate.getId(),
+                                candidate.getName(),
+                                job.getId(),
+                                job.getTitle()
+                        );
+
+                result.add(dto);
+            }
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Applications eligible for interview scheduling fetched successfully",
+                            result
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to fetch applications eligible for interview: "
                                             + e.getMessage(),
                                     null
                             )

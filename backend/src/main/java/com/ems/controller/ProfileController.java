@@ -17,23 +17,41 @@ public class ProfileController {
         this.profileService = profileService;
     }
 
+    // =========================================================
+    // GET PROFILE
+    // =========================================================
+
     @GetMapping("/get")
     public ResponseEntity<ApiResponse<EmployeeProfileDto>> getProfile() {
 
         return profileService.getProfile();
     }
 
+    // =========================================================
+    // UPDATE PROFILE
+    // =========================================================
+
     @PutMapping("/update")
     public ResponseEntity<ApiResponse<EmployeeProfileDto>> updateProfile(
+
             @RequestParam String userName,
+
             @RequestParam String email,
-            @RequestParam String department
+
+            @RequestParam String phone,
+
+            @RequestParam String department,
+
+            @RequestParam String location
+
     ) {
 
         return profileService.updateProfile(
                 userName,
                 email,
-                department
+                phone,
+                department,
+                location
         );
     }
 }

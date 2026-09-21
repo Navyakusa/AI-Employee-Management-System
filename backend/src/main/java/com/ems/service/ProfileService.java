@@ -56,12 +56,7 @@ public class ProfileService {
 
             String email = authentication.getName();
 
-            // -------------------------------------------------
-            // Find the Employee record.
-            // This is the SAME source used by
-            // EmployeeDashboardService.
-            // -------------------------------------------------
-
+            // Find employee using logged-in user's email
             Employee employee =
                     employeeRepository
                             .findByEmailIgnoreCase(email)
@@ -81,47 +76,7 @@ public class ProfileService {
             }
 
             EmployeeProfileDto profile =
-                    new EmployeeProfileDto();
-
-            profile.setEmployeeId(
-                    employee.getId()
-            );
-
-            profile.setEmployeeCode(
-                    employee.getEmployeeId()
-            );
-
-            profile.setName(
-                    employee.getName()
-            );
-
-            profile.setEmail(
-                    employee.getEmail()
-            );
-
-            profile.setDepartment(
-                    employee.getDepartment()
-            );
-
-            profile.setDesignation(
-                    employee.getDesignation()
-            );
-
-            profile.setManager(
-                    employee.getManager()
-            );
-
-            profile.setLocation(
-                    employee.getLocation()
-            );
-
-            profile.setEmploymentType(
-                    employee.getEmploymentType()
-            );
-
-            profile.setStatus(
-                    employee.getStatus()
-            );
+                    buildProfileDto(employee);
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
@@ -155,7 +110,9 @@ public class ProfileService {
     public ResponseEntity<ApiResponse<EmployeeProfileDto>> updateProfile(
             String userName,
             String email,
-            String department
+            String phone,
+            String department,
+            String location
     ) {
 
         try {
@@ -207,7 +164,6 @@ public class ProfileService {
 
             // -------------------------------------------------
             // Find Employee record
-            // SAME record used by Dashboard
             // -------------------------------------------------
 
             Employee employee =
@@ -257,7 +213,7 @@ public class ProfileService {
                 // Update User email
                 user.setEmail(newEmail);
 
-                // Update Employee email as well
+                // Update Employee email
                 employee.setEmail(newEmail);
             }
 
@@ -271,11 +227,21 @@ public class ProfileService {
                 String newName =
                         userName.trim();
 
-                // User account name
                 user.setUserName(newName);
 
-                // Employee profile name
                 employee.setName(newName);
+            }
+
+            // -------------------------------------------------
+            // UPDATE PHONE
+            // -------------------------------------------------
+
+            if (phone != null
+                    && !phone.trim().isEmpty()) {
+
+                employee.setPhone(
+                        phone.trim()
+                );
             }
 
             // -------------------------------------------------
@@ -288,11 +254,21 @@ public class ProfileService {
                 String newDepartment =
                         department.trim();
 
-                // User department
                 user.setDepartment(newDepartment);
 
-                // Employee department
                 employee.setDepartment(newDepartment);
+            }
+
+            // -------------------------------------------------
+            // UPDATE LOCATION
+            // -------------------------------------------------
+
+            if (location != null
+                    && !location.trim().isEmpty()) {
+
+                employee.setLocation(
+                        location.trim()
+                );
             }
 
             // -------------------------------------------------
@@ -305,51 +281,11 @@ public class ProfileService {
                     employeeRepository.save(employee);
 
             // -------------------------------------------------
-            // BUILD RESPONSE FROM EMPLOYEE
+            // BUILD RESPONSE
             // -------------------------------------------------
 
             EmployeeProfileDto profile =
-                    new EmployeeProfileDto();
-
-            profile.setEmployeeId(
-                    updatedEmployee.getId()
-            );
-
-            profile.setEmployeeCode(
-                    updatedEmployee.getEmployeeId()
-            );
-
-            profile.setName(
-                    updatedEmployee.getName()
-            );
-
-            profile.setEmail(
-                    updatedEmployee.getEmail()
-            );
-
-            profile.setDepartment(
-                    updatedEmployee.getDepartment()
-            );
-
-            profile.setDesignation(
-                    updatedEmployee.getDesignation()
-            );
-
-            profile.setManager(
-                    updatedEmployee.getManager()
-            );
-
-            profile.setLocation(
-                    updatedEmployee.getLocation()
-            );
-
-            profile.setEmploymentType(
-                    updatedEmployee.getEmploymentType()
-            );
-
-            profile.setStatus(
-                    updatedEmployee.getStatus()
-            );
+                    buildProfileDto(updatedEmployee);
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
@@ -374,5 +310,63 @@ public class ProfileService {
                             )
                     );
         }
+    }
+
+    // =========================================================
+    // BUILD PROFILE DTO
+    // =========================================================
+
+    private EmployeeProfileDto buildProfileDto(
+            Employee employee
+    ) {
+
+        EmployeeProfileDto profile =
+                new EmployeeProfileDto();
+
+        profile.setEmployeeId(
+                employee.getId()
+        );
+
+        profile.setEmployeeCode(
+                employee.getEmployeeId()
+        );
+
+        profile.setName(
+                employee.getName()
+        );
+
+        profile.setEmail(
+                employee.getEmail()
+        );
+
+        profile.setPhone(
+                employee.getPhone()
+        );
+
+        profile.setDepartment(
+                employee.getDepartment()
+        );
+
+        profile.setDesignation(
+                employee.getDesignation()
+        );
+
+        profile.setManager(
+                employee.getManager()
+        );
+
+        profile.setLocation(
+                employee.getLocation()
+        );
+
+        profile.setEmploymentType(
+                employee.getEmploymentType()
+        );
+
+        profile.setStatus(
+                employee.getStatus()
+        );
+
+        return profile;
     }
 }
