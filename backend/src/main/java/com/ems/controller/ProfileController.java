@@ -1,7 +1,7 @@
 package com.ems.controller;
 
 import com.ems.common.ApiResponse;
-import com.ems.entity.User;
+import com.ems.dto.EmployeeProfileDto;
 import com.ems.service.ProfileService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,13 +18,13 @@ public class ProfileController {
     }
 
     @GetMapping("/get")
-    public ResponseEntity<ApiResponse<User>> getProfile() {
+    public ResponseEntity<ApiResponse<EmployeeProfileDto>> getProfile() {
 
         return profileService.getProfile();
     }
 
     @PutMapping("/update")
-    public ResponseEntity<ApiResponse<User>> updateProfile(
+    public ResponseEntity<ApiResponse<EmployeeProfileDto>> updateProfile(
             @RequestParam String userName,
             @RequestParam String email,
             @RequestParam String department

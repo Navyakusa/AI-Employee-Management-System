@@ -1,7 +1,10 @@
 package com.ems.service;
 
 import com.ems.common.ApiResponse;
+import com.ems.dto.EmployeeProfileDto;
+import com.ems.entity.Employee;
 import com.ems.entity.User;
+import com.ems.repository.EmployeeRepository;
 import com.ems.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,12 +16,21 @@ import org.springframework.stereotype.Service;
 public class ProfileService {
 
     private final UserRepository userRepository;
+    private final EmployeeRepository employeeRepository;
 
-    public ProfileService(UserRepository userRepository) {
+    public ProfileService(
+            UserRepository userRepository,
+            EmployeeRepository employeeRepository) {
+
         this.userRepository = userRepository;
+        this.employeeRepository = employeeRepository;
     }
 
-    public ResponseEntity<ApiResponse<User>> getProfile() {
+    // =========================================================
+    // GET PROFILE
+    // =========================================================
+
+    public ResponseEntity<ApiResponse<EmployeeProfileDto>> getProfile() {
 
         try {
 
@@ -27,52 +39,120 @@ public class ProfileService {
                             .getContext()
                             .getAuthentication();
 
-            String email =
-                    authentication.getName();
+            if (authentication == null
+                    || authentication.getName() == null
+                    || authentication.getName().isBlank()) {
 
-            User user =
-                    userRepository
+                return ResponseEntity
+                        .status(HttpStatus.UNAUTHORIZED)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "User is not authenticated",
+                                        null
+                                )
+                        );
+            }
+
+            String email = authentication.getName();
+
+            // -------------------------------------------------
+            // Find the Employee record.
+            // This is the SAME source used by
+            // EmployeeDashboardService.
+            // -------------------------------------------------
+
+            Employee employee =
+                    employeeRepository
                             .findByEmailIgnoreCase(email)
                             .orElse(null);
 
-            if (user == null) {
+            if (employee == null) {
 
                 return ResponseEntity
                         .status(HttpStatus.NOT_FOUND)
                         .body(
                                 new ApiResponse<>(
                                         false,
-                                        "User not found",
+                                        "Employee not found for logged-in user",
                                         null
                                 )
                         );
             }
 
-            user.setPassword(null);
+            EmployeeProfileDto profile =
+                    new EmployeeProfileDto();
+
+            profile.setEmployeeId(
+                    employee.getId()
+            );
+
+            profile.setEmployeeCode(
+                    employee.getEmployeeId()
+            );
+
+            profile.setName(
+                    employee.getName()
+            );
+
+            profile.setEmail(
+                    employee.getEmail()
+            );
+
+            profile.setDepartment(
+                    employee.getDepartment()
+            );
+
+            profile.setDesignation(
+                    employee.getDesignation()
+            );
+
+            profile.setManager(
+                    employee.getManager()
+            );
+
+            profile.setLocation(
+                    employee.getLocation()
+            );
+
+            profile.setEmploymentType(
+                    employee.getEmploymentType()
+            );
+
+            profile.setStatus(
+                    employee.getStatus()
+            );
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
                             true,
                             "Profile retrieved successfully",
-                            user
+                            profile
                     )
             );
 
         } catch (Exception e) {
+
+            e.printStackTrace();
 
             return ResponseEntity
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(
                             new ApiResponse<>(
                                     false,
-                                    "Failed to retrieve profile",
+                                    "Failed to retrieve profile: "
+                                            + e.getMessage(),
                                     null
                             )
                     );
         }
     }
 
-    public ResponseEntity<ApiResponse<User>> updateProfile(
+    // =========================================================
+    // UPDATE PROFILE
+    // =========================================================
+
+    public ResponseEntity<ApiResponse<EmployeeProfileDto>> updateProfile(
             String userName,
             String email,
             String department
@@ -85,8 +165,27 @@ public class ProfileService {
                             .getContext()
                             .getAuthentication();
 
+            if (authentication == null
+                    || authentication.getName() == null
+                    || authentication.getName().isBlank()) {
+
+                return ResponseEntity
+                        .status(HttpStatus.UNAUTHORIZED)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "User is not authenticated",
+                                        null
+                                )
+                        );
+            }
+
             String currentEmail =
                     authentication.getName();
+
+            // -------------------------------------------------
+            // Find User account
+            // -------------------------------------------------
 
             User user =
                     userRepository
@@ -100,26 +199,48 @@ public class ProfileService {
                         .body(
                                 new ApiResponse<>(
                                         false,
-                                        "User not found",
+                                        "User account not found",
                                         null
                                 )
                         );
             }
 
-            if (userName != null &&
-                    !userName.trim().isEmpty()) {
+            // -------------------------------------------------
+            // Find Employee record
+            // SAME record used by Dashboard
+            // -------------------------------------------------
 
-                user.setUserName(
-                        userName.trim()
-                );
+            Employee employee =
+                    employeeRepository
+                            .findByEmailIgnoreCase(currentEmail)
+                            .orElse(null);
+
+            if (employee == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Employee record not found",
+                                        null
+                                )
+                        );
             }
 
-            if (email != null &&
-                    !email.trim().isEmpty() &&
-                    !email.equalsIgnoreCase(currentEmail)) {
+            // -------------------------------------------------
+            // EMAIL DUPLICATE CHECK
+            // -------------------------------------------------
+
+            if (email != null
+                    && !email.trim().isEmpty()
+                    && !email.equalsIgnoreCase(currentEmail)) {
+
+                String newEmail =
+                        email.trim().toLowerCase();
 
                 if (userRepository
-                        .findByEmailIgnoreCase(email)
+                        .findByEmailIgnoreCase(newEmail)
                         .isPresent()) {
 
                     return ResponseEntity
@@ -133,40 +254,122 @@ public class ProfileService {
                             );
                 }
 
-                user.setEmail(
-                        email.trim().toLowerCase()
-                );
+                // Update User email
+                user.setEmail(newEmail);
+
+                // Update Employee email as well
+                employee.setEmail(newEmail);
             }
 
-            if (department != null &&
-                    !department.trim().isEmpty()) {
+            // -------------------------------------------------
+            // UPDATE NAME
+            // -------------------------------------------------
 
-                user.setDepartment(
-                        department.trim()
-                );
+            if (userName != null
+                    && !userName.trim().isEmpty()) {
+
+                String newName =
+                        userName.trim();
+
+                // User account name
+                user.setUserName(newName);
+
+                // Employee profile name
+                employee.setName(newName);
             }
 
-            User updatedUser =
-                    userRepository.save(user);
+            // -------------------------------------------------
+            // UPDATE DEPARTMENT
+            // -------------------------------------------------
 
-            updatedUser.setPassword(null);
+            if (department != null
+                    && !department.trim().isEmpty()) {
+
+                String newDepartment =
+                        department.trim();
+
+                // User department
+                user.setDepartment(newDepartment);
+
+                // Employee department
+                employee.setDepartment(newDepartment);
+            }
+
+            // -------------------------------------------------
+            // SAVE BOTH
+            // -------------------------------------------------
+
+            userRepository.save(user);
+
+            Employee updatedEmployee =
+                    employeeRepository.save(employee);
+
+            // -------------------------------------------------
+            // BUILD RESPONSE FROM EMPLOYEE
+            // -------------------------------------------------
+
+            EmployeeProfileDto profile =
+                    new EmployeeProfileDto();
+
+            profile.setEmployeeId(
+                    updatedEmployee.getId()
+            );
+
+            profile.setEmployeeCode(
+                    updatedEmployee.getEmployeeId()
+            );
+
+            profile.setName(
+                    updatedEmployee.getName()
+            );
+
+            profile.setEmail(
+                    updatedEmployee.getEmail()
+            );
+
+            profile.setDepartment(
+                    updatedEmployee.getDepartment()
+            );
+
+            profile.setDesignation(
+                    updatedEmployee.getDesignation()
+            );
+
+            profile.setManager(
+                    updatedEmployee.getManager()
+            );
+
+            profile.setLocation(
+                    updatedEmployee.getLocation()
+            );
+
+            profile.setEmploymentType(
+                    updatedEmployee.getEmploymentType()
+            );
+
+            profile.setStatus(
+                    updatedEmployee.getStatus()
+            );
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
                             true,
                             "Profile updated successfully",
-                            updatedUser
+                            profile
                     )
             );
 
         } catch (Exception e) {
+
+            e.printStackTrace();
 
             return ResponseEntity
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(
                             new ApiResponse<>(
                                     false,
-                                    "Failed to update profile",
+                                    "Failed to update profile: "
+                                            + e.getMessage(),
                                     null
                             )
                     );

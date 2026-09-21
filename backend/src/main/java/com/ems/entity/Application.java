@@ -26,4 +26,11 @@ public class Application {
     private ApplicationStatus status;
 
     private LocalDateTime appliedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (appliedAt == null) {
+            appliedAt = LocalDateTime.now();
+        }
+    }
 }

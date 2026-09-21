@@ -14,21 +14,23 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
-
 public class JobService {
-@Autowired
-    private  JobRepository jobRepository;
-@Autowired
 
-    private  UserRepository userRepository ;
-@Autowired
+    @Autowired
+    private JobRepository jobRepository;
 
-    private  JobAssignedMapper jobAssignedMapper;
-@Autowired
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private JobAssignedMapper jobAssignedMapper;
+
+    @Autowired
     private ApplicationRepository applicationRepository;
 
 
@@ -42,8 +44,19 @@ public class JobService {
             job.setStatus("OPEN");
         }
 
+        if (job.getCreatedDate() == null) {
+            job.setCreatedDate(LocalDateTime.now());
+        }
+
         Job savedJob = jobRepository.save(job);
-        return ResponseEntity.ok(new ApiResponse<>("Job created successfully", savedJob));
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Job created successfully",
+                        savedJob
+                )
+        );
     }
 
 
@@ -54,7 +67,14 @@ public class JobService {
     public ResponseEntity<ApiResponse<List<Job>>> getAllJobs() {
 
         List<Job> jobs = jobRepository.findAll();
-        return ResponseEntity.ok(new ApiResponse<>("Jobs retrieved successfully", (Job) jobs));
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Jobs retrieved successfully",
+                        jobs
+                )
+        );
     }
 
 
@@ -65,10 +85,18 @@ public class JobService {
     public ResponseEntity<ApiResponse<Job>> getJobById(Long id) {
 
         Job job = jobRepository.findById(id).orElse(null);
+
         if (job == null) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(new ApiResponse<>("Job retrieved successfully", job));
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Job retrieved successfully",
+                        job
+                )
+        );
     }
 
 
@@ -80,6 +108,10 @@ public class JobService {
 
         Job existingJob =
                 jobRepository.findById(id).orElse(null);
+
+        if (existingJob == null) {
+            return null;
+        }
 
         existingJob.setTitle(updatedJob.getTitle());
         existingJob.setDepartment(updatedJob.getDepartment());
@@ -134,10 +166,31 @@ public class JobService {
                 updatedJob.getClosingDate()
         );
 
-        // Hiring Manager assignment
         existingJob.setHiringManagerId(
                 updatedJob.getHiringManagerId()
         );
+
+        return jobRepository.save(existingJob);
+    }
+
+
+    // =========================
+    // ACTIVATE / START JOB
+    // =========================
+
+    public Job activateJob(Long id) {
+
+        Job existingJob =
+                jobRepository.findById(id).orElse(null);
+
+        if (existingJob == null) {
+            return null;
+        }
+
+        existingJob.setStatus("OPEN");
+
+        // Clear closing date when reopening the job
+        existingJob.setClosingDate(null);
 
         return jobRepository.save(existingJob);
     }
@@ -152,9 +205,15 @@ public class JobService {
         Job existingJob =
                 jobRepository.findById(id).orElse(null);
 
-
+        if (existingJob == null) {
+            return null;
+        }
 
         existingJob.setStatus("CLOSED");
+
+        if (existingJob.getClosingDate() == null) {
+            existingJob.setClosingDate(LocalDateTime.now());
+        }
 
         return jobRepository.save(existingJob);
     }
@@ -166,7 +225,8 @@ public class JobService {
 
     public ResponseEntity<ApiResponse<String>> deleteJob(Long id) {
 
-        Job existingJob = jobRepository.findById(id).orElse(null);
+        Job existingJob =
+                jobRepository.findById(id).orElse(null);
 
         if (existingJob == null) {
             return ResponseEntity.notFound().build();
@@ -174,7 +234,13 @@ public class JobService {
 
         jobRepository.deleteById(id);
 
-        return ResponseEntity.ok(new ApiResponse<>("Job deleted successfully", "Job deleted successfully"));
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Job deleted successfully",
+                        "Job deleted successfully"
+                )
+        );
     }
 
 
@@ -213,13 +279,22 @@ public class JobService {
         }
 
         // No search filters
-        return (ResponseEntity<ApiResponse<List<Job>>>) jobRepository.findAll();
+        List<Job> jobs = jobRepository.findAll();
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Jobs retrieved successfully",
+                        jobs
+                )
+        );
     }
 
 
     // =========================
     // GET ASSIGNED JOBS
-    // =======
+    // =========================
+
     public ResponseEntity<ApiResponse<List<JobAssignedDto>>>
     getAssignedJobs(Authentication authentication) {
 

@@ -90,14 +90,50 @@ public class JobController {
     // =========================
 
     @PutMapping("/{id}")
-    public Job updateJob(
+    public ResponseEntity<ApiResponse<Job>> updateJob(
             @PathVariable Long id,
             @RequestBody Job job
     ) {
 
-        return jobService.updateJob(
-                id,
-                job
+        Job updatedJob =
+                jobService.updateJob(id, job);
+
+        if (updatedJob == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Job updated successfully",
+                        updatedJob
+                )
+        );
+    }
+
+
+    // =========================
+    // ACTIVATE / START JOB
+    // =========================
+
+    @PutMapping("/{id}/activate")
+    public ResponseEntity<ApiResponse<Job>> activateJob(
+            @PathVariable Long id
+    ) {
+
+        Job activatedJob =
+                jobService.activateJob(id);
+
+        if (activatedJob == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Job activated successfully",
+                        activatedJob
+                )
         );
     }
 
@@ -107,11 +143,24 @@ public class JobController {
     // =========================
 
     @PutMapping("/{id}/close")
-    public Job closeJob(
+    public ResponseEntity<ApiResponse<Job>> closeJob(
             @PathVariable Long id
     ) {
 
-        return jobService.closeJob(id);
+        Job closedJob =
+                jobService.closeJob(id);
+
+        if (closedJob == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Job closed successfully",
+                        closedJob
+                )
+        );
     }
 
 
