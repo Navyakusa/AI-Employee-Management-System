@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -16,35 +16,36 @@ import {
 import CandidateSidebar from "./CandidateSidebar";
 import CandidateNavbar from "./CandidateNavbar";
 
+import { getMyOffers } from "../../services/candidateService";
+import { getErrorMessage } from "../../services/candidateHelpers";
+
 import "./CandidateDashboard.css";
 
 function CandidateOffers() {
   const navigate = useNavigate();
 
-  // Temporary frontend data.
-  // Backend API will replace this later.
-  const offers = [
-    {
-      id: 1,
-      jobTitle: "Java Backend Developer",
-      company: "Anasol Technologies",
-      location: "Hyderabad",
-      employmentType: "Full Time",
-      offeredDate: "17 Sep 2026",
-      joiningDate: "01 Oct 2026",
-      status: "Pending",
-    },
-    {
-      id: 2,
-      jobTitle: "Software Engineer",
-      company: "CloudMatrix",
-      location: "Hyderabad",
-      employmentType: "Full Time",
-      offeredDate: "10 Sep 2026",
-      joiningDate: "25 Sep 2026",
-      status: "Accepted",
-    },
-  ];
+  const [offers, setOffers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadOffers = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      setOffers(await getMyOffers());
+    } catch (err) {
+      setError(
+        getErrorMessage(err, "Unable to load your offers.")
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadOffers();
+  }, []);
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
@@ -63,7 +64,7 @@ function CandidateOffers() {
 
       return matchesSearch && matchesStatus;
     });
-  }, [search, status]);
+  }, [offers, search, status]);
 
   const pendingCount = offers.filter(
     (offer) => offer.status === "Pending"
@@ -194,7 +195,27 @@ function CandidateOffers() {
 
           {/* OFFER LIST */}
 
-          {filteredOffers.length > 0 ? (
+          {loading ? (
+            <div className="candidate-offers-empty">
+              <FileText size={30} />
+
+              <h3>Loading your offers...</h3>
+
+              <p>Please wait a moment.</p>
+            </div>
+          ) : error ? (
+            <div className="candidate-offers-empty">
+              <FileText size={30} />
+
+              <h3>Unable to load offers</h3>
+
+              <p>{error}</p>
+
+              <button type="button" onClick={loadOffers}>
+                Try Again
+              </button>
+            </div>
+          ) : filteredOffers.length > 0 ? (
             <div className="candidate-offers-list">
               {filteredOffers.map((offer) => (
                 <article
@@ -234,10 +255,12 @@ function CandidateOffers() {
                         {offer.employmentType}
                       </span>
 
-                      <span>
-                        <CalendarDays size={14} />
-                        Offered {offer.offeredDate}
-                      </span>
+                      {offer.offeredDate && (
+                        <span>
+                          <CalendarDays size={14} />
+                          Offered {offer.offeredDate}
+                        </span>
+                      )}
 
                       <span>
                         <CalendarDays size={14} />
@@ -268,7 +291,9 @@ function CandidateOffers() {
               <h3>No offers found</h3>
 
               <p>
-                No offers match your current filters.
+                {offers.length === 0
+                  ? "You don't have any offers yet."
+                  : "No offers match your current filters."}
               </p>
 
               <button

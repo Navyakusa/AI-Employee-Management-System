@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -17,98 +18,99 @@ import {
 import CandidateSidebar from "./CandidateSidebar";
 import CandidateNavbar from "./CandidateNavbar";
 
+import { getCandidateDashboard } from "../../services/candidateService";
+import { getErrorMessage } from "../../services/candidateHelpers";
+
 import "./CandidateDashboard.css";
 
 function CandidateDashboard() {
   const navigate = useNavigate();
+
+  const [dashboard, setDashboard] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadDashboard = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      setDashboard(await getCandidateDashboard());
+    } catch (err) {
+      setError(
+        getErrorMessage(err, "Unable to load your dashboard.")
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
 
   const loggedInUser = JSON.parse(
     localStorage.getItem("loggedInUser")
   );
 
   const candidateName =
-    loggedInUser?.userName || "Candidate";
+    dashboard?.candidateName ||
+    loggedInUser?.userName ||
+    "Candidate";
 
   const firstName =
     candidateName.split(" ")[0] || "Candidate";
 
-  // Temporary frontend data.
-  // Backend integration will replace this later.
-
-  const stats = {
-    applications: 4,
-    interviews: 1,
-    offers: 1,
-    profileCompletion: 85,
-  };
-
-  const recentApplications = [
-    {
-      id: 1,
-      job: "Java Backend Developer",
-      company: "Anasol Technologies",
-      appliedDate: "10 Sep 2026",
-      status: "Interview",
-    },
-    {
-      id: 2,
-      job: "Full Stack Developer",
-      company: "TechNova Solutions",
-      appliedDate: "08 Sep 2026",
-      status: "Shortlisted",
-    },
-    {
-      id: 3,
-      job: "Software Engineer",
-      company: "CloudMatrix",
-      appliedDate: "05 Sep 2026",
-      status: "AI Screened",
-    },
-  ];
-
-  const upcomingInterview = {
-    id: 1,
-    job: "Java Backend Developer",
-    company: "Anasol Technologies",
-    date: "18 Sep 2026",
-    time: "11:00 AM",
-    type: "Technical",
-    mode: "Online",
-    platform: "Google Meet",
-  };
-
-  const recommendedJobs = [
-    {
-      id: 101,
-      title: "Java Developer",
-      company: "Innovate Systems",
-      location: "Hyderabad",
-      experience: "1 - 3 Years",
-      type: "Full Time",
-    },
-    {
-      id: 102,
-      title: "Backend Engineer",
-      company: "DigitalCore",
-      location: "Bengaluru",
-      experience: "1 - 2 Years",
-      type: "Full Time",
-    },
-    {
-      id: 103,
-      title: "Full Stack Developer",
-      company: "Nexa Technologies",
-      location: "Hyderabad",
-      experience: "2 - 4 Years",
-      type: "Full Time",
-    },
-  ];
+  const {
+    stats = {},
+    recentApplications = [],
+    upcomingInterview = null,
+    recommendedJobs = [],
+  } = dashboard || {};
 
   const getStatusClass = (status) => {
     return status
       .toLowerCase()
       .replace(/\s+/g, "-");
   };
+
+  if (loading || error) {
+    return (
+      <div className="candidate-layout">
+        <CandidateSidebar />
+
+        <div className="candidate-main">
+          <CandidateNavbar />
+
+          <main className="candidate-dashboard-content">
+            <div className="candidate-dashboard-card">
+              <div className="candidate-card-header">
+                <div>
+                  <h2>
+                    {loading
+                      ? "Loading your dashboard..."
+                      : "Unable to load your dashboard"}
+                  </h2>
+
+                  <p>
+                    {loading
+                      ? "Please wait a moment."
+                      : error}
+                  </p>
+                </div>
+
+                {!loading && (
+                  <button type="button" onClick={loadDashboard}>
+                    Try Again
+                  </button>
+                )}
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="candidate-layout">
@@ -288,6 +290,10 @@ function CandidateDashboard() {
 
               <div className="candidate-recent-applications">
 
+                {recentApplications.length === 0 && (
+                  <p>You haven't applied to any jobs yet.</p>
+                )}
+
                 {recentApplications.map(
                   (application) => (
 
@@ -316,11 +322,15 @@ function CandidateDashboard() {
 
                       <div className="candidate-application-date">
 
-                        <Clock3 size={14} />
+                        {application.appliedDate && (
+                          <>
+                            <Clock3 size={14} />
 
-                        <span>
-                          {application.appliedDate}
-                        </span>
+                            <span>
+                              {application.appliedDate}
+                            </span>
+                          </>
+                        )}
 
                       </div>
 
@@ -361,6 +371,8 @@ function CandidateDashboard() {
 
               </div>
 
+              {upcomingInterview ? (
+                <>
               <div className="candidate-interview-highlight">
 
                 <div className="candidate-interview-company-icon">
@@ -439,6 +451,23 @@ function CandidateDashboard() {
                 View Interview Details
                 <ArrowRight size={15} />
               </button>
+                </>
+              ) : (
+                <div className="candidate-interview-highlight">
+                  <div className="candidate-interview-company-icon">
+                    <CalendarDays size={21} />
+                  </div>
+
+                  <div>
+                    <h3>No upcoming interviews</h3>
+
+                    <p>
+                      Your scheduled interviews will appear
+                      here.
+                    </p>
+                  </div>
+                </div>
+              )}
 
             </div>
 
@@ -475,6 +504,13 @@ function CandidateDashboard() {
             </div>
 
             <div className="candidate-recommended-jobs">
+
+              {recommendedJobs.length === 0 && (
+                <p>
+                  No recommendations yet. Complete your profile to
+                  get matching jobs.
+                </p>
+              )}
 
               {recommendedJobs.map((job) => (
 

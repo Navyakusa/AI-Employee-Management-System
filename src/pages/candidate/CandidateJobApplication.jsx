@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -10,93 +10,152 @@ import {
   IndianRupee,
   Link2,
   MapPin,
-  Upload,
   UserRound,
 } from "lucide-react";
 
 import CandidateSidebar from "./CandidateSidebar";
 import CandidateNavbar from "./CandidateNavbar";
 
+import {
+  applyToJob,
+  getJobById,
+  getMyApplications,
+  getMyProfile,
+  updateMyProfile,
+} from "../../services/candidateService";
+import {
+  fromApiProfile,
+  getErrorMessage,
+  mapJob,
+  toApiProfile,
+} from "../../services/candidateHelpers";
+
 import "./CandidateDashboard.css";
+
+const NOTICE_PERIOD_OPTIONS = [
+  "Immediate",
+  "15 Days",
+  "30 Days",
+  "60 Days",
+  "90 Days",
+];
+
+// Profile may say "30 days"; the dropdown says "30 Days".
+const matchNoticePeriod = (value) =>
+  NOTICE_PERIOD_OPTIONS.find(
+    (option) =>
+      option.toLowerCase() === String(value ?? "").trim().toLowerCase()
+  ) || String(value ?? "").trim();
 
 function CandidateJobApplication() {
   const navigate = useNavigate();
   const { jobId } = useParams();
 
-  const loggedInUser = JSON.parse(
-    localStorage.getItem("loggedInUser") || "{}"
-  );
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [alreadyApplied, setAlreadyApplied] = useState(false);
 
-  // Temporary job data.
-  // Backend integration will replace this later.
-  const jobs = [
-    {
-      id: 101,
-      title: "Java Backend Developer",
-      company: "Anasol Technologies",
-      location: "Hyderabad",
-      type: "Full Time",
-    },
-    {
-      id: 102,
-      title: "Full Stack Developer",
-      company: "TechNova Solutions",
-      location: "Bengaluru",
-      type: "Full Time",
-    },
-    {
-      id: 103,
-      title: "Software Engineer",
-      company: "CloudMatrix",
-      location: "Hyderabad",
-      type: "Full Time",
-    },
-    {
-      id: 104,
-      title: "React Developer",
-      company: "Nexa Technologies",
-      location: "Pune",
-      type: "Full Time",
-    },
-    {
-      id: 105,
-      title: "Spring Boot Developer",
-      company: "DigitalCore",
-      location: "Chennai",
-      type: "Full Time",
-    },
-    {
-      id: 106,
-      title: "Junior Java Developer",
-      company: "Innovate Systems",
-      location: "Hyderabad",
-      type: "Full Time",
-    },
-  ];
-
-  const selectedJob = useMemo(
-    () =>
-      jobs.find(
-        (job) => String(job.id) === String(jobId)
-      ) || jobs[0],
-    [jobId]
-  );
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const [formData, setFormData] = useState({
-    fullName: loggedInUser?.userName || "",
-    email: loggedInUser?.email || "",
+    fullName: "",
+    email: "",
     phone: "",
     currentLocation: "",
     linkedIn: "",
     portfolio: "",
     expectedSalary: "",
     noticePeriod: "",
-    coverLetter: "",
   });
 
-  const [resume, setResume] = useState(null);
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
+
+  // The form exactly as first shown, to tell if the user changed anything.
+  const initialFormRef = useRef(null);
+
+  // Load the job, the candidate's profile (to pre-fill the form) and
+  // the candidate's applications (to detect a duplicate).
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      setLoadError("");
+
+      try {
+        const [jobData, profileData, applications] =
+          await Promise.all([
+            getJobById(jobId).catch((err) => {
+              if (err?.response?.status === 404) return null;
+              throw err;
+            }),
+            getMyProfile(),
+            getMyApplications(),
+          ]);
+
+        if (cancelled) return;
+
+        const mappedProfile = fromApiProfile(profileData);
+
+        setSelectedJob(jobData ? mapJob(jobData) : null);
+        setProfile(mappedProfile);
+
+        const initialForm = {
+          fullName: mappedProfile.fullName,
+          email: mappedProfile.email,
+          phone: mappedProfile.phone,
+          currentLocation: mappedProfile.location,
+          linkedIn: mappedProfile.linkedin,
+          portfolio: mappedProfile.portfolio,
+          expectedSalary: mappedProfile.expectedSalary,
+          noticePeriod: matchNoticePeriod(
+            mappedProfile.noticePeriod
+          ),
+        };
+
+        initialFormRef.current = initialForm;
+        setFormData(initialForm);
+
+        setAlreadyApplied(
+          applications.some(
+            (application) =>
+              String(application.jobId) === String(jobId) &&
+              String(application.status).toUpperCase() !==
+                "WITHDRAWN"
+          )
+        );
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(
+            getErrorMessage(
+              err,
+              "Unable to load the application form."
+            )
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [jobId]);
+
+  const noticeOptions =
+    formData.noticePeriod &&
+    !NOTICE_PERIOD_OPTIONS.includes(formData.noticePeriod)
+      ? [...NOTICE_PERIOD_OPTIONS, formData.noticePeriod]
+      : NOTICE_PERIOD_OPTIONS;
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -114,52 +173,15 @@ function CandidateJobApplication() {
     }
   };
 
-  const handleResumeChange = (event) => {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    const allowedTypes = [
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ];
-
-    if (!allowedTypes.includes(file.type)) {
-      setErrors((previous) => ({
-        ...previous,
-        resume:
-          "Please upload a PDF, DOC or DOCX file.",
-      }));
-      return;
-    }
-
-    setResume(file);
-
-    setErrors((previous) => ({
-      ...previous,
-      resume: "",
-    }));
-  };
-
   const validateForm = () => {
     const validationErrors = {};
 
     if (!formData.fullName.trim()) {
-      validationErrors.fullName =
-        "Full name is required.";
-    }
-
-    if (!formData.email.trim()) {
-      validationErrors.email =
-        "Email address is required.";
+      validationErrors.fullName = "Full name is required.";
     }
 
     if (!formData.phone.trim()) {
-      validationErrors.phone =
-        "Phone number is required.";
+      validationErrors.phone = "Phone number is required.";
     }
 
     if (!formData.currentLocation.trim()) {
@@ -167,7 +189,7 @@ function CandidateJobApplication() {
         "Current location is required.";
     }
 
-    if (!formData.expectedSalary.trim()) {
+    if (!String(formData.expectedSalary).trim()) {
       validationErrors.expectedSalary =
         "Expected salary is required.";
     }
@@ -177,30 +199,99 @@ function CandidateJobApplication() {
         "Please select your notice period.";
     }
 
-    if (!resume) {
-      validationErrors.resume =
-        "Please upload your resume.";
-    }
-
     setErrors(validationErrors);
 
     return Object.keys(validationErrors).length === 0;
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!validateForm()) {
+    if (alreadyApplied || !validateForm()) {
       return;
     }
 
-    // Backend API integration will be added later.
-    console.log("Job ID:", selectedJob.id);
-    console.log("Application:", formData);
-    console.log("Resume:", resume);
+    setSubmitting(true);
+    setSubmitError("");
 
-    setSubmitted(true);
+    try {
+      // The apply API only takes the job id and uses the candidate's
+      // profile as the application data. So the details typed here are
+      // saved to the profile first (only if something changed).
+      const updatedProfile = {
+        ...profile,
+        fullName: formData.fullName,
+        phone: formData.phone,
+        location: formData.currentLocation,
+        linkedin: formData.linkedIn,
+        portfolio: formData.portfolio,
+        expectedSalary: formData.expectedSalary,
+        noticePeriod: formData.noticePeriod,
+      };
+
+      if (
+        JSON.stringify(formData) !==
+        JSON.stringify(initialFormRef.current)
+      ) {
+        await updateMyProfile(toApiProfile(updatedProfile));
+      }
+
+      await applyToJob(selectedJob.id);
+
+      setSubmitted(true);
+    } catch (err) {
+      setSubmitError(
+        getErrorMessage(
+          err,
+          "Unable to submit your application. Please try again."
+        )
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (loading || loadError || !selectedJob) {
+    return (
+      <div className="candidate-layout">
+        <CandidateSidebar />
+
+        <div className="candidate-main">
+          <CandidateNavbar />
+
+          <main className="candidate-dashboard-content">
+            <div className="candidate-job-not-found">
+              <BriefcaseBusiness size={34} />
+
+              <h2>
+                {loading
+                  ? "Loading application form..."
+                  : loadError
+                  ? "Unable to load the form"
+                  : "Job not found"}
+              </h2>
+
+              <p>
+                {loading
+                  ? "Please wait a moment."
+                  : loadError ||
+                    "The job you are trying to apply for is not available."}
+              </p>
+
+              {!loading && (
+                <button
+                  type="button"
+                  onClick={() => navigate("/candidate/jobs")}
+                >
+                  Back to Jobs
+                </button>
+              )}
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (
@@ -289,6 +380,17 @@ function CandidateJobApplication() {
             </p>
           </div>
 
+          {alreadyApplied && (
+            <div className="candidate-application-note">
+              <CheckCircle2 size={17} />
+
+              <p>
+                You have already applied for this job. You can
+                track it in My Applications.
+              </p>
+            </div>
+          )}
+
           <div className="candidate-application-layout">
             {/* FORM */}
 
@@ -341,6 +443,7 @@ function CandidateJobApplication() {
                       value={formData.email}
                       onChange={handleChange}
                       placeholder="Enter your email"
+                      readOnly
                     />
 
                     {errors.email && (
@@ -471,21 +574,12 @@ function CandidateJobApplication() {
                       <option value="">
                         Select notice period
                       </option>
-                      <option value="Immediate">
-                        Immediate
-                      </option>
-                      <option value="15 Days">
-                        15 Days
-                      </option>
-                      <option value="30 Days">
-                        30 Days
-                      </option>
-                      <option value="60 Days">
-                        60 Days
-                      </option>
-                      <option value="90 Days">
-                        90 Days
-                      </option>
+
+                      {noticeOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
                     </select>
 
                     {errors.noticePeriod && (
@@ -508,85 +602,44 @@ function CandidateJobApplication() {
                   <div>
                     <h2>Resume</h2>
                     <p>
-                      Upload the resume you want to use
+                      The resume saved on your profile is used
                       for this application.
                     </p>
                   </div>
                 </div>
 
-                <label className="candidate-resume-upload">
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx"
-                    onChange={handleResumeChange}
-                  />
-
+                <div className="candidate-resume-upload">
                   <div className="candidate-resume-upload-icon">
-                    <Upload size={23} />
+                    <FileText size={23} />
                   </div>
 
-                  {resume ? (
+                  {profile?.resume ? (
                     <>
-                      <strong>{resume.name}</strong>
-                      <span>
-                        Resume selected successfully
-                      </span>
+                      <strong>{profile.resume}</strong>
+                      <span>Resume on your profile</span>
                     </>
                   ) : (
                     <>
                       <strong>
-                        Upload your resume
+                        No resume on your profile yet
                       </strong>
 
                       <span>
-                        PDF, DOC or DOCX
+                        You can still apply, or upload one from
+                        your profile first.
                       </span>
                     </>
                   )}
-                </label>
-
-                {errors.resume && (
-                  <span className="candidate-form-error">
-                    {errors.resume}
-                  </span>
-                )}
-              </section>
-
-              {/* COVER LETTER */}
-
-              <section className="candidate-application-section">
-                <div className="candidate-application-section-header">
-                  <div className="candidate-form-section-icon">
-                    <FileText size={20} />
-                  </div>
-
-                  <div>
-                    <h2>Additional Information</h2>
-                    <p>
-                      Tell the hiring team why you're
-                      interested in this opportunity.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="candidate-form-group">
-                  <label>Cover Letter</label>
-
-                  <textarea
-                    name="coverLetter"
-                    value={formData.coverLetter}
-                    onChange={handleChange}
-                    rows="6"
-                    placeholder="Write a short note about your experience and interest in this position..."
-                  />
-
-                  <span className="candidate-field-help">
-                    Optional
-                  </span>
                 </div>
               </section>
 
               {/* SUBMIT */}
+
+              {submitError && (
+                <span className="candidate-form-error">
+                  {submitError}
+                </span>
+              )}
 
               <div className="candidate-application-submit">
                 <button
@@ -604,8 +657,11 @@ function CandidateJobApplication() {
                 <button
                   type="submit"
                   className="candidate-primary-button"
+                  disabled={submitting || alreadyApplied}
                 >
-                  Submit Application
+                  {submitting
+                    ? "Submitting..."
+                    : "Submit Application"}
                   <CheckCircle2 size={17} />
                 </button>
               </div>

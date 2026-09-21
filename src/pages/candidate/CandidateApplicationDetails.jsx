@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -18,72 +19,81 @@ import {
 import CandidateSidebar from "./CandidateSidebar";
 import CandidateNavbar from "./CandidateNavbar";
 
+import {
+  getMyApplicationsWithJobs,
+  getMyInterviewsWithJobs,
+} from "../../services/candidateService";
+import { getErrorMessage } from "../../services/candidateHelpers";
+
 import "./CandidateDashboard.css";
 
 function CandidateApplicationDetails() {
   const navigate = useNavigate();
   const { applicationId } = useParams();
 
-  // Temporary frontend data.
-  // Backend API will replace this later.
-  const applications = [
-    {
-      id: 1,
-      jobTitle: "Java Backend Developer",
-      company: "Anasol Technologies",
-      location: "Hyderabad",
-      type: "Full Time",
-      appliedDate: "10 Sep 2026",
-      status: "Interview",
-      currentStep: 4,
-      applicationId: "APP-2026-001",
-      interview: {
-        date: "18 Sep 2026",
-        time: "11:00 AM",
-        mode: "Online",
-        type: "Technical Interview",
-      },
-    },
-    {
-      id: 2,
-      jobTitle: "Full Stack Developer",
-      company: "TechNova Solutions",
-      location: "Bengaluru",
-      type: "Full Time",
-      appliedDate: "08 Sep 2026",
-      status: "Shortlisted",
-      currentStep: 3,
-      applicationId: "APP-2026-002",
-    },
-    {
-      id: 3,
-      jobTitle: "Software Engineer",
-      company: "CloudMatrix",
-      location: "Hyderabad",
-      type: "Full Time",
-      appliedDate: "05 Sep 2026",
-      status: "AI Screened",
-      currentStep: 2,
-      applicationId: "APP-2026-003",
-    },
-    {
-      id: 4,
-      jobTitle: "React Developer",
-      company: "Nexa Technologies",
-      location: "Pune",
-      type: "Full Time",
-      appliedDate: "02 Sep 2026",
-      status: "Applied",
-      currentStep: 1,
-      applicationId: "APP-2026-004",
-    },
-  ];
+  const [application, setApplication] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const application =
-    applications.find(
-      (item) =>
-        String(item.id) === String(applicationId)
-    ) || applications[0];
+  // There is no "get one application" endpoint for candidates, so the
+  // application is found in the candidate's own list.
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadApplication = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const [list, interviews] = await Promise.all([
+          getMyApplicationsWithJobs(),
+          // interviews are extra - never block the page if they fail
+          getMyInterviewsWithJobs().catch(() => []),
+        ]);
+
+        if (!cancelled) {
+          const found = list.find(
+            (item) =>
+              String(item.id) === String(applicationId)
+          );
+
+          setApplication(
+            found
+              ? {
+                  ...found,
+                  interview:
+                    interviews.find(
+                      (interview) =>
+                        String(interview.applicationId) ===
+                          String(found.id) &&
+                        interview.status === "Upcoming"
+                    ) || null,
+                }
+              : null
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            getErrorMessage(
+              err,
+              "Unable to load this application."
+            )
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadApplication();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applicationId]);
 
   const steps = [
     {
@@ -125,6 +135,50 @@ function CandidateApplicationDetails() {
 
   const getStatusClass = (status) =>
     status.toLowerCase().replace(/\s+/g, "-");
+
+  if (loading || !application) {
+    return (
+      <div className="candidate-layout">
+        <CandidateSidebar />
+
+        <div className="candidate-main">
+          <CandidateNavbar />
+
+          <main className="candidate-dashboard-content">
+            <div className="candidate-job-not-found">
+              <BriefcaseBusiness size={34} />
+
+              <h2>
+                {loading
+                  ? "Loading application..."
+                  : error
+                  ? "Unable to load application"
+                  : "Application not found"}
+              </h2>
+
+              <p>
+                {loading
+                  ? "Please wait while we fetch your application."
+                  : error ||
+                    "The application you are trying to view does not exist."}
+              </p>
+
+              {!loading && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate("/candidate/applications")
+                  }
+                >
+                  Back to My Applications
+                </button>
+              )}
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="candidate-layout">
@@ -199,7 +253,7 @@ function CandidateApplicationDetails() {
               </div>
 
               <span>Applied On</span>
-              <strong>{application.appliedDate}</strong>
+              <strong>{application.appliedDate || "Not available"}</strong>
             </div>
 
             <div className="candidate-app-detail-summary-item">
@@ -208,7 +262,7 @@ function CandidateApplicationDetails() {
               </div>
 
               <span>Application ID</span>
-              <strong>{application.applicationId}</strong>
+              <strong>{application.applicationCode}</strong>
             </div>
           </section>
 
@@ -305,8 +359,9 @@ function CandidateApplicationDetails() {
                 </div>
 
                 <p>
-                  We'll update your application status as
-                  it moves through the recruitment process.
+                  {application.rawStatus === "WITHDRAWN"
+                    ? "You withdrew this application."
+                    : "We'll update your application status as it moves through the recruitment process."}
                 </p>
               </section>
 
@@ -357,7 +412,9 @@ function CandidateApplicationDetails() {
                     type="button"
                     className="candidate-view-interview-button"
                     onClick={() =>
-                      navigate("/candidate/interviews")
+                      navigate(
+                        `/candidate/interviews/${application.interview.id}`
+                      )
                     }
                   >
                     View Interview Details

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -15,48 +15,36 @@ import {
 import CandidateSidebar from "./CandidateSidebar";
 import CandidateNavbar from "./CandidateNavbar";
 
+import { getMyInterviewsWithJobs } from "../../services/candidateService";
+import { getErrorMessage } from "../../services/candidateHelpers";
+
 import "./CandidateDashboard.css";
 
 function CandidateInterviews() {
   const navigate = useNavigate();
 
-  // Temporary frontend data.
-  // Backend API will replace this later.
-  const interviews = [
-    {
-      id: 1,
-      jobTitle: "Java Backend Developer",
-      company: "Anasol Technologies",
-      date: "18 Sep 2026",
-      time: "11:00 AM",
-      type: "Technical Interview",
-      mode: "Online",
-      platform: "Google Meet",
-      status: "Upcoming",
-    },
-    {
-      id: 2,
-      jobTitle: "Full Stack Developer",
-      company: "TechNova Solutions",
-      date: "14 Sep 2026",
-      time: "02:30 PM",
-      type: "Technical Interview",
-      mode: "Online",
-      platform: "Microsoft Teams",
-      status: "Completed",
-    },
-    {
-      id: 3,
-      jobTitle: "Software Engineer",
-      company: "CloudMatrix",
-      date: "11 Sep 2026",
-      time: "10:00 AM",
-      type: "HR Interview",
-      mode: "On-site",
-      platform: "Hyderabad Office",
-      status: "Completed",
-    },
-  ];
+  const [interviews, setInterviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadInterviews = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      setInterviews(await getMyInterviewsWithJobs());
+    } catch (err) {
+      setError(
+        getErrorMessage(err, "Unable to load your interviews.")
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadInterviews();
+  }, []);
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
@@ -80,7 +68,7 @@ function CandidateInterviews() {
 
       return matchesSearch && matchesStatus;
     });
-  }, [search, status]);
+  }, [interviews, search, status]);
 
   const upcomingCount = interviews.filter(
     (interview) => interview.status === "Upcoming"
@@ -213,7 +201,27 @@ function CandidateInterviews() {
 
           {/* LIST */}
 
-          {filteredInterviews.length > 0 ? (
+          {loading ? (
+            <div className="candidate-interview-empty">
+              <CalendarDays size={29} />
+
+              <h3>Loading your interviews...</h3>
+
+              <p>Please wait a moment.</p>
+            </div>
+          ) : error ? (
+            <div className="candidate-interview-empty">
+              <CalendarDays size={29} />
+
+              <h3>Unable to load interviews</h3>
+
+              <p>{error}</p>
+
+              <button type="button" onClick={loadInterviews}>
+                Try Again
+              </button>
+            </div>
+          ) : filteredInterviews.length > 0 ? (
             <div className="candidate-interviews-list">
               {filteredInterviews.map((interview) => (
                 <article
@@ -307,7 +315,9 @@ function CandidateInterviews() {
               <h3>No interviews found</h3>
 
               <p>
-                No interviews match the selected filter.
+                {interviews.length === 0
+                  ? "You have no interviews scheduled yet."
+                  : "No interviews match the selected filter."}
               </p>
 
               <button

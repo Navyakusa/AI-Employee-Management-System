@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -9,6 +9,15 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
+
+import {
+  getMyProfile,
+  getUnreadCount,
+} from "../../services/candidateService";
+import {
+  NOTIFICATIONS_CHANGED_EVENT,
+  PROFILE_CHANGED_EVENT,
+} from "../../services/candidateHelpers";
 
 import "./CandidateDashboard.css";
 
@@ -23,8 +32,49 @@ function CandidateNavbar() {
     localStorage.getItem("loggedInUser")
   );
 
+  const [profileName, setProfileName] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Name from the profile (so it matches the Profile page), falling
+  // back to the login name.
   const candidateName =
-    loggedInUser?.userName || "Candidate";
+    profileName || loggedInUser?.userName || "Candidate";
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadName = () =>
+      getMyProfile()
+        .then((profile) => {
+          if (!cancelled && profile?.name?.trim()) {
+            setProfileName(profile.name.trim());
+          }
+        })
+        .catch(() => {});
+
+    const loadUnread = () =>
+      getUnreadCount()
+        .then((count) => {
+          if (!cancelled) setUnreadCount(count);
+        })
+        .catch(() => {});
+
+    loadName();
+    loadUnread();
+
+    // Refresh when a page marks/deletes notifications or saves the profile.
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, loadUnread);
+    window.addEventListener(PROFILE_CHANGED_EVENT, loadName);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener(
+        NOTIFICATIONS_CHANGED_EVENT,
+        loadUnread
+      );
+      window.removeEventListener(PROFILE_CHANGED_EVENT, loadName);
+    };
+  }, []);
 
   const initials = candidateName
     .split(" ")
@@ -92,9 +142,11 @@ function CandidateNavbar() {
         >
           <Bell size={20} />
 
-          <span className="candidate-notification-badge">
-            3
-          </span>
+          {unreadCount > 0 && (
+            <span className="candidate-notification-badge">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
         </button>
 
         {/* PROFILE */}

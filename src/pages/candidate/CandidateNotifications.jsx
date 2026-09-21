@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   BriefcaseBusiness,
@@ -14,58 +14,51 @@ import {
 import CandidateSidebar from "./CandidateSidebar";
 import CandidateNavbar from "./CandidateNavbar";
 
+import {
+  deleteNotification as deleteNotificationApi,
+  getMyNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "../../services/candidateService";
+import {
+  getErrorMessage,
+  mapNotification,
+  notifyNotificationsChanged,
+} from "../../services/candidateHelpers";
+
 import "./CandidateDashboard.css";
 
 function CandidateNotifications() {
-  // Temporary frontend data.
-  // Backend notification API will replace this later.
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: "INTERVIEW",
-      title: "Interview Scheduled",
-      message:
-        "Your technical interview for Java Backend Developer at Anasol Technologies is scheduled for 18 Sep 2026 at 11:00 AM.",
-      time: "10 minutes ago",
-      read: false,
-    },
-    {
-      id: 2,
-      type: "OFFER",
-      title: "New Job Offer",
-      message:
-        "Congratulations! You have received an offer for the Java Backend Developer position at Anasol Technologies.",
-      time: "1 hour ago",
-      read: false,
-    },
-    {
-      id: 3,
-      type: "APPLICATION",
-      title: "Application Shortlisted",
-      message:
-        "Your application for Full Stack Developer at TechNova Solutions has been shortlisted.",
-      time: "Yesterday",
-      read: true,
-    },
-    {
-      id: 4,
-      type: "APPLICATION",
-      title: "Application Screened",
-      message:
-        "Your application for Software Engineer at CloudMatrix has completed the screening stage.",
-      time: "2 days ago",
-      read: true,
-    },
-    {
-      id: 5,
-      type: "JOB",
-      title: "New Recommended Job",
-      message:
-        "A new Spring Boot Developer position matching your profile is available.",
-      time: "3 days ago",
-      read: true,
-    },
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
+
+  const loadNotifications = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const data = await getMyNotifications();
+
+      // newest first
+      setNotifications(
+        data
+          .map(mapNotification)
+          .sort((a, b) => b.id - a.id)
+      );
+    } catch (err) {
+      setError(
+        getErrorMessage(err, "Unable to load notifications.")
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+  }, []);
 
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
@@ -92,35 +85,60 @@ function CandidateNotifications() {
     });
   }, [notifications, filter, search]);
 
-  const markAsRead = (id) => {
-    setNotifications((current) =>
-      current.map((notification) =>
-        notification.id === id
-          ? {
-              ...notification,
-              read: true,
-            }
-          : notification
-      )
-    );
+  // Runs an API call; on success updates the list and refreshes the
+  // navbar badge, on failure shows a message and keeps the list as is.
+  const runAction = async (action, onSuccess) => {
+    setActionError("");
+
+    try {
+      await action();
+      onSuccess();
+      notifyNotificationsChanged();
+    } catch (err) {
+      setActionError(
+        getErrorMessage(
+          err,
+          "Something went wrong. Please try again."
+        )
+      );
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications((current) =>
-      current.map((notification) => ({
-        ...notification,
-        read: true,
-      }))
+  const markAsRead = (id) =>
+    runAction(
+      () => markNotificationRead(id),
+      () =>
+        setNotifications((current) =>
+          current.map((notification) =>
+            notification.id === id
+              ? { ...notification, read: true }
+              : notification
+          )
+        )
     );
-  };
 
-  const deleteNotification = (id) => {
-    setNotifications((current) =>
-      current.filter(
-        (notification) => notification.id !== id
-      )
+  const markAllAsRead = () =>
+    runAction(
+      () => markAllNotificationsRead(),
+      () =>
+        setNotifications((current) =>
+          current.map((notification) => ({
+            ...notification,
+            read: true,
+          }))
+        )
     );
-  };
+
+  const deleteNotification = (id) =>
+    runAction(
+      () => deleteNotificationApi(id),
+      () =>
+        setNotifications((current) =>
+          current.filter(
+            (notification) => notification.id !== id
+          )
+        )
+    );
 
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -250,9 +268,35 @@ function CandidateNotifications() {
             </div>
           </section>
 
+          {actionError && (
+            <span className="candidate-form-error">
+              {actionError}
+            </span>
+          )}
+
           {/* NOTIFICATIONS */}
 
-          {filteredNotifications.length > 0 ? (
+          {loading ? (
+            <div className="candidate-notification-empty">
+              <Bell size={32} />
+
+              <h3>Loading notifications...</h3>
+
+              <p>Please wait a moment.</p>
+            </div>
+          ) : error ? (
+            <div className="candidate-notification-empty">
+              <Bell size={32} />
+
+              <h3>Unable to load notifications</h3>
+
+              <p>{error}</p>
+
+              <button type="button" onClick={loadNotifications}>
+                Try Again
+              </button>
+            </div>
+          ) : filteredNotifications.length > 0 ? (
             <section className="candidate-notification-list">
               {filteredNotifications.map(
                 (notification) => (
@@ -327,8 +371,9 @@ function CandidateNotifications() {
               <h3>No notifications found</h3>
 
               <p>
-                There are no notifications matching your
-                current filters.
+                {notifications.length === 0
+                  ? "You're all caught up. New updates will appear here."
+                  : "There are no notifications matching your current filters."}
               </p>
             </div>
           )}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -21,66 +21,28 @@ import {
 import CandidateSidebar from "./CandidateSidebar";
 import CandidateNavbar from "./CandidateNavbar";
 
+import {
+  acceptOffer,
+  getMyOffers,
+  rejectOffer,
+} from "../../services/candidateService";
+import {
+  getErrorMessage,
+  getOfferStatus,
+} from "../../services/candidateHelpers";
+
 import "./CandidateDashboard.css";
 
 function CandidateOfferDetails() {
   const navigate = useNavigate();
   const { offerId } = useParams();
 
-  // Temporary frontend data.
-  // Backend API will replace this later.
-  const offers = [
-    {
-      id: 1,
-      jobTitle: "Java Backend Developer",
-      company: "Anasol Technologies",
-      designation: "Java Backend Developer",
-      location: "Hyderabad",
-      employmentType: "Full Time",
-      salary: "₹6,50,000 per annum",
-      offeredDate: "17 Sep 2026",
-      joiningDate: "01 Oct 2026",
-      probationPeriod: "6 Months",
-      reportingManager: "Engineering Manager",
-      status: "Pending",
-      benefits: [
-        "Health insurance coverage",
-        "Paid annual leave",
-        "Learning and development support",
-        "Performance-based incentives",
-        "Flexible hybrid work policy",
-      ],
-    },
-    {
-      id: 2,
-      jobTitle: "Software Engineer",
-      company: "CloudMatrix",
-      designation: "Software Engineer",
-      location: "Hyderabad",
-      employmentType: "Full Time",
-      salary: "₹6,00,000 per annum",
-      offeredDate: "10 Sep 2026",
-      joiningDate: "25 Sep 2026",
-      probationPeriod: "6 Months",
-      reportingManager: "Software Engineering Manager",
-      status: "Accepted",
-      benefits: [
-        "Health insurance coverage",
-        "Paid annual leave",
-        "Performance incentives",
-        "Professional development support",
-      ],
-    },
-  ];
+  const [offer, setOffer] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const selectedOffer =
-    offers.find(
-      (offer) => String(offer.id) === String(offerId)
-    ) || offers[0];
-
-  const [offerStatus, setOfferStatus] = useState(
-    selectedOffer.status
-  );
+  const [responding, setResponding] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   const [showDeclineModal, setShowDeclineModal] =
     useState(false);
@@ -88,26 +50,126 @@ function CandidateOfferDetails() {
   const [declineReason, setDeclineReason] =
     useState("");
 
-  const handleAcceptOffer = () => {
-    // Backend integration later:
-    // PUT/PATCH /api/offers/{offerId}/accept
+  // There is no "get one offer" call that is safe for candidates, so
+  // the offer is found in the candidate's own offer list.
+  useEffect(() => {
+    let cancelled = false;
 
-    setOfferStatus("Accepted");
-  };
+    const loadOffer = async () => {
+      setLoading(true);
+      setError("");
 
-  const handleDeclineOffer = () => {
-    if (!declineReason.trim()) {
-      return;
+      try {
+        const list = await getMyOffers();
+
+        if (!cancelled) {
+          setOffer(
+            list.find(
+              (item) => String(item.id) === String(offerId)
+            ) || null
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            getErrorMessage(err, "Unable to load this offer.")
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadOffer();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [offerId]);
+
+  // Calls the backend first; the page only changes if it worked.
+  const respond = async (apiCall, fallbackStatus, onSuccess) => {
+    setResponding(true);
+    setActionError("");
+
+    try {
+      const updated = await apiCall(offer.id);
+
+      setOffer((current) => ({
+        ...current,
+        status: updated?.status
+          ? getOfferStatus(updated.status)
+          : fallbackStatus,
+      }));
+
+      onSuccess?.();
+    } catch (err) {
+      setActionError(
+        getErrorMessage(
+          err,
+          "Unable to send your response. Please try again."
+        )
+      );
+    } finally {
+      setResponding(false);
     }
-
-    // Backend integration later:
-    // PUT/PATCH /api/offers/{offerId}/decline
-
-    console.log("Decline reason:", declineReason);
-
-    setOfferStatus("Declined");
-    setShowDeclineModal(false);
   };
+
+  const handleAcceptOffer = () =>
+    respond(acceptOffer, "Accepted");
+
+  // The backend does not store a decline reason, so it is optional.
+  const handleDeclineOffer = () =>
+    respond(rejectOffer, "Declined", () =>
+      setShowDeclineModal(false)
+    );
+
+  if (loading || !offer) {
+    return (
+      <div className="candidate-layout">
+        <CandidateSidebar />
+
+        <div className="candidate-main">
+          <CandidateNavbar />
+
+          <main className="candidate-dashboard-content">
+            <div className="candidate-job-not-found">
+              <Gift size={34} />
+
+              <h2>
+                {loading
+                  ? "Loading offer..."
+                  : error
+                  ? "Unable to load offer"
+                  : "Offer not found"}
+              </h2>
+
+              <p>
+                {loading
+                  ? "Please wait while we fetch your offer."
+                  : error ||
+                    "The offer you are trying to view does not exist."}
+              </p>
+
+              {!loading && (
+                <button
+                  type="button"
+                  onClick={() => navigate("/candidate/offers")}
+                >
+                  Back to My Offers
+                </button>
+              )}
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  const selectedOffer = offer;
+  const offerStatus = offer.status;
 
   return (
     <div className="candidate-layout">
@@ -318,26 +380,31 @@ function CandidateOfferDetails() {
                     </strong>
                   </div>
 
-                  <div>
-                    <span>Probation Period</span>
+                  {selectedOffer.probationPeriod && (
+                    <div>
+                      <span>Probation Period</span>
 
-                    <strong>
-                      {selectedOffer.probationPeriod}
-                    </strong>
-                  </div>
+                      <strong>
+                        {selectedOffer.probationPeriod}
+                      </strong>
+                    </div>
+                  )}
 
-                  <div>
-                    <span>Reporting Manager</span>
+                  {selectedOffer.reportingManager && (
+                    <div>
+                      <span>Reporting Manager</span>
 
-                    <strong>
-                      {selectedOffer.reportingManager}
-                    </strong>
-                  </div>
+                      <strong>
+                        {selectedOffer.reportingManager}
+                      </strong>
+                    </div>
+                  )}
                 </div>
               </section>
 
               {/* BENEFITS */}
 
+              {selectedOffer.benefits.length > 0 && (
               <section className="candidate-offer-detail-card">
                 <div className="candidate-offer-detail-card-header">
                   <div>
@@ -371,6 +438,13 @@ function CandidateOfferDetails() {
                   )}
                 </div>
               </section>
+              )}
+
+              {actionError && !showDeclineModal && (
+                <span className="candidate-form-error">
+                  {actionError}
+                </span>
+              )}
 
               {/* OFFER RESPONSE */}
 
@@ -410,9 +484,10 @@ function CandidateOfferDetails() {
                       type="button"
                       className="candidate-accept-offer-btn"
                       onClick={handleAcceptOffer}
+                      disabled={responding}
                     >
                       <Check size={16} />
-                      Accept Offer
+                      {responding ? "Sending..." : "Accept Offer"}
                     </button>
                   </div>
                 </section>
@@ -426,17 +501,19 @@ function CandidateOfferDetails() {
                 <h2>Offer Summary</h2>
 
                 <div className="candidate-offer-side-list">
-                  <div>
-                    <CalendarDays size={16} />
-
+                  {selectedOffer.offerCode && (
                     <div>
-                      <span>Offer Date</span>
+                      <BadgeCheck size={16} />
 
-                      <strong>
-                        {selectedOffer.offeredDate}
-                      </strong>
+                      <div>
+                        <span>Offer Code</span>
+
+                        <strong>
+                          {selectedOffer.offerCode}
+                        </strong>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <div>
                     <CalendarDays size={16} />
@@ -476,6 +553,7 @@ function CandidateOfferDetails() {
                 </div>
               </section>
 
+              {selectedOffer.reportingManager && (
               <section className="candidate-offer-side-card">
                 <h2>Reporting To</h2>
 
@@ -493,6 +571,7 @@ function CandidateOfferDetails() {
                   </div>
                 </div>
               </section>
+              )}
 
               <section className="candidate-offer-note-card">
                 <Clock3 size={18} />
@@ -524,8 +603,8 @@ function CandidateOfferDetails() {
                 <h2>Decline Offer</h2>
 
                 <p>
-                  Please tell us why you are declining
-                  this offer.
+                  Are you sure you want to decline this
+                  offer? This cannot be undone.
                 </p>
               </div>
 
@@ -541,7 +620,7 @@ function CandidateOfferDetails() {
 
             <div className="candidate-offer-modal-body">
               <label htmlFor="declineReason">
-                Reason for declining
+                Reason for declining (optional)
               </label>
 
               <textarea
@@ -555,6 +634,17 @@ function CandidateOfferDetails() {
                   )
                 }
               />
+
+              <small>
+                Your reason is not shared with the recruiter
+                yet.
+              </small>
+
+              {actionError && (
+                <span className="candidate-form-error">
+                  {actionError}
+                </span>
+              )}
             </div>
 
             <div className="candidate-offer-modal-actions">
@@ -571,10 +661,10 @@ function CandidateOfferDetails() {
               <button
                 type="button"
                 className="candidate-offer-modal-decline"
-                disabled={!declineReason.trim()}
+                disabled={responding}
                 onClick={handleDeclineOffer}
               >
-                Decline Offer
+                {responding ? "Sending..." : "Decline Offer"}
               </button>
             </div>
           </div>

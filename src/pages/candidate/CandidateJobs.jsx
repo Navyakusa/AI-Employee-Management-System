@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
   Search,
@@ -15,128 +15,59 @@ import {
 import CandidateSidebar from "./CandidateSidebar";
 import CandidateNavbar from "./CandidateNavbar";
 
+import { getAllJobs } from "../../services/candidateService";
+import {
+  getErrorMessage,
+  mapJob,
+} from "../../services/candidateHelpers";
+
 import "./CandidateDashboard.css";
 
 function CandidateJobs() {
   const navigate = useNavigate();
 
-  // Temporary frontend data.
-  // Backend API will replace this later.
-  const jobs = [
-    {
-      id: 101,
-      title: "Java Backend Developer",
-      company: "Anasol Technologies",
-      location: "Hyderabad",
-      experience: "1 - 3 Years",
-      type: "Full Time",
-      workMode: "Hybrid",
-      posted: "2 days ago",
-      skills: [
-        "Java",
-        "Spring Boot",
-        "PostgreSQL",
-        "REST API",
-      ],
-      description:
-        "We are looking for a Java Backend Developer to build scalable backend services and REST APIs.",
-    },
-    {
-      id: 102,
-      title: "Full Stack Developer",
-      company: "TechNova Solutions",
-      location: "Bengaluru",
-      experience: "1 - 3 Years",
-      type: "Full Time",
-      workMode: "Hybrid",
-      posted: "3 days ago",
-      skills: [
-        "Java",
-        "Spring Boot",
-        "React",
-        "MySQL",
-      ],
-      description:
-        "Join our engineering team to develop modern full stack applications using Java, Spring Boot and React.",
-    },
-    {
-      id: 103,
-      title: "Software Engineer",
-      company: "CloudMatrix",
-      location: "Hyderabad",
-      experience: "0 - 2 Years",
-      type: "Full Time",
-      workMode: "On-site",
-      posted: "4 days ago",
-      skills: [
-        "Java",
-        "SQL",
-        "Git",
-        "REST API",
-      ],
-      description:
-        "Work with our product engineering team to design, develop and maintain enterprise applications.",
-    },
-    {
-      id: 104,
-      title: "React Developer",
-      company: "Nexa Technologies",
-      location: "Pune",
-      experience: "1 - 2 Years",
-      type: "Full Time",
-      workMode: "Remote",
-      posted: "5 days ago",
-      skills: [
-        "React",
-        "JavaScript",
-        "HTML",
-        "CSS",
-      ],
-      description:
-        "Develop responsive and reusable frontend components for modern web applications using React.",
-    },
-    {
-      id: 105,
-      title: "Spring Boot Developer",
-      company: "DigitalCore",
-      location: "Chennai",
-      experience: "2 - 4 Years",
-      type: "Full Time",
-      workMode: "On-site",
-      posted: "1 week ago",
-      skills: [
-        "Java",
-        "Spring Boot",
-        "Hibernate",
-        "PostgreSQL",
-      ],
-      description:
-        "Build secure and scalable enterprise backend applications using Java and Spring Boot.",
-    },
-    {
-      id: 106,
-      title: "Junior Java Developer",
-      company: "Innovate Systems",
-      location: "Hyderabad",
-      experience: "0 - 1 Years",
-      type: "Full Time",
-      workMode: "On-site",
-      posted: "1 week ago",
-      skills: [
-        "Java",
-        "Spring MVC",
-        "MySQL",
-        "Git",
-      ],
-      description:
-        "Great opportunity for junior developers to work on Java-based enterprise applications.",
-    },
-  ];
+  const [searchParams] = useSearchParams();
 
-  const [search, setSearch] = useState("");
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadJobs = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const data = await getAllJobs();
+
+      // Candidates only see jobs that are still open.
+      setJobs(
+        data
+          .map(mapJob)
+          .filter((job) => job.status === "OPEN")
+      );
+    } catch (err) {
+      setError(getErrorMessage(err, "Unable to load jobs."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadJobs();
+  }, []);
+
+  const [search, setSearch] = useState(
+    searchParams.get("search") || ""
+  );
   const [location, setLocation] = useState("All Locations");
   const [experience, setExperience] =
     useState("All Experience");
+
+  // Keep the search box in sync when the navbar search is used
+  // while already on this page.
+  useEffect(() => {
+    setSearch(searchParams.get("search") || "");
+  }, [searchParams]);
 
   const locations = [
     "All Locations",
@@ -145,11 +76,7 @@ function CandidateJobs() {
 
   const experienceOptions = [
     "All Experience",
-    "0 - 1 Years",
-    "0 - 2 Years",
-    "1 - 2 Years",
-    "1 - 3 Years",
-    "2 - 4 Years",
+    ...new Set(jobs.map((job) => job.experience)),
   ];
 
   const filteredJobs = useMemo(() => {
@@ -178,7 +105,7 @@ function CandidateJobs() {
         matchesExperience
       );
     });
-  }, [search, location, experience]);
+  }, [jobs, search, location, experience]);
 
   const clearFilters = () => {
     setSearch("");
@@ -302,7 +229,34 @@ function CandidateJobs() {
 
           {/* JOB LIST */}
 
-          {filteredJobs.length > 0 ? (
+          {loading ? (
+            <div className="candidate-no-jobs">
+              <div>
+                <BriefcaseBusiness size={28} />
+              </div>
+
+              <h3>Loading jobs...</h3>
+
+              <p>
+                Please wait while we fetch the latest
+                openings.
+              </p>
+            </div>
+          ) : error ? (
+            <div className="candidate-no-jobs">
+              <div>
+                <Search size={28} />
+              </div>
+
+              <h3>Unable to load jobs</h3>
+
+              <p>{error}</p>
+
+              <button type="button" onClick={loadJobs}>
+                Try Again
+              </button>
+            </div>
+          ) : filteredJobs.length > 0 ? (
             <div className="candidate-jobs-list">
               {filteredJobs.map((job) => (
                 <article
@@ -339,13 +293,15 @@ function CandidateJobs() {
 
                         <span>
                           <Building2 size={15} />
-                          {job.workMode}
+                          {job.department}
                         </span>
 
-                        <span>
-                          <Clock3 size={15} />
-                          {job.posted}
-                        </span>
+                        {job.posted && (
+                          <span>
+                            <Clock3 size={15} />
+                            {job.posted}
+                          </span>
+                        )}
                       </div>
 
                       <p className="candidate-job-description">

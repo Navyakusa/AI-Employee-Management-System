@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -16,124 +17,80 @@ import {
 import CandidateSidebar from "./CandidateSidebar";
 import CandidateNavbar from "./CandidateNavbar";
 
+import { getJobById } from "../../services/candidateService";
+import {
+  getErrorMessage,
+  mapJob,
+} from "../../services/candidateHelpers";
+
 import "./CandidateDashboard.css";
 
 function CandidateJobDetails() {
   const navigate = useNavigate();
   const { jobId } = useParams();
 
-  // Temporary frontend data.
-  // Backend API will replace this later.
-  const jobs = [
-    {
-      id: 101,
-      title: "Java Backend Developer",
-      company: "Anasol Technologies",
-      location: "Hyderabad",
-      experience: "1 - 3 Years",
-      type: "Full Time",
-      workMode: "Hybrid",
-      salary: "₹4 - 7 LPA",
-      openings: 3,
-      posted: "2 days ago",
-      education: "B.Tech / B.E / MCA",
-      department: "Engineering",
-      skills: [
-        "Java",
-        "Spring Boot",
-        "PostgreSQL",
-        "REST API",
-        "Git",
-        "Hibernate",
-      ],
-      description:
-        "We are looking for a Java Backend Developer to design, develop and maintain scalable backend applications using Java and Spring Boot.",
-      responsibilities: [
-        "Develop and maintain backend applications using Java and Spring Boot.",
-        "Design and implement REST APIs.",
-        "Work with PostgreSQL and database technologies.",
-        "Collaborate with frontend developers and other team members.",
-        "Write clean, maintainable and reusable code.",
-      ],
-      requirements: [
-        "Strong knowledge of Core Java.",
-        "Understanding of Spring Boot and REST APIs.",
-        "Experience working with relational databases.",
-        "Basic knowledge of Git and version control.",
-        "Good problem-solving and communication skills.",
-      ],
-    },
-    {
-      id: 102,
-      title: "Full Stack Developer",
-      company: "TechNova Solutions",
-      location: "Bengaluru",
-      experience: "1 - 3 Years",
-      type: "Full Time",
-      workMode: "Hybrid",
-      salary: "₹5 - 8 LPA",
-      openings: 2,
-      posted: "3 days ago",
-      education: "B.Tech / B.E / MCA",
-      department: "Engineering",
-      skills: [
-        "Java",
-        "Spring Boot",
-        "React",
-        "MySQL",
-        "JavaScript",
-      ],
-      description:
-        "We are looking for a Full Stack Developer to build modern web applications using Spring Boot and React.",
-      responsibilities: [
-        "Develop frontend applications using React.",
-        "Build REST APIs using Spring Boot.",
-        "Integrate frontend applications with backend services.",
-        "Design and maintain database components.",
-        "Participate in code reviews and testing.",
-      ],
-      requirements: [
-        "Knowledge of Java and Spring Boot.",
-        "Experience with React and JavaScript.",
-        "Understanding of REST APIs.",
-        "Knowledge of SQL databases.",
-        "Good analytical and communication skills.",
-      ],
-    },
-    {
-      id: 103,
-      title: "Software Engineer",
-      company: "CloudMatrix",
-      location: "Hyderabad",
-      experience: "0 - 2 Years",
-      type: "Full Time",
-      workMode: "On-site",
-      salary: "₹3.5 - 6 LPA",
-      openings: 4,
-      posted: "4 days ago",
-      education: "B.Tech / B.E / MCA",
-      department: "Technology",
-      skills: ["Java", "SQL", "Git", "REST API"],
-      description:
-        "Join our engineering team to build and maintain enterprise software solutions.",
-      responsibilities: [
-        "Develop software features based on requirements.",
-        "Fix application defects.",
-        "Write reusable and maintainable code.",
-        "Work with development and QA teams.",
-      ],
-      requirements: [
-        "Good programming fundamentals.",
-        "Knowledge of Java.",
-        "Understanding of SQL.",
-        "Basic knowledge of REST APIs and Git.",
-      ],
-    },
-  ];
+  const [job, setJob] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const job = jobs.find(
-    (item) => String(item.id) === String(jobId)
-  );
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadJob = async () => {
+      setLoading(true);
+      setError("");
+      setJob(null);
+
+      try {
+        const data = await getJobById(jobId);
+
+        if (!cancelled) {
+          setJob(data ? mapJob(data) : null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          // 404 just means the job does not exist
+          if (err?.response?.status !== 404) {
+            setError(
+              getErrorMessage(err, "Unable to load this job.")
+            );
+          }
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadJob();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [jobId]);
+
+  if (loading) {
+    return (
+      <div className="candidate-layout">
+        <CandidateSidebar />
+
+        <div className="candidate-main">
+          <CandidateNavbar />
+
+          <main className="candidate-dashboard-content">
+            <div className="candidate-job-not-found">
+              <BriefcaseBusiness size={34} />
+
+              <h2>Loading job...</h2>
+
+              <p>Please wait while we fetch the job details.</p>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   if (!job) {
     return (
@@ -147,11 +104,13 @@ function CandidateJobDetails() {
             <div className="candidate-job-not-found">
               <BriefcaseBusiness size={34} />
 
-              <h2>Job not found</h2>
+              <h2>
+                {error ? "Unable to load job" : "Job not found"}
+              </h2>
 
               <p>
-                The job you are trying to view is not
-                available.
+                {error ||
+                  "The job you are trying to view is not available."}
               </p>
 
               <button
@@ -224,13 +183,15 @@ function CandidateJobDetails() {
 
                   <span>
                     <Building2 size={15} />
-                    {job.workMode}
+                    {job.department}
                   </span>
 
-                  <span>
-                    <Clock3 size={15} />
-                    Posted {job.posted}
-                  </span>
+                  {job.posted && (
+                    <span>
+                      <Clock3 size={15} />
+                      Posted {job.posted}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -258,6 +219,7 @@ function CandidateJobDetails() {
 
               {/* RESPONSIBILITIES */}
 
+              {job.responsibilities.length > 0 && (
               <section className="candidate-job-details-card">
                 <h2>Key Responsibilities</h2>
 
@@ -274,8 +236,12 @@ function CandidateJobDetails() {
                 </div>
               </section>
 
+              
+              )}
+
               {/* REQUIREMENTS */}
 
+              {job.requirements.length > 0 && (
               <section className="candidate-job-details-card">
                 <h2>Requirements</h2>
 
@@ -292,8 +258,12 @@ function CandidateJobDetails() {
                 </div>
               </section>
 
+              
+              )}
+
               {/* SKILLS */}
 
+              {job.skills.length > 0 && (
               <section className="candidate-job-details-card">
                 <h2>Required Skills</h2>
 
@@ -303,7 +273,9 @@ function CandidateJobDetails() {
                   ))}
                 </div>
               </section>
-            </div>
+              )}
+
+                          </div>
 
             {/* RIGHT SIDE */}
 
@@ -342,8 +314,8 @@ function CandidateJobDetails() {
                   <Building2 size={18} />
 
                   <div>
-                    <span>Work Mode</span>
-                    <strong>{job.workMode}</strong>
+                    <span>Department</span>
+                    <strong>{job.department}</strong>
                   </div>
                 </div>
 

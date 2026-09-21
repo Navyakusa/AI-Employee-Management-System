@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -17,75 +18,104 @@ import {
 import CandidateSidebar from "./CandidateSidebar";
 import CandidateNavbar from "./CandidateNavbar";
 
+import { getMyInterviewsWithJobs } from "../../services/candidateService";
+import { getErrorMessage } from "../../services/candidateHelpers";
+
 import "./CandidateDashboard.css";
 
 function CandidateInterviewDetails() {
   const navigate = useNavigate();
   const { interviewId } = useParams();
 
-  // Temporary frontend data.
-  // Backend API will replace this later.
-  const interviews = [
-    {
-      id: 1,
-      jobTitle: "Java Backend Developer",
-      company: "Anasol Technologies",
-      date: "18 Sep 2026",
-      time: "11:00 AM",
-      duration: "60 Minutes",
-      type: "Technical Interview",
-      mode: "Online",
-      platform: "Google Meet",
-      meetingLink: "https://meet.google.com/",
-      interviewer: "Technical Interview Panel",
-      status: "Upcoming",
-      location: null,
-      instructions: [
-        "Join the meeting 10 minutes before the scheduled time.",
-        "Keep your resume and project details ready for discussion.",
-        "Ensure you have a stable internet connection and working microphone.",
-        "Be prepared for Java, Spring Boot and backend development questions.",
-      ],
-    },
-    {
-      id: 2,
-      jobTitle: "Full Stack Developer",
-      company: "TechNova Solutions",
-      date: "14 Sep 2026",
-      time: "02:30 PM",
-      duration: "60 Minutes",
-      type: "Technical Interview",
-      mode: "Online",
-      platform: "Microsoft Teams",
-      meetingLink: null,
-      interviewer: "Engineering Interview Panel",
-      status: "Completed",
-      location: null,
-      instructions: [],
-    },
-    {
-      id: 3,
-      jobTitle: "Software Engineer",
-      company: "CloudMatrix",
-      date: "11 Sep 2026",
-      time: "10:00 AM",
-      duration: "45 Minutes",
-      type: "HR Interview",
-      mode: "On-site",
-      platform: "Hyderabad Office",
-      meetingLink: null,
-      interviewer: "HR Interview Panel",
-      status: "Completed",
-      location: "CloudMatrix, Hyderabad Office",
-      instructions: [],
-    },
-  ];
+  const [interview, setInterview] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const interview =
-    interviews.find(
-      (item) =>
-        String(item.id) === String(interviewId)
-    ) || interviews[0];
+  // The candidate's own interview list is used to find this interview.
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadInterview = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const list = await getMyInterviewsWithJobs();
+
+        if (!cancelled) {
+          setInterview(
+            list.find(
+              (item) =>
+                String(item.id) === String(interviewId)
+            ) || null
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            getErrorMessage(
+              err,
+              "Unable to load this interview."
+            )
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadInterview();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [interviewId]);
+
+  if (loading || !interview) {
+    return (
+      <div className="candidate-layout">
+        <CandidateSidebar />
+
+        <div className="candidate-main">
+          <CandidateNavbar />
+
+          <main className="candidate-dashboard-content">
+            <div className="candidate-job-not-found">
+              <CalendarDays size={34} />
+
+              <h2>
+                {loading
+                  ? "Loading interview..."
+                  : error
+                  ? "Unable to load interview"
+                  : "Interview not found"}
+              </h2>
+
+              <p>
+                {loading
+                  ? "Please wait while we fetch your interview."
+                  : error ||
+                    "The interview you are trying to view does not exist."}
+              </p>
+
+              {!loading && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate("/candidate/interviews")
+                  }
+                >
+                  Back to My Interviews
+                </button>
+              )}
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   const isUpcoming =
     interview.status === "Upcoming";
@@ -98,11 +128,11 @@ function CandidateInterviewDetails() {
       return;
     }
 
-    window.open(
-      interview.meetingLink,
-      "_blank",
-      "noopener,noreferrer"
-    );
+    const link = /^https?:\/\//i.test(interview.meetingLink)
+      ? interview.meetingLink
+      : `https://${interview.meetingLink}`;
+
+    window.open(link, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -172,11 +202,11 @@ function CandidateInterviewDetails() {
 
             <div className="candidate-interview-detail-summary-item">
               <div>
-                <Clock3 size={19} />
+                <BriefcaseBusiness size={19} />
               </div>
 
-              <span>Duration</span>
-              <strong>{interview.duration}</strong>
+              <span>Interview Type</span>
+              <strong>{interview.type}</strong>
             </div>
 
             <div className="candidate-interview-detail-summary-item">
@@ -373,13 +403,16 @@ function CandidateInterviewDetails() {
                   </div>
 
                   <div>
-                    <h2>Interview Completed</h2>
+                    <h2>
+                      {interview.status === "Cancelled"
+                        ? "Interview Cancelled"
+                        : "Interview Completed"}
+                    </h2>
 
                     <p>
-                      This interview has been completed.
-                      Your application status will be
-                      updated when the recruitment team
-                      completes the next review.
+                      {interview.status === "Cancelled"
+                        ? "This interview has been cancelled. The recruitment team will contact you if it is rescheduled."
+                        : "This interview has been completed. Your application status will be updated when the recruitment team completes the next review."}
                     </p>
                   </div>
                 </section>
@@ -416,12 +449,12 @@ function CandidateInterviewDetails() {
                   </div>
 
                   <div>
-                    <Clock3 size={16} />
+                    <BriefcaseBusiness size={16} />
 
                     <div>
-                      <span>Duration</span>
+                      <span>Type</span>
                       <strong>
-                        {interview.duration}
+                        {interview.type}
                       </strong>
                     </div>
                   </div>

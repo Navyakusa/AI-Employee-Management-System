@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -13,49 +13,39 @@ import {
 import CandidateSidebar from "./CandidateSidebar";
 import CandidateNavbar from "./CandidateNavbar";
 
+import { getMyApplicationsWithJobs } from "../../services/candidateService";
+import {
+  APPLICATION_STATUS_FILTERS,
+  getErrorMessage,
+} from "../../services/candidateHelpers";
+
 import "./CandidateDashboard.css";
 
 function CandidateApplications() {
   const navigate = useNavigate();
 
-  const applications = [
-    {
-      id: 1,
-      jobTitle: "Java Backend Developer",
-      company: "Anasol Technologies",
-      location: "Hyderabad",
-      appliedDate: "10 Sep 2026",
-      status: "Interview",
-      type: "Full Time",
-    },
-    {
-      id: 2,
-      jobTitle: "Full Stack Developer",
-      company: "TechNova Solutions",
-      location: "Bengaluru",
-      appliedDate: "08 Sep 2026",
-      status: "Shortlisted",
-      type: "Full Time",
-    },
-    {
-      id: 3,
-      jobTitle: "Software Engineer",
-      company: "CloudMatrix",
-      location: "Hyderabad",
-      appliedDate: "05 Sep 2026",
-      status: "AI Screened",
-      type: "Full Time",
-    },
-    {
-      id: 4,
-      jobTitle: "React Developer",
-      company: "Nexa Technologies",
-      location: "Pune",
-      appliedDate: "02 Sep 2026",
-      status: "Applied",
-      type: "Full Time",
-    },
-  ];
+  const [applications, setApplications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadApplications = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      setApplications(await getMyApplicationsWithJobs());
+    } catch (err) {
+      setError(
+        getErrorMessage(err, "Unable to load your applications.")
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadApplications();
+  }, []);
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
@@ -79,7 +69,7 @@ function CandidateApplications() {
 
       return matchesSearch && matchesStatus;
     });
-  }, [search, status]);
+  }, [applications, search, status]);
 
   const getStatusClass = (value) =>
     value.toLowerCase().replace(/\s+/g, "-");
@@ -141,27 +131,13 @@ function CandidateApplications() {
                   setStatus(event.target.value)
                 }
               >
-                <option value="All">
-                  All Status
-                </option>
-                <option value="Applied">
-                  Applied
-                </option>
-                <option value="AI Screened">
-                  AI Screened
-                </option>
-                <option value="Shortlisted">
-                  Shortlisted
-                </option>
-                <option value="Interview">
-                  Interview
-                </option>
-                <option value="Selected">
-                  Selected
-                </option>
-                <option value="Rejected">
-                  Rejected
-                </option>
+                <option value="All">All Status</option>
+
+                {APPLICATION_STATUS_FILTERS.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
               </select>
             </div>
           </section>
@@ -181,7 +157,27 @@ function CandidateApplications() {
             </div>
           </div>
 
-          {filteredApplications.length > 0 ? (
+          {loading ? (
+            <div className="candidate-applications-empty">
+              <BriefcaseBusiness size={30} />
+
+              <h3>Loading your applications...</h3>
+
+              <p>Please wait a moment.</p>
+            </div>
+          ) : error ? (
+            <div className="candidate-applications-empty">
+              <BriefcaseBusiness size={30} />
+
+              <h3>Unable to load applications</h3>
+
+              <p>{error}</p>
+
+              <button type="button" onClick={loadApplications}>
+                Try Again
+              </button>
+            </div>
+          ) : filteredApplications.length > 0 ? (
             <div className="candidate-applications-list">
               {filteredApplications.map(
                 (application) => (
@@ -225,11 +221,12 @@ function CandidateApplications() {
                           {application.location}
                         </span>
 
-                        <span>
-                          <CalendarDays size={14} />
-                          Applied{" "}
-                          {application.appliedDate}
-                        </span>
+                        {application.appliedDate && (
+                          <span>
+                            <CalendarDays size={14} />
+                            Applied {application.appliedDate}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -256,8 +253,9 @@ function CandidateApplications() {
               <h3>No applications found</h3>
 
               <p>
-                No applications match your current
-                search or filter.
+                {applications.length === 0
+                  ? "You haven't applied to any jobs yet."
+                  : "No applications match your current search or filter."}
               </p>
 
               <button

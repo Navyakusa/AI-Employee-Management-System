@@ -1,12 +1,252 @@
+/**
+ * hrApi.js
+ * -------------------------------------------------------------------
+ * Shared helper functions connecting the HR pages to:
+ *
+ * 1. FastAPI AI backend
+ * 2. Spring Boot EMS backend
+ */
+
+
 // ============================================================
-// JOBS
+// FASTAPI AI BACKEND
+// ============================================================
+
+const API_BASE =
+  import.meta.env.VITE_AI_API_URL ||
+  "http://127.0.0.1:8000";
+
+
+// ============================================================
+// CANDIDATES
+// ============================================================
+
+export async function fetchCandidates() {
+  const res = await fetch(`${API_BASE}/candidates`);
+
+  if (!res.ok) {
+    throw new Error(
+      "Failed to load candidates from the AI backend."
+    );
+  }
+
+  return res.json();
+}
+
+
+export async function uploadResume(file, source) {
+  const formData = new FormData();
+
+  formData.append("file", file);
+  formData.append(
+    "source",
+    source || "Not specified"
+  );
+
+  const res = await fetch(
+    `${API_BASE}/upload-resume`,
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res
+      .json()
+      .catch(() => ({}));
+
+    throw new Error(
+      err.detail || "Resume upload failed."
+    );
+  }
+
+  return res.json();
+}
+
+
+// ============================================================
+// JOBS BRIDGE
+// ============================================================
+
+export function getLocalJobs() {
+  return (
+    JSON.parse(
+      localStorage.getItem("hrJobs")
+    ) || []
+  );
+}
+
+
+export async function ensureBackendJobId(localJob) {
+  const mapKey = "hrJobBackendIds";
+
+  const map =
+    JSON.parse(
+      localStorage.getItem(mapKey)
+    ) || {};
+
+  if (map[localJob.id]) {
+    return map[localJob.id];
+  }
+
+  const description = [
+    localJob.description,
+    localJob.experience
+      ? `Experience required: ${localJob.experience}.`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const res = await fetch(
+    `${API_BASE}/set-job`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        job_title: localJob.title,
+        job_description: description,
+        location: localJob.location || "",
+        required_skills:
+          localJob.requiredSkills || [],
+        preferred_skills:
+          localJob.preferredSkills || [],
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(
+      "Could not register this job with the AI backend."
+    );
+  }
+
+  const data = await res.json();
+
+  map[localJob.id] = data.job_id;
+
+  localStorage.setItem(
+    mapKey,
+    JSON.stringify(map)
+  );
+
+  return data.job_id;
+}
+
+
+// ============================================================
+// AI SCREENING
+// ============================================================
+
+export async function matchCandidate(
+  candidateId,
+  jobId
+) {
+  const res = await fetch(
+    `${API_BASE}/match/${candidateId}/${jobId}`,
+    {
+      method: "POST",
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res
+      .json()
+      .catch(() => ({}));
+
+    throw new Error(
+      err.detail || "Match request failed."
+    );
+  }
+
+  return res.json();
+}
+
+
+export async function getSkillGap(
+  candidateId,
+  jobId
+) {
+  const res = await fetch(
+    `${API_BASE}/skill-gap/${candidateId}/${jobId}`,
+    {
+      method: "POST",
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res
+      .json()
+      .catch(() => ({}));
+
+    throw new Error(
+      err.detail || "Skill gap request failed."
+    );
+  }
+
+  return res.json();
+}
+
+
+// ============================================================
+// AI RANKINGS
+// ============================================================
+
+export async function rankCandidatesForJob(
+  jobId
+) {
+  const res = await fetch(
+    `${API_BASE}/rank/${jobId}`
+  );
+
+  if (!res.ok) {
+    const err = await res
+      .json()
+      .catch(() => ({}));
+
+    throw new Error(
+      err.detail || "Ranking request failed."
+    );
+  }
+
+  return res.json();
+}
+
+
+// ============================================================
+// HR ANALYTICS - FASTAPI
+// ============================================================
+
+export async function getAnalytics() {
+  const res = await fetch(
+    `${API_BASE}/analytics`
+  );
+
+  if (!res.ok) {
+    throw new Error(
+      "Failed to load analytics from the AI backend."
+    );
+  }
+
+  return res.json();
+}
+
+
+// ============================================================
 // SPRING BOOT EMS BACKEND
 // ============================================================
 
+const EMS_API_BASE = "http://localhost:8080/api";
+
+
 // ============================================================
-// GET ALL JOBS
+// JOBS
+// ============================================================
+
 // GET /api/jobs/all
-// ============================================================
 export async function fetchJobs() {
   const token = localStorage.getItem("token");
 
@@ -22,33 +262,21 @@ export async function fetchJobs() {
   );
 
   if (!res.ok) {
-    const errorData = await res
-      .json()
-      .catch(() => ({}));
-
-    throw new Error(
-      errorData.message ||
-        "Failed to load jobs."
-    );
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to load jobs.");
   }
 
   const response = await res.json();
 
   if (!response.success) {
-    throw new Error(
-      response.message ||
-        "Failed to load jobs."
-    );
+    throw new Error(response.message || "Failed to load jobs.");
   }
 
   return response.data;
 }
 
 
-// ============================================================
-// GET JOB BY ID
 // GET /api/jobs/{id}
-// ============================================================
 export async function fetchJobById(jobId) {
   const token = localStorage.getItem("token");
 
@@ -64,33 +292,21 @@ export async function fetchJobById(jobId) {
   );
 
   if (!res.ok) {
-    const errorData = await res
-      .json()
-      .catch(() => ({}));
-
-    throw new Error(
-      errorData.message ||
-        "Failed to load job."
-    );
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to load job.");
   }
 
   const response = await res.json();
 
   if (!response.success) {
-    throw new Error(
-      response.message ||
-        "Failed to load job."
-    );
+    throw new Error(response.message || "Failed to load job.");
   }
 
   return response.data;
 }
 
 
-// ============================================================
-// CREATE JOB
 // POST /api/jobs/create
-// ============================================================
 export async function createJob(jobData) {
   const token = localStorage.getItem("token");
 
@@ -107,33 +323,21 @@ export async function createJob(jobData) {
   );
 
   if (!res.ok) {
-    const errorData = await res
-      .json()
-      .catch(() => ({}));
-
-    throw new Error(
-      errorData.message ||
-        "Failed to create job."
-    );
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to create job.");
   }
 
   const response = await res.json();
 
   if (!response.success) {
-    throw new Error(
-      response.message ||
-        "Failed to create job."
-    );
+    throw new Error(response.message || "Failed to create job.");
   }
 
   return response.data;
 }
 
 
-// ============================================================
-// UPDATE JOB
 // PUT /api/jobs/{id}
-// ============================================================
 export async function updateJob(jobId, jobData) {
   const token = localStorage.getItem("token");
 
@@ -150,27 +354,16 @@ export async function updateJob(jobId, jobData) {
   );
 
   if (!res.ok) {
-    const errorData = await res
-      .json()
-      .catch(() => ({}));
-
-    throw new Error(
-      errorData.message ||
-        "Failed to update job."
-    );
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to update job.");
   }
 
-  // IMPORTANT:
-  // PUT /api/jobs/{id} returns Job directly,
-  // NOT ApiResponse<Job>
+  // PUT /api/jobs/{id} returns Job directly, NOT ApiResponse<Job>
   return await res.json();
 }
 
 
-// ============================================================
-// CLOSE JOB
 // PUT /api/jobs/{id}/close
-// ============================================================
 export async function closeJob(jobId) {
   const token = localStorage.getItem("token");
 
@@ -186,52 +379,29 @@ export async function closeJob(jobId) {
   );
 
   if (!res.ok) {
-    const errorData = await res
-      .json()
-      .catch(() => ({}));
-
-    throw new Error(
-      errorData.message ||
-        "Failed to close job."
-    );
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to close job.");
   }
 
-  // IMPORTANT:
-  // PUT /api/jobs/{id}/close returns Job directly,
-  // NOT ApiResponse<Job>
+  // PUT /api/jobs/{id}/close returns Job directly, NOT ApiResponse<Job>
   return await res.json();
 }
 
 
-// ============================================================
-// ACTIVATE JOB
-// Uses existing PUT /api/jobs/{id}
-// There is NO /activate endpoint in the backend.
-// ============================================================
+// Uses existing PUT /api/jobs/{id} — there is NO /activate endpoint
 export async function activateJob(jobId) {
-  // First get the complete existing job.
-  // This is important because the backend update method
-  // updates all the job fields.
   const existingJob = await fetchJobById(jobId);
 
-  // Change only the status.
   const updatedJob = {
     ...existingJob,
     status: "OPEN",
   };
 
-  // Use the existing PUT /api/jobs/{id}
-  return await updateJob(
-    jobId,
-    updatedJob
-  );
+  return await updateJob(jobId, updatedJob);
 }
 
 
-// ============================================================
-// DELETE JOB
 // DELETE /api/jobs/{id}
-// ============================================================
 export async function deleteJob(jobId) {
   const token = localStorage.getItem("token");
 
@@ -247,33 +417,21 @@ export async function deleteJob(jobId) {
   );
 
   if (!res.ok) {
-    const errorData = await res
-      .json()
-      .catch(() => ({}));
-
-    throw new Error(
-      errorData.message ||
-        "Failed to delete job."
-    );
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to delete job.");
   }
 
   const response = await res.json();
 
   if (!response.success) {
-    throw new Error(
-      response.message ||
-        "Failed to delete job."
-    );
+    throw new Error(response.message || "Failed to delete job.");
   }
 
   return response.data;
 }
 
 
-// ============================================================
-// SEARCH JOBS
 // GET /api/jobs/search
-// ============================================================
 export async function searchJobs({
   title = "",
   location = "",
@@ -283,17 +441,11 @@ export async function searchJobs({
   const params = new URLSearchParams();
 
   if (title.trim()) {
-    params.append(
-      "title",
-      title.trim()
-    );
+    params.append("title", title.trim());
   }
 
   if (location.trim()) {
-    params.append(
-      "location",
-      location.trim()
-    );
+    params.append("location", location.trim());
   }
 
   const queryString = params.toString();
@@ -311,33 +463,21 @@ export async function searchJobs({
   });
 
   if (!res.ok) {
-    const errorData = await res
-      .json()
-      .catch(() => ({}));
-
-    throw new Error(
-      errorData.message ||
-        "Failed to search jobs."
-    );
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to search jobs.");
   }
 
   const response = await res.json();
 
   if (!response.success) {
-    throw new Error(
-      response.message ||
-        "Failed to search jobs."
-    );
+    throw new Error(response.message || "Failed to search jobs.");
   }
 
   return response.data;
 }
 
 
-// ============================================================
-// GET ASSIGNED JOBS
 // GET /api/jobs/assigned
-// ============================================================
 export async function fetchAssignedJobs() {
   const token = localStorage.getItem("token");
 
@@ -353,23 +493,328 @@ export async function fetchAssignedJobs() {
   );
 
   if (!res.ok) {
-    const errorData = await res
-      .json()
-      .catch(() => ({}));
-
-    throw new Error(
-      errorData.message ||
-        "Failed to load assigned jobs."
-    );
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to load assigned jobs.");
   }
 
   const response = await res.json();
 
   if (!response.success) {
-    throw new Error(
-      response.message ||
-        "Failed to load assigned jobs."
-    );
+    throw new Error(response.message || "Failed to load assigned jobs.");
+  }
+
+  return response.data;
+}
+
+
+// ============================================================
+// DASHBOARD SUMMARY
+// GET /api/dashboard/summary
+// ============================================================
+
+export async function fetchDashboardSummary() {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/dashboard/summary`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to load dashboard summary.");
+  }
+
+  const response = await res.json();
+
+  if (!response.success) {
+    throw new Error(response.message || "Failed to load dashboard summary.");
+  }
+
+  return response.data;
+}
+
+
+// ============================================================
+// APPLICATIONS BY STATUS
+// GET /api/dashboard/applications-by-status
+// ============================================================
+
+export async function fetchApplicationsByStatus() {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/dashboard/applications-by-status`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to load applications by status.");
+  }
+
+  const response = await res.json();
+
+  if (!response.success) {
+    throw new Error(response.message || "Failed to load applications by status.");
+  }
+
+  return response.data;
+}
+
+
+// ============================================================
+// OFFERS
+// SPRING BOOT EMS BACKEND
+// ============================================================
+
+// GET /api/offers
+export async function fetchOffers() {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/offers`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to load offers.");
+  }
+
+  const response = await res.json();
+
+  if (!response.success) {
+    throw new Error(response.message || "Failed to load offers.");
+  }
+
+  return response.data;
+}
+
+
+// GET /api/offers/stats
+export async function fetchOfferStats() {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/offers/stats`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to load offer statistics.");
+  }
+
+  const response = await res.json();
+
+  if (!response.success) {
+    throw new Error(response.message || "Failed to load offer statistics.");
+  }
+
+  return response.data;
+}
+
+
+// GET /api/offers/search?query=...
+export async function searchOffers(query) {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/offers/search?query=${encodeURIComponent(query)}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to search offers.");
+  }
+
+  const response = await res.json();
+
+  if (!response.success) {
+    throw new Error(response.message || "Failed to search offers.");
+  }
+
+  return response.data;
+}
+
+
+// GET /api/offers/status?status=...
+export async function fetchOffersByStatus(status) {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/offers/status?status=${encodeURIComponent(status)}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to filter offers.");
+  }
+
+  const response = await res.json();
+
+  if (!response.success) {
+    throw new Error(response.message || "Failed to filter offers.");
+  }
+
+  return response.data;
+}
+
+
+// POST /api/offers
+export async function createOffer(offerData) {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/offers`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(offerData),
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to create offer.");
+  }
+
+  const response = await res.json();
+
+  if (!response.success) {
+    throw new Error(response.message || "Failed to create offer.");
+  }
+
+  return response.data;
+}
+
+
+// PUT /api/offers/{offerId}/send
+export async function sendOffer(offerId) {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/offers/${offerId}/send`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to send offer.");
+  }
+
+  const response = await res.json();
+
+  if (!response.success) {
+    throw new Error(response.message || "Failed to send offer.");
+  }
+
+  return response.data;
+}
+
+
+// PUT /api/offers/{offerId}/accept
+export async function acceptOffer(offerId) {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/offers/${offerId}/accept`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to accept offer.");
+  }
+
+  const response = await res.json();
+
+  if (!response.success) {
+    throw new Error(response.message || "Failed to accept offer.");
+  }
+
+  return response.data;
+}
+
+
+// PUT /api/offers/{offerId}/reject
+export async function rejectOffer(offerId) {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch(
+    `${EMS_API_BASE}/offers/${offerId}/reject`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to reject offer.");
+  }
+
+  const response = await res.json();
+
+  if (!response.success) {
+    throw new Error(response.message || "Failed to reject offer.");
   }
 
   return response.data;

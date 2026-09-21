@@ -7284,3 +7284,23 @@
     margin-top: 5px;
   }
 }
+
+/* Add these lines at the END of CandidateDashboard.css.
+   The backend can return the status "WITHDRAWN", which had no style. */
+
+.candidate-my-application-status.withdrawn {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+.candidate-app-detail-status.withdrawn {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+.candidate-application-status.withdrawn {
+  background: #f3f5f8;
+  color: #64748b;
+}
