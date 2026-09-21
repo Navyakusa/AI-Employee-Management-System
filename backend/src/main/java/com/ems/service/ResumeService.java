@@ -9,6 +9,7 @@ import com.ems.entity.*;
 import com.ems.mapper.ResumeMapper;
 import com.ems.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -18,22 +19,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-
-import java.net.MalformedURLException;
 
 @Service
 public class ResumeService {
+
     @Autowired
     private CandidateRepository candidateRepository;
 
@@ -45,6 +40,7 @@ public class ResumeService {
 
     @Autowired
     private AIResumeScreeningRepository aiResumeScreeningRepository;
+
     @Autowired
     private ResumeRepository resumeRepository;
 
@@ -75,17 +71,16 @@ public class ResumeService {
     private static final String UPLOAD_DIR = "uploads/resumes";
 
 
+    // ============================================================
+    // Upload Resume
+    // ============================================================
+
     public ResponseEntity<ApiResponse<ResumeResponseDto>> uploadResume(
             ResumeRequestDto request) {
 
         try {
 
-            Long candidateId = request.getCandidateId();
-            MultipartFile file = request.getFile();
-
-            // continue your existing logic...
-
-            // 1. Validate candidate ID
+            // 1. Validate request
             if (request == null || request.getCandidateId() == null) {
 
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -95,6 +90,10 @@ public class ResumeService {
                                 null
                         ));
             }
+
+            Long candidateId = request.getCandidateId();
+
+            MultipartFile file = request.getFile();
 
             // 2. Validate file
             if (file == null || file.isEmpty()) {
@@ -125,7 +124,7 @@ public class ResumeService {
                     .getFileName()
                     .toString();
 
-            // 5. Get file extension
+            // 5. Get extension
             String extension = "";
 
             int dotIndex = fileName.lastIndexOf('.');
@@ -224,7 +223,7 @@ public class ResumeService {
                     savedResume
             );
 
-            // 20. Convert Entity to Response DTO
+            // 20. Convert entity to response DTO
             ResumeResponseDto responseDto =
                     resumeMapper.toResponseDto(savedResume);
 
@@ -256,7 +255,10 @@ public class ResumeService {
     }
 
 
-    // Create resume record
+    // ============================================================
+    // Create Resume Record
+    // ============================================================
+
     public ResponseEntity<ApiResponse<ResumeResponseDto>> createResume(
             ResumeRequestDto dto) {
 
@@ -289,7 +291,10 @@ public class ResumeService {
     }
 
 
-    // Get all resumes
+    // ============================================================
+    // Get All Resumes
+    // ============================================================
+
     public ResponseEntity<ApiResponse<List<ResumeResponseDto>>> getAllResumes() {
 
         try {
@@ -320,7 +325,10 @@ public class ResumeService {
     }
 
 
-    // Get resume by ID
+    // ============================================================
+    // Get Resume By ID
+    // ============================================================
+
     public ResponseEntity<ApiResponse<ResumeResponseDto>> getResumeById(
             Long id) {
 
@@ -362,7 +370,10 @@ public class ResumeService {
     }
 
 
-    // Update resume
+    // ============================================================
+    // Update Resume
+    // ============================================================
+
     public ResponseEntity<ApiResponse<ResumeResponseDto>> updateResume(
             Long id,
             ResumeRequestDto dto) {
@@ -412,7 +423,10 @@ public class ResumeService {
     }
 
 
-    // Delete resume
+    // ============================================================
+    // Delete Resume
+    // ============================================================
+
     public ResponseEntity<ApiResponse<String>> deleteResume(Long id) {
 
         try {
@@ -450,13 +464,20 @@ public class ResumeService {
                     ));
         }
     }
+
+
+    // ============================================================
+    // View Resume
+    // ============================================================
+
     public ResponseEntity<?> viewResume(Long id) {
 
         try {
 
-            Resume resume = resumeRepository
-                    .findById(id)
-                    .orElse(null);
+            Resume resume =
+                    resumeRepository
+                            .findById(id)
+                            .orElse(null);
 
             if (resume == null) {
 
@@ -469,8 +490,8 @@ public class ResumeService {
                         ));
             }
 
-            if (resume.getFilePath() == null ||
-                    resume.getFilePath().isBlank()) {
+            if (resume.getFilePath() == null
+                    || resume.getFilePath().isBlank()) {
 
                 return ResponseEntity
                         .status(HttpStatus.NOT_FOUND)
@@ -519,8 +540,8 @@ public class ResumeService {
             Resource resource =
                     new UrlResource(filePath.toUri());
 
-            if (!resource.exists() ||
-                    !resource.isReadable()) {
+            if (!resource.exists()
+                    || !resource.isReadable()) {
 
                 return ResponseEntity
                         .status(HttpStatus.NOT_FOUND)
@@ -540,11 +561,13 @@ public class ResumeService {
 
             if (fileName.endsWith(".pdf")) {
 
-                contentType = MediaType.APPLICATION_PDF_VALUE;
+                contentType =
+                        MediaType.APPLICATION_PDF_VALUE;
 
             } else if (fileName.endsWith(".doc")) {
 
-                contentType = "application/msword";
+                contentType =
+                        "application/msword";
 
             } else if (fileName.endsWith(".docx")) {
 
@@ -588,15 +611,23 @@ public class ResumeService {
                     ));
         }
     }
+
+
+    // ============================================================
+    // Download Resume
+    // ============================================================
+
     public ResponseEntity<?> downloadResume(Long id) {
 
         try {
 
-            Resume resume = resumeRepository
-                    .findById(id)
-                    .orElse(null);
+            Resume resume =
+                    resumeRepository
+                            .findById(id)
+                            .orElse(null);
 
             if (resume == null) {
+
                 return ResponseEntity
                         .status(HttpStatus.NOT_FOUND)
                         .body(new ApiResponse<>(
@@ -606,8 +637,8 @@ public class ResumeService {
                         ));
             }
 
-            if (resume.getFilePath() == null ||
-                    resume.getFilePath().isBlank()) {
+            if (resume.getFilePath() == null
+                    || resume.getFilePath().isBlank()) {
 
                 return ResponseEntity
                         .status(HttpStatus.NOT_FOUND)
@@ -623,8 +654,8 @@ public class ResumeService {
                     .toAbsolutePath()
                     .normalize();
 
-            if (!Files.exists(filePath) ||
-                    !Files.isReadable(filePath)) {
+            if (!Files.exists(filePath)
+                    || !Files.isReadable(filePath)) {
 
                 return ResponseEntity
                         .status(HttpStatus.NOT_FOUND)
@@ -642,6 +673,7 @@ public class ResumeService {
                     Files.probeContentType(filePath);
 
             if (contentType == null) {
+
                 contentType =
                         MediaType.APPLICATION_OCTET_STREAM_VALUE;
             }
@@ -672,6 +704,12 @@ public class ResumeService {
                     ));
         }
     }
+
+
+    // ============================================================
+    // Resume Management
+    // ============================================================
+
     public ResponseEntity<ApiResponse<List<ResumeManagementDto>>>
     getResumeManagementData() {
 
@@ -688,8 +726,13 @@ public class ResumeService {
                 ResumeManagementDto dto =
                         new ResumeManagementDto();
 
-                dto.setResumeId(resume.getId());
-                dto.setCandidateId(resume.getCandidateId());
+                dto.setResumeId(
+                        resume.getId()
+                );
+
+                dto.setCandidateId(
+                        resume.getCandidateId()
+                );
 
                 dto.setExperience(
                         resume.getExtractedExperience()
@@ -705,12 +748,45 @@ public class ResumeService {
 
 
                 // ==============================
+                // Physical File Availability
+                // ==============================
+
+                boolean fileAvailable = false;
+
+                if (resume.getFilePath() != null
+                        && !resume.getFilePath().isBlank()) {
+
+                    try {
+
+                        Path filePath = Paths
+                                .get(resume.getFilePath())
+                                .toAbsolutePath()
+                                .normalize();
+
+                        fileAvailable =
+                                Files.exists(filePath)
+                                        && Files.isReadable(filePath);
+
+                    } catch (Exception ignored) {
+
+                        fileAvailable = false;
+                    }
+                }
+
+                dto.setFileAvailable(
+                        fileAvailable
+                );
+
+
+                // ==============================
                 // Candidate
                 // ==============================
 
                 Candidate candidate =
                         candidateRepository
-                                .findById(resume.getCandidateId())
+                                .findById(
+                                        resume.getCandidateId()
+                                )
                                 .orElse(null);
 
                 if (candidate != null) {
@@ -749,7 +825,9 @@ public class ResumeService {
                     if (application.getStatus() != null) {
 
                         dto.setStatus(
-                                application.getStatus().name()
+                                application
+                                        .getStatus()
+                                        .name()
                         );
                     }
 
@@ -760,7 +838,9 @@ public class ResumeService {
 
                     Job job =
                             jobRepository
-                                    .findById(application.getJobId())
+                                    .findById(
+                                            application.getJobId()
+                                    )
                                     .orElse(null);
 
                     if (job != null) {
@@ -817,6 +897,12 @@ public class ResumeService {
                     );
         }
     }
+
+
+    // ============================================================
+    // Resume Statistics
+    // ============================================================
+
     public ResponseEntity<ApiResponse<ResumeStatsDto>>
     getResumeStats() {
 
@@ -844,22 +930,22 @@ public class ResumeService {
                 if (application != null) {
 
                     // Shortlisted
-                    if (application.getStatus() != null &&
-                            application.getStatus().name()
-                                    .equalsIgnoreCase("SHORTLISTED")) {
+                    if (application.getStatus() != null
+                            && application.getStatus()
+                            .name()
+                            .equalsIgnoreCase("SHORTLISTED")) {
 
                         shortlisted++;
                     }
 
-
                     // Under Screening
-                    if (application.getStatus() != null &&
-                            application.getStatus().name()
-                                    .equalsIgnoreCase("SCREENING")) {
+                    if (application.getStatus() != null
+                            && application.getStatus()
+                            .name()
+                            .equalsIgnoreCase("SCREENING")) {
 
                         underScreening++;
                     }
-
 
                     // AI Match
                     AIResumeScreening screening =
@@ -870,9 +956,9 @@ public class ResumeService {
                                     )
                                     .orElse(null);
 
-                    if (screening != null &&
-                            screening.getScreeningScore() != null &&
-                            screening.getScreeningScore() >= 80.0) {
+                    if (screening != null
+                            && screening.getScreeningScore() != null
+                            && screening.getScreeningScore() >= 80.0) {
 
                         highMatch++;
                     }
@@ -910,6 +996,12 @@ public class ResumeService {
                     );
         }
     }
+
+
+    // ============================================================
+    // Search Resumes
+    // ============================================================
+
     public ResponseEntity<ApiResponse<List<ResumeManagementDto>>>
     searchResumes(String keyword) {
 
@@ -985,13 +1077,23 @@ public class ResumeService {
     }
 
 
+    // ============================================================
+    // Contains Ignore Case
+    // ============================================================
+
     private boolean containsIgnoreCase(
             String value,
             String search) {
 
-        return value != null &&
-                value.toLowerCase().contains(search);
+        return value != null
+                && value.toLowerCase().contains(search);
     }
+
+
+    // ============================================================
+    // Filter Resumes By Status
+    // ============================================================
+
     public ResponseEntity<ApiResponse<List<ResumeManagementDto>>>
     getResumesByStatus(String status) {
 
@@ -1008,9 +1110,9 @@ public class ResumeService {
             List<ResumeManagementDto> filtered =
                     resumes.stream()
                             .filter(resume ->
-                                    resume.getStatus() != null &&
-                                            resume.getStatus()
-                                                    .equalsIgnoreCase(status)
+                                    resume.getStatus() != null
+                                            && resume.getStatus()
+                                            .equalsIgnoreCase(status)
                             )
                             .toList();
 

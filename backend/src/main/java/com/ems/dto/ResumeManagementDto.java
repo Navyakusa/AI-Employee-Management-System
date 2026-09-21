@@ -28,4 +28,7 @@ public class ResumeManagementDto {
 
     private Double aiMatch;
     private String status;
+
+    // Tells frontend whether the actual resume file exists on the server
+    private Boolean fileAvailable;
 }
