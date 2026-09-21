@@ -1,0 +1,535 @@
+/* =========================================
+   PAGE
+========================================= */
+
+.recruiter-settings-page {
+  min-height: 100vh;
+  background: #f5f7fb;
+}
+
+
+/* =========================================
+   MAIN
+========================================= */
+
+.recruiter-settings-main {
+  margin-left: 173px;
+
+  padding: 105px 32px 40px;
+
+  min-height: 100vh;
+
+  box-sizing: border-box;
+}
+
+
+/* =========================================
+   HEADER
+========================================= */
+
+.recruiter-settings-header {
+  margin-bottom: 25px;
+}
+
+.recruiter-settings-label {
+  color: #526fe3;
+
+  font-size: 10px;
+
+  font-weight: 700;
+
+  letter-spacing: 1.2px;
+}
+
+.recruiter-settings-header h1 {
+  margin: 7px 0 4px;
+
+  color: #17233f;
+
+  font-size: 29px;
+
+  font-weight: 700;
+}
+
+.recruiter-settings-header p {
+  margin: 0;
+
+  color: #8290aa;
+
+  font-size: 13px;
+}
+
+
+/* =========================================
+   CARD
+========================================= */
+
+.settings-card {
+  margin-bottom: 20px;
+
+  background: #ffffff;
+
+  border: 1px solid #e1e6ee;
+
+  border-radius: 10px;
+
+  overflow: hidden;
+}
+
+
+/* =========================================
+   CARD HEADER
+========================================= */
+
+.settings-card-header {
+  min-height: 75px;
+
+  padding: 16px 24px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 12px;
+
+  border-bottom: 1px solid #e8ecf2;
+
+  box-sizing: border-box;
+}
+
+.settings-card-icon {
+  width: 40px;
+  height: 40px;
+
+  border-radius: 9px;
+
+  background: #edf3ff;
+
+  color: #526fe3;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  flex-shrink: 0;
+}
+
+.settings-card-header h2 {
+  margin: 0;
+
+  color: #1c2945;
+
+  font-size: 15px;
+}
+
+.settings-card-header p {
+  margin: 4px 0 0;
+
+  color: #8995aa;
+
+  font-size: 10px;
+}
+
+
+/* =========================================
+   FORM
+========================================= */
+
+.settings-form {
+  padding: 25px;
+
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 20px;
+}
+
+.settings-field {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 7px;
+}
+
+.settings-field:last-child {
+  grid-column: 1 / 2;
+}
+
+.settings-field label {
+  color: #27344e;
+
+  font-size: 11px;
+
+  font-weight: 600;
+}
+
+.settings-field input {
+  width: 100%;
+
+  height: 42px;
+
+  padding: 0 12px;
+
+  box-sizing: border-box;
+
+  border: 1px solid #dbe1ea;
+
+  border-radius: 7px;
+
+  background: #ffffff;
+
+  color: #35425c;
+
+  font-size: 12px;
+
+  outline: none;
+}
+
+.settings-field input:focus {
+  border-color: #536fe0;
+
+  box-shadow: 0 0 0 2px rgba(83, 111, 224, 0.08);
+}
+
+
+/* =========================================
+   NOTIFICATION OPTIONS
+========================================= */
+
+.settings-options {
+  padding: 0 25px;
+}
+
+.settings-option {
+  min-height: 72px;
+
+  padding: 17px 0;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 20px;
+
+  border-bottom: 1px solid #edf0f4;
+
+  box-sizing: border-box;
+}
+
+.settings-option:last-child {
+  border-bottom: none;
+}
+
+.settings-option div {
+  display: flex;
+
+  flex-direction: column;
+}
+
+.settings-option strong {
+  color: #27344e;
+
+  font-size: 11px;
+}
+
+.settings-option span {
+  margin-top: 4px;
+
+  color: #8995aa;
+
+  font-size: 10px;
+}
+
+
+/* =========================================
+   TOGGLE
+========================================= */
+
+.switch {
+  position: relative;
+
+  width: 44px;
+  height: 24px;
+
+  flex-shrink: 0;
+}
+
+.switch input {
+  display: none;
+}
+
+.slider {
+  position: absolute;
+
+  inset: 0;
+
+  background: #d7dce5;
+
+  border-radius: 20px;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+}
+
+.slider::before {
+  content: "";
+
+  position: absolute;
+
+  width: 18px;
+  height: 18px;
+
+  left: 3px;
+  top: 3px;
+
+  background: #ffffff;
+
+  border-radius: 50%;
+
+  transition: 0.2s;
+
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.switch input:checked + .slider {
+  background: #536fe0;
+}
+
+.switch input:checked + .slider::before {
+  transform: translateX(20px);
+}
+
+
+/* =========================================
+   SECURITY
+========================================= */
+
+.security-content {
+  padding: 20px 25px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 20px;
+}
+
+.security-content > div {
+  display: flex;
+
+  flex-direction: column;
+}
+
+.security-content strong {
+  color: #27344e;
+
+  font-size: 11px;
+}
+
+.security-content span {
+  margin-top: 4px;
+
+  color: #8995aa;
+
+  font-size: 10px;
+}
+
+
+/* =========================================
+   SECONDARY BUTTON
+========================================= */
+
+.secondary-settings-btn {
+  height: 37px;
+
+  padding: 0 15px;
+
+  border: 1px solid #d9dfeb;
+
+  border-radius: 7px;
+
+  background: #ffffff;
+
+  color: #526fe3;
+
+  font-size: 10px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.secondary-settings-btn:hover {
+  background: #f5f7ff;
+}
+
+
+/* =========================================
+   APPEARANCE
+========================================= */
+
+.appearance-content {
+  padding: 20px 25px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 20px;
+}
+
+.appearance-content > div {
+  display: flex;
+
+  flex-direction: column;
+}
+
+.appearance-content strong {
+  color: #27344e;
+
+  font-size: 11px;
+}
+
+.appearance-content span {
+  margin-top: 4px;
+
+  color: #8995aa;
+
+  font-size: 10px;
+}
+
+.appearance-content select {
+  width: 160px;
+
+  height: 37px;
+
+  padding: 0 10px;
+
+  border: 1px solid #d9dfeb;
+
+  border-radius: 7px;
+
+  background: #ffffff;
+
+  color: #35425c;
+
+  font-size: 10px;
+
+  outline: none;
+}
+
+
+/* =========================================
+   SAVE AREA
+========================================= */
+
+.settings-save-area {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: flex-end;
+
+  gap: 15px;
+
+  margin-top: 5px;
+}
+
+.settings-success {
+  color: #15945c;
+
+  font-size: 10px;
+
+  font-weight: 600;
+}
+
+.save-settings-btn {
+  height: 40px;
+
+  padding: 0 17px;
+
+  border: none;
+
+  border-radius: 7px;
+
+  background: #536fe0;
+
+  color: #ffffff;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 7px;
+
+  font-size: 11px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.save-settings-btn:hover {
+  background: #435fce;
+}
+
+
+/* =========================================
+   RESPONSIVE
+========================================= */
+
+@media (max-width: 800px) {
+
+  .recruiter-settings-main {
+    margin-left: 173px;
+
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .settings-form {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-field:last-child {
+    grid-column: auto;
+  }
+
+}
+
+
+@media (max-width: 600px) {
+
+  .recruiter-settings-main {
+    margin-left: 0;
+  }
+
+  .settings-card-header {
+    padding: 15px;
+  }
+
+  .settings-form {
+    padding: 20px;
+  }
+
+  .settings-options {
+    padding: 0 20px;
+  }
+
+  .security-content,
+  .appearance-content {
+    padding: 18px 20px;
+  }
+
+}

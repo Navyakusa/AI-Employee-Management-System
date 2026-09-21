@@ -1,0 +1,438 @@
+.recruiter-resumes-page {
+  min-height: 100vh;
+  background: #f5f7fb;
+}
+
+.recruiter-resumes-main {
+  margin-left: 173px;
+  padding: 94px 28px 35px;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/* HEADER */
+
+.resumes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.resumes-header h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: #18213d;
+}
+
+.resumes-header p {
+  margin: 7px 0 0;
+  color: #7c879b;
+  font-size: 14px;
+}
+
+.upload-resume-btn {
+  border: none;
+  background: #18234a;
+  color: white;
+  height: 42px;
+  padding: 0 17px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upload-resume-btn:hover {
+  background: #111a39;
+}
+
+.upload-resume-btn span {
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* SUMMARY */
+
+.resume-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 17px;
+  margin-bottom: 22px;
+}
+
+.resume-summary-card {
+  background: #ffffff;
+  border: 1px solid #e7eaf0;
+  border-radius: 9px;
+  padding: 17px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  box-sizing: border-box;
+}
+
+.summary-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  color: #3346a8;
+}
+
+.resume-summary-card span {
+  display: block;
+  color: #7d8798;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.resume-summary-card strong {
+  display: block;
+  color: #18213d;
+  font-size: 21px;
+}
+
+/* TABLE CARD */
+
+.resume-table-card {
+  background: #ffffff;
+  border: 1px solid #e5e8ef;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.resume-table-toolbar {
+  padding: 17px 19px;
+  border-bottom: 1px solid #e9ecf1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+}
+
+.resume-search {
+  width: 390px;
+  height: 40px;
+  border: 1px solid #dfe4eb;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 9px;
+  background: #fbfcfd;
+  box-sizing: border-box;
+}
+
+.resume-search span {
+  font-size: 21px;
+  color: #8d97a8;
+}
+
+.resume-search input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #26314d;
+  font-size: 13px;
+}
+
+.resume-search input::placeholder {
+  color: #9aa3b2;
+}
+
+.resume-status-filter {
+  height: 40px;
+  min-width: 145px;
+  padding: 0 12px;
+  border: 1px solid #dfe4eb;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #46516a;
+  outline: none;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* TABLE */
+
+.resume-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.resume-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1100px;
+}
+
+.resume-table th {
+  background: #fafbfc;
+  color: #778196;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 13px 15px;
+  border-bottom: 1px solid #e7eaf0;
+  white-space: nowrap;
+}
+
+.resume-table td {
+  padding: 15px;
+  border-bottom: 1px solid #edf0f4;
+  color: #4e586d;
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+.resume-table tbody tr:hover {
+  background: #fafbfe;
+}
+
+/* CANDIDATE */
+
+.candidate-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 175px;
+}
+
+.candidate-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #e9edff;
+  color: #3446a1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.candidate-cell strong {
+  display: block;
+  color: #202a44;
+  font-size: 12px;
+  margin-bottom: 3px;
+}
+
+.candidate-cell small {
+  display: block;
+  color: #8b95a7;
+  font-size: 10px;
+}
+
+.position-text {
+  color: #27324e;
+  font-weight: 600;
+}
+
+/* SKILLS */
+
+.skills-list {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  max-width: 170px;
+}
+
+.skills-list span {
+  background: #f0f2f6;
+  color: #5f697c;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* MATCH SCORE */
+
+.match-score {
+  display: flex;
+  align-items: center;
+}
+
+.score-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid #4d63d9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3348a8;
+  font-size: 10px;
+  font-weight: 700;
+  box-sizing: border-box;
+}
+
+/* STATUS */
+
+.resume-status {
+  display: inline-flex;
+  padding: 5px 9px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.resume-status.new {
+  background: #edf1ff;
+  color: #4154ad;
+}
+
+.resume-status.screening {
+  background: #fff4dd;
+  color: #9b701b;
+}
+
+.resume-status.interview {
+  background: #e9f7f0;
+  color: #287c55;
+}
+
+.resume-status.shortlisted {
+  background: #e7f6ed;
+  color: #287b52;
+}
+
+.resume-status.rejected {
+  background: #fdeceb;
+  color: #bd5550;
+}
+
+/* ACTIONS */
+
+.resume-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.view-btn {
+  height: 29px;
+  padding: 0 10px;
+  border: 1px solid #dce1e9;
+  border-radius: 5px;
+  background: white;
+  color: #34415e;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.view-btn:hover {
+  background: #f5f7fb;
+}
+
+.download-btn {
+  width: 29px;
+  height: 29px;
+  border: 1px solid #dce1e9;
+  border-radius: 5px;
+  background: white;
+  color: #34415e;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.download-btn:hover {
+  background: #f5f7fb;
+}
+
+/* EMPTY */
+
+.empty-resumes {
+  height: 250px;
+  text-align: center !important;
+}
+
+.empty-resumes div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-resumes span {
+  font-size: 34px;
+  margin-bottom: 5px;
+}
+
+.empty-resumes h3 {
+  margin: 5px 0;
+  color: #29334d;
+  font-size: 15px;
+}
+
+.empty-resumes p {
+  margin: 0;
+  color: #8a94a6;
+  font-size: 12px;
+}
+
+/* FOOTER */
+
+.resume-table-footer {
+  padding: 14px 19px;
+  color: #8791a2;
+  font-size: 11px;
+}
+
+.resume-table-footer strong {
+  color: #46516a;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 1100px) {
+  .resume-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .resume-table-toolbar {
+    align-items: stretch;
+  }
+
+  .resume-search {
+    width: 100%;
+  }
+}
+
+@media (max-width: 700px) {
+  .recruiter-resumes-main {
+    margin-left: 0;
+    padding: 90px 15px 25px;
+  }
+
+  .resumes-header {
+    align-items: flex-start;
+    gap: 15px;
+    flex-direction: column;
+  }
+
+  .resume-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .resume-table-toolbar {
+    flex-direction: column;
+  }
+
+  .resume-status-filter {
+    width: 100%;
+  }
+}

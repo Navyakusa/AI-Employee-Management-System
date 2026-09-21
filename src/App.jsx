@@ -1,11 +1,42 @@
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-} from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+// Recruiter pages
+import RecruiterDashboard from "./pages/recruiter/RecruiterDashboard";
+import RecruiterNotifications from "./pages/recruiter/RecruiterNotifications";
+import RecruiterProfile from "./pages/recruiter/RecruiterProfile";
+import RecruiterSettings from "./pages/recruiter/RecruiterSettings";
+import RecruiterCandidates from "./pages/recruiter/RecruiterCandidates";
+import RecruiterResumes from "./pages/recruiter/RecruiterResumes";
+import RecruiterScreening from "./pages/recruiter/RecruiterScreening";
+import RecruiterQuestions from "./pages/recruiter/RecruiterQuestions";
+import RecruiterInterviews from "./pages/recruiter/RecruiterInterviews";
+
+
+
+
+
+// Employee Pages
+import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
+import EmployeeProfile from "./pages/employee/EmployeeProfile";
+import EmployeeAttendance from "./pages/employee/EmployeeAttendance";
+import EmployeeLeave from "./pages/employee/EmployeeLeave";
+import EmployeeDocuments from "./pages/employee/EmployeeDocuments";
+import EmployeePerformance from "./pages/employee/EmployeePerformance";
+import EmployeeNotifications from "./pages/employee/EmployeeNotifications";
+import EmployeeSettings from "./pages/employee/EmployeeSettings";
+// HR Pages
 import HRDashboard from "./pages/hr/HRDashboard";
 import HRJobs from "./pages/hr/HRJobs";
 import CreateJob from "./pages/hr/CreateJob";
+import HRCandidates from "./pages/hr/HRCandidates";
+import HRScreening from "./pages/hr/HRScreening";
+import HRAnalytics from "./pages/hr/HRAnalytics";
+import HRInterviews from "./pages/hr/HRInterviews";
+import HROffers from "./pages/hr/HROffers";
+import HREmployees from "./pages/hr/HREmployees";
+import HRProfile from "./pages/hr/HRProfile";
+import HRSettings from "./pages/hr/HRSettings";
+
+// Public Pages
 import PublicLayout from "./layouts/PublicLayout";
 import HomePage from "./pages/public/HomePage";
 import AboutPage from "./pages/public/AboutPage";
@@ -17,20 +48,39 @@ import NotFoundPage from "./pages/public/NotFoundPage";
 import LoginPage from "./pages/public/auth/LoginPage";
 import SignupPage from "./pages/public/auth/SignupPage";
 
-import Chatbot from "./pages/public/Chatbot";
-import HRCandidates from "./pages/hr/HRCandidates";
-import HRScreening from "./pages/hr/HRScreening";
-import HRAnalytics from "./pages/hr/HRAnalytics";
-import HRInterviews from "./pages/hr/HRInterviews";
 
+import Chatbot from "./pages/public/Chatbot";
+
+
+
+// Super Admin Pages
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminProfile from "./pages/admin/AdminProfile";
+import AdminSettings from "./pages/admin/AdminSettings";
+import AdminRoles from "./pages/admin/AdminRoles";
+import AdminDepartments from "./pages/admin/AdminDepartments";
+import AdminReports from "./pages/admin/AdminReports";
+import AdminAuditLogs from "./pages/admin/AdminAuditLogs";
+import AdminNotifications from "./pages/admin/AdminNotifications";
+import AdminOrganization from "./pages/admin/AdminOrganization";
+import HiringManagerDashboard from "./pages/hiringManager/HiringManagerDashboard";
+import HiringManagerJobs from "./pages/hiringManager/HiringManagerJobs";
+import HiringManagerCandidates from "./pages/hiringManager/HiringManagerCandidates";
+import HiringManagerResumeReview from "./pages/hiringManager/HiringManagerResumeReview";
+import HiringManagerInterviews from "./pages/hiringManager/HiringManagerInterviews";
+import HiringManagerDecisions from "./pages/hiringManager/HiringManagerDecisions";
+import HiringManagerJobDetails from "./pages/hiringManager/HiringManagerJobDetails";
+import HiringManagerCandidateReview from "./pages/hiringManager/HiringManagerCandidateReview";
+import HiringManagerInterviewDetails from "./pages/hiringManager/HiringManagerInterviewDetails";
 function App() {
   return (
     <BrowserRouter>
-
       <Routes>
 
-        <Route element={<PublicLayout />}>
+        /* ================= PUBLIC ROUTES ================= */
 
+        <Route element={<PublicLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/jobs" element={<JobsPage />} />
@@ -40,23 +90,257 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/chatbot" element={<Chatbot />} />
-
         </Route>
 
         <Route path="/hr/dashboard" element={<HRDashboard />} />
         <Route path="/hr/jobs" element={<HRJobs />} />
         <Route path="/hr/jobs/create" element={<CreateJob />} />
 
-        {/* new AI feature routes */}
+        /* new AI feature routes */
         <Route path="/hr/candidates" element={<HRCandidates />} />
         <Route path="/hr/ai-screening" element={<HRScreening />} />
         <Route path="/hr/analytics" element={<HRAnalytics />} />
         <Route path="/hr/interviews" element={<HRInterviews />} />
         
+        /*================Recruiter dashboard=================*/
+
+        <Route
+  path="/recruiter/dashboard"
+  element={<RecruiterDashboard />}
+/>
+  
+  <Route
+  path="/recruiter/notifications"
+  element={<RecruiterNotifications />}
+/>
+
+<Route
+  path="/recruiter/profile"
+  element={<RecruiterProfile />}
+/> 
+
+<Route
+  path="/recruiter/settings"
+  element={<RecruiterSettings />}
+/>
+
+<Route
+  path="/recruiter/candidates"
+  element={<RecruiterCandidates />}
+/>
+<Route
+  path="/recruiter/resumes"
+  element={<RecruiterResumes />}
+/>
+<Route
+  path="/recruiter/screening"
+  element={<RecruiterScreening />}
+/>
+<Route
+  path="/recruiter/questions"
+  element={<RecruiterQuestions />}
+/>
+
+<Route
+  path="/recruiter/interviews"
+  element={<RecruiterInterviews />}
+/>
+
+
+
+
+
+        
+        <Route
+          path="/employee/dashboard"
+          element={<EmployeeDashboard />}
+        />
+
+        <Route
+          path="/employee/profile"
+          element={<EmployeeProfile />}
+        />
+
+        <Route
+          path="/employee/attendance"
+          element={<EmployeeAttendance />}
+        />
+
+        <Route
+          path="/employee/leave"
+          element={<EmployeeLeave />}
+        />
+
+        <Route
+          path="/employee/documents"
+          element={<EmployeeDocuments />}
+        />
+
+        <Route
+          path="/employee/performance"
+          element={<EmployeePerformance />}
+        />
+
+        <Route
+          path="/employee/notifications"
+          element={<EmployeeNotifications />}
+        />
+
+        <Route
+  path="/employee/settings"
+  element={<EmployeeSettings />}
+/>
+
+
+       
+        <Route
+          path="/hr/dashboard"
+          element={<HRDashboard />}
+        />
+
+        <Route
+          path="/hr/jobs"
+          element={<HRJobs />}
+        />
+
+        <Route
+          path="/hr/jobs/create"
+          element={<CreateJob />}
+        />
+
+        <Route
+          path="/hr/candidates"
+          element={<HRCandidates />}
+        />
+
+        <Route
+          path="/hr/ai-screening"
+          element={<HRScreening />}
+        />
+
+        <Route
+          path="/hr/analytics"
+          element={<HRAnalytics />}
+        />
+
+        <Route
+          path="/hr/interviews"
+          element={<HRInterviews />}
+        />
+
+        <Route
+          path="/hr/offers"
+          element={<HROffers />}
+        />
+
+        <Route
+          path="/hr/employees"
+          element={<HREmployees />}
+        />
+
+        <Route
+          path="/hr/profile"
+          element={<HRProfile />}
+        />
+
+        <Route
+          path="/hr/settings"
+          element={<HRSettings />}
+        />
+
+
+       
+
+        <Route
+          path="/super-admin/dashboard"
+          element={<AdminDashboard />}
+        />
+
+        <Route
+          path="/super-admin/users"
+          element={<AdminUsers />}
+        />
+
+        <Route
+          path="/super-admin/profile"
+          element={<AdminProfile />}
+        />
+
+        <Route
+          path="/super-admin/settings"
+          element={<AdminSettings />}
+        />
+
+        <Route
+          path="/super-admin/roles"
+          element={<AdminRoles />}
+        />
+
+        <Route
+          path="/super-admin/departments"
+          element={<AdminDepartments />}
+        />
+
+        <Route
+          path="/super-admin/reports"
+          element={<AdminReports />}
+        />
+
+        <Route
+          path="/super-admin/audit-logs"
+          element={<AdminAuditLogs />}
+        />
+
+        <Route
+          path="/super-admin/notifications"
+          element={<AdminNotifications />}
+        />
+
+        <Route
+          path="/super-admin/organization"
+          element={<AdminOrganization />}
+        />
+        <Route
+  path="/hiring-manager/dashboard"
+  element={<HiringManagerDashboard />}
+/>
+<Route
+  path="/hiring-manager/jobs"
+  element={<HiringManagerJobs />}
+/>
+<Route
+  path="/hiring-manager/shortlisted-candidates"
+  element={<HiringManagerCandidates />}
+/>
+<Route
+  path="/hiring-manager/resume-review/:candidateId"
+  element={<HiringManagerResumeReview />}
+/>
+<Route
+  path="/hiring-manager/interviews"
+  element={<HiringManagerInterviews />}
+/>
+<Route
+  path="/hiring-manager/decisions"
+  element={<HiringManagerDecisions />}
+/>
+<Route
+  path="/hiring-manager/jobs/:jobId"
+  element={<HiringManagerJobDetails />}
+/>
+<Route
+  path="/hiring-manager/candidate-review/:candidateId"
+  element={<HiringManagerCandidateReview />}
+/>
+<Route
+  path="/hiring-manager/interviews/:interviewId"
+  element={<HiringManagerInterviewDetails />}
+/>
+        {/* Not Found */}
+
         <Route path="*" element={<NotFoundPage />} />
 
       </Routes>
-
     </BrowserRouter>
   );
 }

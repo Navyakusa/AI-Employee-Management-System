@@ -1,0 +1,490 @@
+.employee-attendance-layout {
+  min-height: 100vh;
+  background: #f8fafc;
+}
+
+.employee-attendance-main {
+  margin-left: 250px;
+
+  padding: 105px 32px 40px;
+
+  min-height: 100vh;
+
+  box-sizing: border-box;
+}
+
+
+/* =========================
+   PAGE HEADER
+========================= */
+
+.employee-attendance-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 28px;
+}
+
+.employee-page-label {
+  color: #3158d9;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  letter-spacing: 1.5px;
+}
+
+.employee-attendance-header h1 {
+  margin: 6px 0 5px;
+
+  color: #101828;
+
+  font-size: 28px;
+}
+
+.employee-attendance-header p {
+  margin: 0;
+
+  color: #667085;
+
+  font-size: 14px;
+}
+
+.employee-attendance-header-icon {
+  width: 52px;
+  height: 52px;
+
+  border-radius: 12px;
+
+  background: #edf3ff;
+
+  color: #3158d9;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* =========================
+   SUMMARY
+========================= */
+
+.employee-attendance-summary {
+  display: grid;
+
+  grid-template-columns: repeat(4, 1fr);
+
+  gap: 18px;
+
+  margin-bottom: 22px;
+}
+
+.attendance-summary-card {
+  background: white;
+
+  border: 1px solid #e4e7ec;
+
+  border-radius: 12px;
+
+  padding: 18px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 13px;
+}
+
+.attendance-summary-icon {
+  width: 44px;
+  height: 44px;
+
+  border-radius: 11px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+}
+
+.attendance-summary-icon.purple {
+  background: #f4f3ff;
+  color: #7a5af8;
+}
+
+.attendance-summary-icon.blue {
+  background: #eff8ff;
+  color: #2e90fa;
+}
+
+.attendance-summary-icon.green {
+  background: #ecfdf3;
+  color: #12b76a;
+}
+
+.attendance-summary-icon.orange {
+  background: #fff6ed;
+  color: #f79009;
+}
+
+.attendance-summary-card span {
+  display: block;
+
+  color: #667085;
+
+  font-size: 11px;
+}
+
+.attendance-summary-card strong {
+  display: block;
+
+  margin-top: 3px;
+
+  color: #101828;
+
+  font-size: 17px;
+}
+
+.attendance-summary-card small {
+  display: block;
+
+  margin-top: 3px;
+
+  color: #98a2b3;
+
+  font-size: 10px;
+}
+
+
+/* =========================
+   TODAY CARD
+========================= */
+
+.employee-attendance-today,
+.employee-attendance-history {
+  background: white;
+
+  border: 1px solid #e4e7ec;
+
+  border-radius: 14px;
+
+  margin-bottom: 22px;
+
+  overflow: hidden;
+}
+
+.attendance-section-heading {
+  padding: 22px 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.attendance-section-heading h2 {
+  margin: 0;
+
+  color: #101828;
+
+  font-size: 17px;
+}
+
+.attendance-section-heading p {
+  margin: 5px 0 0;
+
+  color: #98a2b3;
+
+  font-size: 12px;
+}
+
+.attendance-live-status {
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  padding: 7px 12px;
+
+  background: #ecfdf3;
+
+  color: #12b76a;
+
+  border-radius: 20px;
+
+  font-size: 12px;
+
+  font-weight: 600;
+}
+
+.attendance-live-status span {
+  width: 7px;
+  height: 7px;
+
+  border-radius: 50%;
+
+  background: #12b76a;
+}
+
+
+/* =========================
+   TODAY DETAILS
+========================= */
+
+.attendance-today-details {
+  display: grid;
+
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 16px;
+
+  padding: 0 24px 22px;
+}
+
+.attendance-time-box {
+  background: #f8fafc;
+
+  border-radius: 10px;
+
+  padding: 17px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+}
+
+.attendance-time-icon {
+  width: 40px;
+  height: 40px;
+
+  border-radius: 10px;
+
+  background: #edf3ff;
+
+  color: #3158d9;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.attendance-time-box span {
+  display: block;
+
+  color: #98a2b3;
+
+  font-size: 11px;
+}
+
+.attendance-time-box strong {
+  display: block;
+
+  margin-top: 4px;
+
+  color: #101828;
+
+  font-size: 15px;
+}
+
+
+/* =========================
+   ACTION BUTTON
+========================= */
+
+.attendance-action-button {
+  width: calc(100% - 48px);
+
+  margin: 0 24px 24px;
+
+  height: 44px;
+
+  border: none;
+
+  border-radius: 8px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  color: white;
+
+  font-size: 13px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.attendance-action-button.checkout {
+  background: #f04438;
+}
+
+.attendance-action-button.checkin {
+  background: #3158d9;
+}
+
+.attendance-action-button:hover {
+  opacity: 0.92;
+}
+
+
+/* =========================
+   FILTER
+========================= */
+
+.attendance-filter-button {
+  border: 1px solid #d0d5dd;
+
+  background: white;
+
+  color: #475467;
+
+  border-radius: 8px;
+
+  padding: 8px 12px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 7px;
+
+  font-size: 12px;
+
+  cursor: pointer;
+}
+
+
+/* =========================
+   TABLE
+========================= */
+
+.attendance-table-wrapper {
+  width: 100%;
+
+  overflow-x: auto;
+}
+
+.attendance-table {
+  width: 100%;
+
+  border-collapse: collapse;
+
+  min-width: 700px;
+}
+
+.attendance-table th {
+  background: #f8fafc;
+
+  color: #667085;
+
+  text-align: left;
+
+  padding: 13px 24px;
+
+  font-size: 11px;
+
+  font-weight: 600;
+
+  border-top: 1px solid #eef2f6;
+
+  border-bottom: 1px solid #eef2f6;
+}
+
+.attendance-table td {
+  padding: 16px 24px;
+
+  color: #475467;
+
+  font-size: 12px;
+
+  border-bottom: 1px solid #eef2f6;
+}
+
+.attendance-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.attendance-table td strong {
+  color: #344054;
+
+  font-size: 12px;
+}
+
+
+/* =========================
+   STATUS
+========================= */
+
+.attendance-status-badge {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 5px;
+
+  padding: 5px 9px;
+
+  border-radius: 20px;
+
+  font-size: 10px;
+
+  font-weight: 600;
+}
+
+.attendance-status-badge.present {
+  background: #ecfdf3;
+
+  color: #12b76a;
+}
+
+.attendance-status-badge.late,
+.attendance-status-badge.early-departure {
+  background: #fff6ed;
+
+  color: #f79009;
+}
+
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 1100px) {
+  .employee-attendance-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 800px) {
+  .employee-attendance-main {
+    margin-left: 0;
+
+    padding: 95px 20px 30px;
+  }
+
+  .attendance-today-details {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .employee-attendance-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-section-heading {
+    align-items: flex-start;
+
+    gap: 15px;
+
+    flex-direction: column;
+  }
+
+  .attendance-filter-button {
+    align-self: flex-start;
+  }
+}

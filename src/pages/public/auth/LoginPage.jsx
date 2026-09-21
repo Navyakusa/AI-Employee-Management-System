@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import apiClient from "../../../services/apiClient";
 
 function LoginPage() {
   const navigate = useNavigate();
 
-  const [role, setRole] = useState("hr");
+  // Must match backend/database role values
+  const [role, setRole] = useState("HR");
 
   const [formData, setFormData] = useState({
     username: "",
@@ -13,10 +15,11 @@ function LoginPage() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // ==============================
+  // =========================
   // HANDLE INPUT CHANGE
-  // ==============================
+  // =========================
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -26,136 +29,172 @@ function LoginPage() {
     setError("");
   };
 
-  // ==============================
-  // HANDLE LOGIN
-  // ==============================
-  const handleLogin = (e) => {
+  // =========================
+  // HANDLE ROLE CHANGE
+  // =========================
+  const handleRoleChange = (e) => {
+    setRole(e.target.value);
+    setError("");
+  };
+
+  // =========================
+  // LOGIN
+  // =========================
+  const handleLogin = async (e) => {
     e.preventDefault();
 
-    const enteredEmail = formData.username
-      .trim()
-      .toLowerCase();
-
+    const enteredEmail = formData.username.trim().toLowerCase();
     const enteredPassword = formData.password;
 
-    // Check empty fields
+    // Validation
     if (!enteredEmail || !enteredPassword) {
       setError("Please enter your email and password.");
       return;
     }
 
-    // ==============================
-    // GET REGISTERED USERS
-    // ==============================
-
-    const savedUsers =
-      localStorage.getItem("registeredUsers");
-
-    let registeredUsers = [];
-
-    try {
-      registeredUsers = savedUsers
-        ? JSON.parse(savedUsers)
-        : [];
-    } catch (error) {
-      registeredUsers = [];
-    }
-
-    // Make sure registeredUsers is an array
-    if (!Array.isArray(registeredUsers)) {
-      registeredUsers = [];
-    }
-
-    // ==============================
-    // FIND USER
-    // ==============================
-
-    const user = registeredUsers.find((registeredUser) => {
-      if (!registeredUser) {
-        return false;
-      }
-
-      const storedEmail = String(
-        registeredUser.email || ""
-      )
-        .trim()
-        .toLowerCase();
-
-      const storedPassword = String(
-        registeredUser.password || ""
-      );
-
-      return (
-        storedEmail === enteredEmail &&
-        storedPassword === enteredPassword
-      );
-    });
-
-    // ==============================
-    // LOGIN FAILED
-    // ==============================
-
-    if (!user) {
-      setError(
-        "Account not found or password is incorrect. Please check your email and password."
-      );
-
+    if (!role) {
+      setError("Please select a role.");
       return;
     }
 
-    // ==============================
-    // LOGIN SUCCESS
-    // ==============================
+    try {
+      setLoading(true);
+      setError("");
 
-    localStorage.setItem(
-      "loggedInUser",
-      JSON.stringify({
-        email: user.email,
-        role: role,
-      })
-    );
+      // ==========================================
+      // CALL BACKEND LOGIN API ONLY ONCE
+      // ==========================================
+      const response = await apiClient.post("/auth/login", {
+        email: enteredEmail,
+        password: enteredPassword,
+        role: role.toUpperCase(),
+      });
 
-    // ==============================
-    // REDIRECT
-    // ==============================
+      const result = response.data;
 
-    switch (role) {
-      case "hr":
-        navigate("/hr/dashboard");
-        break;
+      // ==========================================
+      // CHECK BACKEND RESPONSE
+      // ==========================================
+      if (!result.success) {
+        setError(result.message || "Invalid email or password.");
+        return;
+      }
 
-      case "super-admin":
-        navigate("/super-admin/dashboard");
-        break;
+      const userData = result.data;
 
-      case "recruiter":
-        navigate("/recruiter/dashboard");
-        break;
+      if (!userData) {
+        setError("User data was not received from backend.");
+        return;
+      }
 
-      case "hiring-manager":
-        navigate("/hiring-manager/dashboard");
-        break;
+      // ==========================================
+      // CHECK JWT TOKEN
+      // ==========================================
+      if (!userData.token) {
+        setError("Login token was not received from backend.");
+        return;
+      }
 
-      case "interviewer":
-        navigate("/interviewer/dashboard");
-        break;
+      // ==========================================
+      // CHECK ROLE
+      // ==========================================
+      if (!userData.role) {
+        setError("User role was not received from backend.");
+        return;
+      }
 
-      case "employee":
-        navigate("/employee/dashboard");
-        break;
+      // ==========================================
+      // FRONTEND ROLE VALIDATION
+      // ==========================================
+      if (userData.role.toUpperCase() !== role.toUpperCase()) {
+        setError(
+          `You are not authorized to login as ${role}.`
+        );
+        return;
+      }
 
-      default:
-        navigate("/");
+      // ==========================================
+      // SAVE JWT TOKEN
+      // ==========================================
+      localStorage.setItem("token", userData.token);
+
+      // ==========================================
+      // SAVE ROLE
+      // ==========================================
+      localStorage.setItem(
+        "role",
+        userData.role
+      );
+
+      // ==========================================
+      // SAVE LOGGED-IN USER
+      // ==========================================
+      localStorage.setItem(
+        "loggedInUser",
+        JSON.stringify({
+          userId: userData.userId,
+          userName: userData.userName,
+          email: userData.email,
+          role: userData.role,
+        })
+      );
+
+      // ==========================================
+      // ROLE-BASED NAVIGATION
+      // ==========================================
+      switch (userData.role.toUpperCase()) {
+        case "HR":
+          navigate("/hr/dashboard");
+          break;
+
+        case "SUPER_ADMIN":
+          navigate("/super-admin/dashboard");
+          break;
+
+        case "RECRUITER":
+          navigate("/recruiter/dashboard");
+          break;
+
+        case "HIRING_MANAGER":
+          navigate("/hiring-manager/dashboard");
+          break;
+
+        case "INTERVIEWER":
+          navigate("/interviewer/dashboard");
+          break;
+
+        case "EMPLOYEE":
+          navigate("/employee/dashboard");
+          break;
+
+        case "CANDIDATE":
+          navigate("/candidate/dashboard");
+          break;
+
+        default:
+          setError(
+            `No dashboard configured for role: ${userData.role}`
+          );
+          break;
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+
+      setError(
+        error.response?.data?.message ||
+          "Unable to connect to the server. Please try again."
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="login-page">
 
-      {/* ==============================
+      {/* =====================================
           LEFT SIDE
-      ============================== */}
-
+      ===================================== */}
       <div className="login-left">
 
         <div className="login-brand">
@@ -163,23 +202,19 @@ function LoginPage() {
             Talent<span>AI</span>
           </h1>
 
-          <p>
-            AI-Powered Recruitment Platform
-          </p>
+          <p>AI-Powered Recruitment Platform</p>
         </div>
 
         <div className="login-left-content">
 
           <h2>
             Manage your
-            <br />
-            <span>talent smarter.</span>
+            <span> talent smarter.</span>
           </h2>
 
           <p>
-            AI-powered recruitment and employee
-            management platform designed for
-            modern organizations.
+            AI-powered recruitment and employee management
+            platform designed for modern organizations.
           </p>
 
           <div className="login-features">
@@ -190,10 +225,7 @@ function LoginPage() {
               </div>
 
               <div>
-                <h4>
-                  Smart Recruitment
-                </h4>
-
+                <h4>Smart Recruitment</h4>
                 <p>
                   AI-powered candidate screening
                 </p>
@@ -206,10 +238,7 @@ function LoginPage() {
               </div>
 
               <div>
-                <h4>
-                  Employee Management
-                </h4>
-
+                <h4>Employee Management</h4>
                 <p>
                   Manage your workforce efficiently
                 </p>
@@ -222,10 +251,7 @@ function LoginPage() {
               </div>
 
               <div>
-                <h4>
-                  Role Based Access
-                </h4>
-
+                <h4>Role Based Access</h4>
                 <p>
                   Secure access for every user
                 </p>
@@ -233,15 +259,12 @@ function LoginPage() {
             </div>
 
           </div>
-
         </div>
       </div>
 
-
-      {/* ==============================
+      {/* =====================================
           RIGHT SIDE
-      ============================== */}
-
+      ===================================== */}
       <div className="login-right">
 
         <div className="login-card">
@@ -262,13 +285,11 @@ function LoginPage() {
 
           </div>
 
-
-          {/* LOGIN FORM */}
-
           <form onSubmit={handleLogin}>
 
-            {/* ROLE */}
-
+            {/* =================================
+                ROLE
+            ================================= */}
             <div className="form-group">
 
               <label htmlFor="role">
@@ -278,43 +299,45 @@ function LoginPage() {
               <select
                 id="role"
                 value={role}
-                onChange={(e) =>
-                  setRole(e.target.value)
-                }
+                onChange={handleRoleChange}
                 className="role-select"
               >
 
-                <option value="hr">
+                <option value="HR">
                   HR
                 </option>
 
-                <option value="hiring-manager">
+                <option value="HIRING_MANAGER">
                   Hiring Manager
                 </option>
 
-                <option value="super-admin">
+                <option value="SUPER_ADMIN">
                   Super Admin
                 </option>
 
-                <option value="recruiter">
+                <option value="RECRUITER">
                   Recruiter
                 </option>
 
-                <option value="interviewer">
+                <option value="INTERVIEWER">
                   Interviewer
                 </option>
 
-                <option value="employee">
+                <option value="EMPLOYEE">
                   Employee
+                </option>
+
+                <option value="CANDIDATE">
+                  Candidate
                 </option>
 
               </select>
 
             </div>
 
-
-            {/* EMAIL */}
-
+            {/* =================================
+                EMAIL
+            ================================= */}
             <div className="form-group">
 
               <label htmlFor="username">
@@ -328,13 +351,14 @@ function LoginPage() {
                 placeholder="Enter your email"
                 value={formData.username}
                 onChange={handleChange}
+                autoComplete="email"
               />
 
             </div>
 
-
-            {/* PASSWORD */}
-
+            {/* =================================
+                PASSWORD
+            ================================= */}
             <div className="form-group">
 
               <label htmlFor="password">
@@ -354,13 +378,16 @@ function LoginPage() {
                   placeholder="Enter your password"
                   value={formData.password}
                   onChange={handleChange}
+                  autoComplete="current-password"
                 />
 
                 <button
                   type="button"
                   className="show-password"
                   onClick={() =>
-                    setShowPassword(!showPassword)
+                    setShowPassword(
+                      (prev) => !prev
+                    )
                   }
                 >
                   {showPassword
@@ -372,14 +399,16 @@ function LoginPage() {
 
             </div>
 
-
-            {/* OPTIONS */}
-
+            {/* =================================
+                OPTIONS
+            ================================= */}
             <div className="login-options">
 
               <label className="remember-me">
 
-                <input type="checkbox" />
+                <input
+                  type="checkbox"
+                />
 
                 <span>
                   Remember me
@@ -396,35 +425,48 @@ function LoginPage() {
 
             </div>
 
-
-            {/* ERROR */}
-
+            {/* =================================
+                ERROR
+            ================================= */}
             {error && (
               <div className="login-error">
                 {error}
               </div>
             )}
 
-
-            {/* LOGIN BUTTON */}
-
+            {/* =================================
+                LOGIN BUTTON
+            ================================= */}
             <button
               type="submit"
               className="login-button"
+              disabled={loading}
             >
-              Login
-              <span>→</span>
+
+              {loading
+                ? "Logging in..."
+                : "Login"}
+
+              {!loading && (
+                <span>
+                  →
+                </span>
+              )}
+
             </button>
 
           </form>
 
-
-          {/* SIGNUP */}
-
+          {/* =================================
+              DIVIDER
+          ================================= */}
           <div className="divider">
             <span>or</span>
           </div>
 
+          {/* =================================
+              SIGNUP
+          ================================= */}
           <div className="signup-section">
 
             <p>
@@ -440,9 +482,9 @@ function LoginPage() {
 
           </div>
 
-
-          {/* HOME */}
-
+          {/* =================================
+              BACK HOME
+          ================================= */}
           <Link
             to="/"
             className="back-home"

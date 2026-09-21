@@ -42,11 +42,7 @@ const menuItems = [
     path: "/super-admin/audit-logs",
     icon: <ClipboardList size={19} />,
   },
-  {
-  name: "Settings",
-  path: "/super-admin/settings",
-  icon: <Settings size={19} />,
-},
+
 ];
 
   return (
@@ -80,12 +76,7 @@ const menuItems = [
         ))}
       </nav>
 
-      <div className="admin-sidebar-footer">
-        <button className="admin-logout-button">
-          <LogOut size={19} />
-          Logout
-        </button>
-      </div>
+
 
     </aside>
   );

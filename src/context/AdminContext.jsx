@@ -60,6 +60,8 @@ const defaultActivities = [
   },
 ];
 
+const defaultAuditLogs = [];
+
 export function AdminProvider({ children }) {
   const [users, setUsers] = useState(() => {
     const savedUsers = localStorage.getItem("adminUsers");
@@ -78,6 +80,15 @@ export function AdminProvider({ children }) {
       : defaultActivities;
   });
 
+  const [auditLogs, setAuditLogs] = useState(() => {
+    const savedAuditLogs =
+      localStorage.getItem("adminAuditLogs");
+
+    return savedAuditLogs
+      ? JSON.parse(savedAuditLogs)
+      : defaultAuditLogs;
+  });
+
   useEffect(() => {
     localStorage.setItem(
       "adminUsers",
@@ -92,6 +103,13 @@ export function AdminProvider({ children }) {
     );
   }, [activities]);
 
+  useEffect(() => {
+    localStorage.setItem(
+      "adminAuditLogs",
+      JSON.stringify(auditLogs)
+    );
+  }, [auditLogs]);
+
   const addActivity = (message) => {
     const activity = {
       id: Date.now(),
@@ -101,6 +119,32 @@ export function AdminProvider({ children }) {
 
     setActivities((prev) => [
       activity,
+      ...prev,
+    ]);
+  };
+
+  const addAuditLog = ({
+    module,
+    action,
+    type,
+    details,
+    performedBy = "Super Admin",
+  }) => {
+    const now = new Date();
+
+    const newLog = {
+      id: Date.now(),
+      module,
+      action,
+      type,
+      details,
+      performedBy,
+      timestamp: now.toISOString(),
+      date: now.toLocaleString(),
+    };
+
+    setAuditLogs((prev) => [
+      newLog,
       ...prev,
     ]);
   };
@@ -119,6 +163,13 @@ export function AdminProvider({ children }) {
     addActivity(
       `New ${userData.role} account created`
     );
+
+    addAuditLog({
+      module: "Users",
+      action: "User Created",
+      type: "Create",
+      details: `${userData.name} (${userData.email}) was created`,
+    });
   };
 
   const updateUser = (id, updatedData) => {
@@ -136,6 +187,13 @@ export function AdminProvider({ children }) {
     addActivity(
       `${updatedData.name} account updated`
     );
+
+    addAuditLog({
+      module: "Users",
+      action: "User Updated",
+      type: "Update",
+      details: `${updatedData.name} account details were updated`,
+    });
   };
 
   const toggleUserStatus = (id) => {
@@ -164,6 +222,13 @@ export function AdminProvider({ children }) {
     addActivity(
       `${selectedUser.name} account ${newStatus.toLowerCase()}`
     );
+
+    addAuditLog({
+      module: "Users",
+      action: "Status Changed",
+      type: "Status",
+      details: `${selectedUser.name} status changed to ${newStatus}`,
+    });
   };
 
   return (
@@ -171,9 +236,11 @@ export function AdminProvider({ children }) {
       value={{
         users,
         activities,
+        auditLogs,
         addUser,
         updateUser,
         toggleUserStatus,
+        addAuditLog,
       }}
     >
       {children}

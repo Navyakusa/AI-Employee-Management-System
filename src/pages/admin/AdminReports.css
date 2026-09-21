@@ -8,6 +8,163 @@
   width: calc(100% - 255px);
   margin-left: 255px;
 }
+/* =========================
+   ANALYTICS API STATES
+========================= */
+
+.admin-report-state {
+  min-height: 300px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+
+  padding: 30px;
+
+  color: #64748b;
+}
+
+.admin-report-state svg {
+  color: #4f46e5;
+  margin-bottom: 12px;
+}
+
+.admin-report-state h2 {
+  margin: 0 0 7px;
+  color: #111827;
+  font-size: 19px;
+}
+
+.admin-report-state p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.admin-report-state.error svg {
+  color: #dc2626;
+}
+
+.admin-report-empty {
+  padding: 20px 0;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+
+/* =========================
+   TREND ANALYTICS
+========================= */
+
+.admin-report-trend-section {
+  margin-top: 24px;
+}
+
+.admin-report-trend-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 18px;
+
+  padding: 22px;
+}
+
+.admin-report-trend-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+
+  background: #f8fafc;
+
+  padding: 18px;
+}
+
+.admin-report-trend-card h3 {
+  margin: 0 0 15px;
+
+  color: #111827;
+
+  font-size: 14px;
+}
+
+.admin-report-trend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 11px 0;
+
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.admin-report-trend-row:last-child {
+  border-bottom: none;
+}
+
+.admin-report-trend-row span {
+  color: #64748b;
+
+  font-size: 12px;
+}
+
+.admin-report-trend-row strong {
+  min-width: 29px;
+  height: 29px;
+
+  padding: 0 8px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 7px;
+
+  background: #eef2ff;
+
+  color: #4f46e5;
+
+  font-size: 12px;
+}
+
+
+/* =========================
+   FUTURE ANALYTICS
+========================= */
+
+.admin-report-future-card {
+  margin-top: 24px;
+}
+
+.admin-report-future-card
+.admin-employee-analysis-grid {
+  padding: 0 22px 22px;
+}
+
+
+/* =========================
+   REPORT RESPONSIVE
+========================= */
+
+@media (max-width: 1100px) {
+  .admin-report-trend-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-report-stats {
+    grid-template-columns:
+      repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .admin-report-trend-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 .admin-reports-content {
   padding: 34px;

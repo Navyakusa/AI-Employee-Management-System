@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import apiClient from "../../../services/apiClient";
 import "./SignupPage.css";
 
 function SignupPage() {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
+    userName: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -13,6 +15,7 @@ function SignupPage() {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
 
   // ==============================
   // HANDLE INPUT
@@ -30,110 +33,102 @@ function SignupPage() {
   // ==============================
   // HANDLE SIGNUP
   // ==============================
-  const handleSignup = (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
 
+    const userName = formData.userName.trim();
     const email = formData.email.trim().toLowerCase();
     const password = formData.password;
     const confirmPassword = formData.confirmPassword;
 
-    // Check empty fields
-    if (!email || !password || !confirmPassword) {
+    // EMPTY FIELD CHECK
+    if (!userName || !email || !password || !confirmPassword) {
       setError("Please fill in all fields.");
       return;
     }
 
-    // Check password length
+    // PASSWORD LENGTH
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
     }
 
-    // Check passwords
+    // PASSWORD MATCH
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
 
-    // ==============================
-    // GET REGISTERED USERS
-    // ==============================
-
-    let registeredUsers = [];
-
     try {
-      const savedUsers =
-        localStorage.getItem("registeredUsers");
+      setLoading(true);
+      setError("");
+      setSuccess("");
 
-      if (savedUsers) {
-        registeredUsers = JSON.parse(savedUsers);
+      // ==============================
+      // CALL SPRING BOOT SIGNUP API
+
+      const response = await apiClient.post(
+          "/auth/signup",
+          {
+            userName,
+            email,
+            password,
+            role: "CANDIDATE",
+            department: "Candidate",
+          }
+      );
+
+      
+      response = await apiClient.post("/auth/signup", {
+        userName,
+        email,
+        password,
+
+        // Backend currently requires this field.
+        // It is NOT shown to the user.
+        department: "Engineering",
+
+        // Account created as Employee.
+        // Role is selected on the Login page.
+        role: "EMPLOYEE",
+      });
+
+
+      const apiResponse = response.data;
+
+      if (!apiResponse.success) {
+        setError(
+          apiResponse.message || "Unable to create account."
+        );
+        return;
       }
 
-      // Make sure it is an array
-      if (!Array.isArray(registeredUsers)) {
-        registeredUsers = [];
-      }
+      // ==============================
+      // SUCCESS
+      // ==============================
+      setSuccess(
+        "Account created successfully!"
+      );
+
+      // Go to login after successful registration
+      setTimeout(() => {
+        navigate("/login");
+      }, 1500);
+
     } catch (error) {
-      registeredUsers = [];
+      console.error("Signup error:", error);
+
+      setError(
+        error.response?.data?.message ||
+          "Unable to create account. Please try again."
+      );
+    } finally {
+      setLoading(false);
     }
-
-    // ==============================
-    // CHECK EXISTING EMAIL
-    // ==============================
-
-    const existingUser = registeredUsers.find(
-      (user) =>
-        user.email &&
-        user.email.trim().toLowerCase() === email
-    );
-
-    if (existingUser) {
-      setError("This email is already registered.");
-      return;
-    }
-
-    // ==============================
-    // CREATE NEW USER
-    // ==============================
-
-    const newUser = {
-      email: email,
-      password: password,
-    };
-
-    const updatedUsers = [
-      ...registeredUsers,
-      newUser,
-    ];
-
-    // ==============================
-    // SAVE USER
-    // ==============================
-
-    localStorage.setItem(
-      "registeredUsers",
-      JSON.stringify(updatedUsers)
-    );
-
-    console.log(
-      "Account created:",
-      newUser
-    );
-
-    // Success message
-    setSuccess(
-      "Account created successfully! Redirecting to login..."
-    );
-
-    // Go to login
-    setTimeout(() => {
-      navigate("/login");
-    }, 1000);
   };
 
   return (
     <div className="signup-page">
-
       <div className="signup-card">
 
         <h1>Create Account</h1>
@@ -144,10 +139,24 @@ function SignupPage() {
 
         <form onSubmit={handleSignup}>
 
-          {/* EMAIL */}
-
+          {/* FULL NAME */}
           <div className="form-group">
+            <label htmlFor="userName">
+              Full Name
+            </label>
 
+            <input
+              type="text"
+              id="userName"
+              name="userName"
+              placeholder="Enter your full name"
+              value={formData.userName}
+              onChange={handleChange}
+            />
+          </div>
+
+          {/* EMAIL */}
+          <div className="form-group">
             <label htmlFor="email">
               Email
             </label>
@@ -160,13 +169,10 @@ function SignupPage() {
               value={formData.email}
               onChange={handleChange}
             />
-
           </div>
 
           {/* PASSWORD */}
-
           <div className="form-group">
-
             <label htmlFor="password">
               Password
             </label>
@@ -179,13 +185,10 @@ function SignupPage() {
               value={formData.password}
               onChange={handleChange}
             />
-
           </div>
 
           {/* CONFIRM PASSWORD */}
-
           <div className="form-group">
-
             <label htmlFor="confirmPassword">
               Confirm Password
             </label>
@@ -198,11 +201,9 @@ function SignupPage() {
               value={formData.confirmPassword}
               onChange={handleChange}
             />
-
           </div>
 
           {/* ERROR */}
-
           {error && (
             <div className="signup-error">
               {error}
@@ -210,20 +211,23 @@ function SignupPage() {
           )}
 
           {/* SUCCESS */}
-
           {success && (
             <div className="signup-success">
-              {success}
+              ✓ {success}
+              <br />
+              Redirecting to login...
             </div>
           )}
 
           {/* CREATE ACCOUNT */}
-
           <button
             type="submit"
             className="signup-button"
+            disabled={loading}
           >
-            Create Account
+            {loading
+              ? "Creating Account..."
+              : "Create Account"}
           </button>
 
         </form>
@@ -237,7 +241,6 @@ function SignupPage() {
         </p>
 
       </div>
-
     </div>
   );
 }
