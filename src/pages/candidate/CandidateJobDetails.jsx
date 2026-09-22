@@ -28,10 +28,118 @@ import "./CandidateDashboard.css";
 function CandidateJobDetails() {
   const navigate = useNavigate();
   const { jobId } = useParams();
-
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Temporary frontend data.
+  // Backend API will replace this later.
+  const jobs = [
+    {
+      id: 101,
+      title: "Java Backend Developer",
+      company: "TalentAI",
+      location: "Hyderabad",
+      experience: "1 - 3 Years",
+      type: "Full Time",
+      workMode: "Hybrid",
+      salary: "₹4 - 7 LPA",
+      openings: 3,
+      posted: "2 days ago",
+      education: "B.Tech / B.E / MCA",
+      department: "Engineering",
+      skills: [
+        "Java",
+        "Spring Boot",
+        "PostgreSQL",
+        "REST API",
+        "Git",
+        "Hibernate",
+      ],
+      description:
+        "We are looking for a Java Backend Developer to design, develop and maintain scalable backend applications using Java and Spring Boot.",
+      responsibilities: [
+        "Develop and maintain backend applications using Java and Spring Boot.",
+        "Design and implement REST APIs.",
+        "Work with PostgreSQL and database technologies.",
+        "Collaborate with frontend developers and other team members.",
+        "Write clean, maintainable and reusable code.",
+      ],
+      requirements: [
+        "Strong knowledge of Core Java.",
+        "Understanding of Spring Boot and REST APIs.",
+        "Experience working with relational databases.",
+        "Basic knowledge of Git and version control.",
+        "Good problem-solving and communication skills.",
+      ],
+    },
+    {
+      id: 102,
+      title: "Full Stack Developer",
+      company: "TalentAI",
+      location: "Bengaluru",
+      experience: "1 - 3 Years",
+      type: "Full Time",
+      workMode: "Hybrid",
+      salary: "₹5 - 8 LPA",
+      openings: 2,
+      posted: "3 days ago",
+      education: "B.Tech / B.E / MCA",
+      department: "Engineering",
+      skills: [
+        "Java",
+        "Spring Boot",
+        "React",
+        "MySQL",
+        "JavaScript",
+      ],
+      description:
+        "We are looking for a Full Stack Developer to build modern web applications using Spring Boot and React.",
+      responsibilities: [
+        "Develop frontend applications using React.",
+        "Build REST APIs using Spring Boot.",
+        "Integrate frontend applications with backend services.",
+        "Design and maintain database components.",
+        "Participate in code reviews and testing.",
+      ],
+      requirements: [
+        "Knowledge of Java and Spring Boot.",
+        "Experience with React and JavaScript.",
+        "Understanding of REST APIs.",
+        "Knowledge of SQL databases.",
+        "Good analytical and communication skills.",
+      ],
+    },
+    {
+      id: 103,
+      title: "Software Engineer",
+      company: "TalentAI",
+      location: "Hyderabad",
+      experience: "0 - 2 Years",
+      type: "Full Time",
+      workMode: "On-site",
+      salary: "₹3.5 - 6 LPA",
+      openings: 4,
+      posted: "4 days ago",
+      education: "B.Tech / B.E / MCA",
+      department: "Technology",
+      skills: ["Java", "SQL", "Git", "REST API"],
+      description:
+        "Join our engineering team to build and maintain enterprise software solutions.",
+      responsibilities: [
+        "Develop software features based on requirements.",
+        "Fix application defects.",
+        "Write reusable and maintainable code.",
+        "Work with development and QA teams.",
+      ],
+      requirements: [
+        "Good programming fundamentals.",
+        "Knowledge of Java.",
+        "Understanding of SQL.",
+        "Basic knowledge of REST APIs and Git.",
+      ],
+    },
+  ];
 
   useEffect(() => {
     let cancelled = false;

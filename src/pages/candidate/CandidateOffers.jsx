@@ -24,7 +24,7 @@ import "./CandidateDashboard.css";
 function CandidateOffers() {
   const navigate = useNavigate();
 
-  const [offers, setOffers] = useState([]);
+  [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -46,6 +46,30 @@ function CandidateOffers() {
   useEffect(() => {
     loadOffers();
   }, []);
+  // Temporary frontend data.
+  // Backend API will replace this later.
+  const offers = [
+    {
+      id: 1,
+      jobTitle: "Java Backend Developer",
+      company: "TalentAI",
+      location: "Hyderabad",
+      employmentType: "Full Time",
+      offeredDate: "17 Sep 2026",
+      joiningDate: "01 Oct 2026",
+      status: "Pending",
+    },
+    {
+      id: 2,
+      jobTitle: "Software Engineer",
+      company: "TalentAI",
+      location: "Hyderabad",
+      employmentType: "Full Time",
+      offeredDate: "10 Sep 2026",
+      joiningDate: "25 Sep 2026",
+      status: "Accepted",
+    },
+  ];
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");

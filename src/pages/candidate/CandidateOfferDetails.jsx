@@ -37,9 +37,56 @@ function CandidateOfferDetails() {
   const navigate = useNavigate();
   const { offerId } = useParams();
 
+
   const [offer, setOffer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Temporary frontend data.
+  // Backend API will replace this later.
+  const offers = [
+    {
+      id: 1,
+      jobTitle: "Java Backend Developer",
+      company: "TalentAI",
+      designation: "Java Backend Developer",
+      location: "Hyderabad",
+      employmentType: "Full Time",
+      salary: "₹6,50,000 per annum",
+      offeredDate: "17 Sep 2026",
+      joiningDate: "01 Oct 2026",
+      probationPeriod: "6 Months",
+      reportingManager: "Engineering Manager",
+      status: "Pending",
+      benefits: [
+        "Health insurance coverage",
+        "Paid annual leave",
+        "Learning and development support",
+        "Performance-based incentives",
+        "Flexible hybrid work policy",
+      ],
+    },
+    {
+      id: 2,
+      jobTitle: "Software Engineer",
+      company: "TalentAI",
+      designation: "Software Engineer",
+      location: "Hyderabad",
+      employmentType: "Full Time",
+      salary: "₹6,00,000 per annum",
+      offeredDate: "10 Sep 2026",
+      joiningDate: "25 Sep 2026",
+      probationPeriod: "6 Months",
+      reportingManager: "Software Engineering Manager",
+      status: "Accepted",
+      benefits: [
+        "Health insurance coverage",
+        "Paid annual leave",
+        "Performance incentives",
+        "Professional development support",
+      ],
+    },
+  ];
 
   const [responding, setResponding] = useState(false);
   const [actionError, setActionError] = useState("");

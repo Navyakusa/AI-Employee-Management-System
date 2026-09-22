@@ -25,10 +25,121 @@ import "./CandidateDashboard.css";
 
 function CandidateJobs() {
   const navigate = useNavigate();
-
   const [searchParams] = useSearchParams();
+  // Temporary frontend data.
+  // Backend API will replace this later.
+  const jobs = [
+    {
+      id: 101,
+      title: "Java Backend Developer",
+      company: "TalentAI",
+      location: "Hyderabad",
+      experience: "1 - 3 Years",
+      type: "Full Time",
+      workMode: "Hybrid",
+      posted: "2 days ago",
+      skills: [
+        "Java",
+        "Spring Boot",
+        "PostgreSQL",
+        "REST API",
+      ],
+      description:
+        "We are looking for a Java Backend Developer to build scalable backend services and REST APIs.",
+    },
+    {
+      id: 102,
+      title: "Full Stack Developer",
+      company: "TalentAI",
+      location: "Bengaluru",
+      experience: "1 - 3 Years",
+      type: "Full Time",
+      workMode: "Hybrid",
+      posted: "3 days ago",
+      skills: [
+        "Java",
+        "Spring Boot",
+        "React",
+        "MySQL",
+      ],
+      description:
+        "Join our engineering team to develop modern full stack applications using Java, Spring Boot and React.",
+    },
+    {
+      id: 103,
+      title: "Software Engineer",
+      company: "TalentAI",
+      location: "Hyderabad",
+      experience: "0 - 2 Years",
+      type: "Full Time",
+      workMode: "On-site",
+      posted: "4 days ago",
+      skills: [
+        "Java",
+        "SQL",
+        "Git",
+        "REST API",
+      ],
+      description:
+        "Work with our product engineering team to design, develop and maintain enterprise applications.",
+    },
+    {
+      id: 104,
+      title: "React Developer",
+      company: "TalentAI",
+      location: "Pune",
+      experience: "1 - 2 Years",
+      type: "Full Time",
+      workMode: "Remote",
+      posted: "5 days ago",
+      skills: [
+        "React",
+        "JavaScript",
+        "HTML",
+        "CSS",
+      ],
+      description:
+        "Develop responsive and reusable frontend components for modern web applications using React.",
+    },
+    {
+      id: 105,
+      title: "Spring Boot Developer",
+      company: "TalentAI",
+      location: "Chennai",
+      experience: "2 - 4 Years",
+      type: "Full Time",
+      workMode: "On-site",
+      posted: "1 week ago",
+      skills: [
+        "Java",
+        "Spring Boot",
+        "Hibernate",
+        "PostgreSQL",
+      ],
+      description:
+        "Build secure and scalable enterprise backend applications using Java and Spring Boot.",
+    },
+    {
+      id: 106,
+      title: "Junior Java Developer",
+      company: "TalentAI",
+      location: "Hyderabad",
+      experience: "0 - 1 Years",
+      type: "Full Time",
+      workMode: "On-site",
+      posted: "1 week ago",
+      skills: [
+        "Java",
+        "Spring MVC",
+        "MySQL",
+        "Git",
+      ],
+      description:
+        "Great opportunity for junior developers to work on Java-based enterprise applications.",
+    },
+  ];
 
-  const [jobs, setJobs] = useState([]);
+  [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 

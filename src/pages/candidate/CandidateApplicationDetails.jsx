@@ -30,10 +30,63 @@ import "./CandidateDashboard.css";
 function CandidateApplicationDetails() {
   const navigate = useNavigate();
   const { applicationId } = useParams();
-
   const [application, setApplication] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Temporary frontend data.
+  // Backend API will replace this later.
+  const applications = [
+    {
+      id: 1,
+      jobTitle: "Java Backend Developer",
+      company: "TalentAI",
+      location: "Hyderabad",
+      type: "Full Time",
+      appliedDate: "10 Sep 2026",
+      status: "Interview",
+      currentStep: 4,
+      applicationId: "APP-2026-001",
+      interview: {
+        date: "18 Sep 2026",
+        time: "11:00 AM",
+        mode: "Online",
+        type: "Technical Interview",
+      },
+    },
+    {
+      id: 2,
+      jobTitle: "Full Stack Developer",
+      company: "TalentAI",
+      location: "Bengaluru",
+      type: "Full Time",
+      appliedDate: "08 Sep 2026",
+      status: "Shortlisted",
+      currentStep: 3,
+      applicationId: "APP-2026-002",
+    },
+    {
+      id: 3,
+      jobTitle: "Software Engineer",
+      company: "TalentAI",
+      location: "Hyderabad",
+      type: "Full Time",
+      appliedDate: "05 Sep 2026",
+      status: "AI Screened",
+      currentStep: 2,
+      applicationId: "APP-2026-003",
+    },
+    {
+      id: 4,
+      jobTitle: "React Developer",
+      company: "TalentAI",
+      location: "Pune",
+      type: "Full Time",
+      appliedDate: "02 Sep 2026",
+      status: "Applied",
+      currentStep: 1,
+      applicationId: "APP-2026-004",
+    },
+  ];
 
   // There is no "get one application" endpoint for candidates, so the
   // application is found in the candidate's own list.

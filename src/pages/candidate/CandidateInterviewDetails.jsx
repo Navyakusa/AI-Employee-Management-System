@@ -26,10 +26,68 @@ import "./CandidateDashboard.css";
 function CandidateInterviewDetails() {
   const navigate = useNavigate();
   const { interviewId } = useParams();
-
   const [interview, setInterview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Temporary frontend data.
+  // Backend API will replace this later.
+  const interviews = [
+    {
+      id: 1,
+      jobTitle: "Java Backend Developer",
+      company: "TalentAI",
+      date: "18 Sep 2026",
+      time: "11:00 AM",
+      duration: "60 Minutes",
+      type: "Technical Interview",
+      mode: "Online",
+      platform: "Google Meet",
+      meetingLink: "https://meet.google.com/",
+      interviewer: "Technical Interview Panel",
+      status: "Upcoming",
+      location: null,
+      instructions: [
+        "Join the meeting 10 minutes before the scheduled time.",
+        "Keep your resume and project details ready for discussion.",
+        "Ensure you have a stable internet connection and working microphone.",
+        "Be prepared for Java, Spring Boot and backend development questions.",
+      ],
+    },
+    {
+      id: 2,
+      jobTitle: "Full Stack Developer",
+      company: "TalentAI",
+      date: "14 Sep 2026",
+      time: "02:30 PM",
+      duration: "60 Minutes",
+      type: "Technical Interview",
+      mode: "Online",
+      platform: "Microsoft Teams",
+      meetingLink: null,
+      interviewer: "Engineering Interview Panel",
+      status: "Completed",
+      location: null,
+      instructions: [],
+    },
+    {
+      id: 3,
+      jobTitle: "Software Engineer",
+      company: "TalentAI",
+      date: "11 Sep 2026",
+      time: "10:00 AM",
+      duration: "45 Minutes",
+      type: "HR Interview",
+      mode: "On-site",
+      platform: "Hyderabad Office",
+      meetingLink: null,
+      interviewer: "HR Interview Panel",
+      status: "Completed",
+      location: "CloudMatrix, Hyderabad Office",
+      instructions: [],
+    },
+  ];
+
 
   // The candidate's own interview list is used to find this interview.
   useEffect(() => {

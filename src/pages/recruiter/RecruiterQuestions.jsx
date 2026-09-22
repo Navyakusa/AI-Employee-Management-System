@@ -1,77 +1,174 @@
-import React, { useMemo, useState } from "react";
+
+import React, { useEffect, useMemo, useState } from "react";
 import RecruiterSidebar from "./RecruiterSidebar";
 import RecruiterTopbar from "./RecruiterTopbar";
+import apiClient from "../../services/apiClient";
 import "./RecruiterQuestions.css";
 
-const initialQuestions = [
-  {
-    id: 1,
-    question: "Explain the difference between Spring and Spring Boot.",
-    category: "Technical",
-    position: "Java Backend Developer",
-    difficulty: "Medium",
-    type: "Technical",
-    status: "Active",
-  },
-  {
-    id: 2,
-    question: "What are the main advantages of React Hooks?",
-    category: "Technical",
-    position: "Frontend Developer",
-    difficulty: "Medium",
-    type: "Technical",
-    status: "Active",
-  },
-  {
-    id: 3,
-    question: "Describe a challenging project you worked on.",
-    category: "Behavioral",
-    position: "All Positions",
-    difficulty: "Easy",
-    type: "Behavioral",
-    status: "Active",
-  },
-  {
-    id: 4,
-    question: "How do you handle tight deadlines?",
-    category: "Behavioral",
-    position: "All Positions",
-    difficulty: "Easy",
-    type: "Behavioral",
-    status: "Active",
-  },
-  {
-    id: 5,
-    question: "Write a Python function to find duplicate elements.",
-    category: "Coding",
-    position: "Python Developer",
-    difficulty: "Hard",
-    type: "Coding",
-    status: "Inactive",
-  },
-];
+const initialQuestionForm = {
+  question: "",
+  category: "TECHNICAL",
+  jobId: "",
+  difficulty: "MEDIUM",
+  active: true,
+};
 
 function RecruiterQuestions() {
-  const [questions, setQuestions] = useState(initialQuestions);
+  const [questions, setQuestions] = useState([]);
+  const [jobs, setJobs] = useState([]);
+
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
+
   const [showModal, setShowModal] = useState(false);
+  const [editingQuestionId, setEditingQuestionId] = useState(null);
 
   const [newQuestion, setNewQuestion] = useState({
-    question: "",
-    category: "Technical",
-    position: "All Positions",
-    difficulty: "Medium",
+    ...initialQuestionForm,
   });
 
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [modalError, setModalError] = useState("");
+  const [actionLoadingId, setActionLoadingId] = useState(null);
+
+  // =========================================================
+  // ERROR MESSAGE
+  // =========================================================
+  const getErrorMessage = (err, fallback) => {
+    if (err.response?.status === 401) {
+      return "Your session has expired. Please login again.";
+    }
+
+    if (err.response?.status === 403) {
+      return "You are not authorized to perform this action.";
+    }
+
+    return (
+      err.response?.data?.message ||
+      err.message ||
+      fallback
+    );
+  };
+
+  // =========================================================
+  // FETCH ALL SCREENING QUESTIONS
+  // =========================================================
+  const fetchQuestions = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await apiClient.get(
+        "/screening-questions"
+      );
+
+      const result = response.data;
+
+      if (!result?.success) {
+        throw new Error(
+          result?.message ||
+            "Unable to fetch screening questions."
+        );
+      }
+
+      setQuestions(
+        Array.isArray(result.data) ? result.data : []
+      );
+    } catch (err) {
+      console.error("Screening questions fetch error:", err);
+
+      setError(
+        getErrorMessage(
+          err,
+          "Unable to load screening questions."
+        )
+      );
+
+      setQuestions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =========================================================
+  // FETCH JOBS FOR POSITION DROPDOWN
+  // =========================================================
+  const fetchJobs = async () => {
+    try {
+      const response = await apiClient.get("/jobs/all");
+
+      const result = response.data;
+
+      const jobList = Array.isArray(result)
+        ? result
+        : Array.isArray(result?.data)
+          ? result.data
+          : [];
+
+      setJobs(jobList);
+    } catch (err) {
+      console.error("Jobs fetch error:", err);
+
+      setJobs([]);
+
+      setError((previousError) =>
+        previousError ||
+        getErrorMessage(
+          err,
+          "Unable to load jobs for the position dropdown."
+        )
+      );
+    }
+  };
+
+  // =========================================================
+  // LOAD DATA ON PAGE OPEN
+  // =========================================================
+  useEffect(() => {
+    fetchQuestions();
+    fetchJobs();
+  }, []);
+
+  // =========================================================
+  // FORMAT BACKEND VALUES
+  // =========================================================
+  const formatValue = (value) => {
+    if (!value) {
+      return "Not Available";
+    }
+
+    return String(value)
+      .replaceAll("_", " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  };
+
+  // =========================================================
+  // SEARCH + CATEGORY FILTER
+  // =========================================================
   const filteredQuestions = useMemo(() => {
+    const text = search.trim().toLowerCase();
+
     return questions.filter((item) => {
-      const text = search.toLowerCase();
+      const questionText = String(
+        item.question || ""
+      ).toLowerCase();
+
+      const positionText = String(
+        item.position || ""
+      ).toLowerCase();
+
+      const categoryText = String(
+        item.category || ""
+      ).toLowerCase();
 
       const matchesSearch =
-        item.question.toLowerCase().includes(text) ||
-        item.position.toLowerCase().includes(text) ||
-        item.category.toLowerCase().includes(text);
+        !text ||
+        questionText.includes(text) ||
+        positionText.includes(text) ||
+        categoryText.includes(text);
 
       const matchesCategory =
         categoryFilter === "All" ||
@@ -81,69 +178,286 @@ function RecruiterQuestions() {
     });
   }, [questions, search, categoryFilter]);
 
+  // =========================================================
+  // SUMMARY COUNTS
+  // =========================================================
+  const totalQuestions = questions.length;
+
+  const activeQuestions = questions.filter(
+    (item) => item.active === true
+  ).length;
+
+  const technicalQuestions = questions.filter(
+    (item) => item.category === "TECHNICAL"
+  ).length;
+
+  const behavioralQuestions = questions.filter(
+    (item) => item.category === "BEHAVIORAL"
+  ).length;
+
+  // =========================================================
+  // HANDLE FORM INPUT
+  // =========================================================
   const handleInputChange = (e) => {
-    setNewQuestion({
-      ...newQuestion,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+
+    setNewQuestion((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
   };
 
-  const handleAddQuestion = (e) => {
-    e.preventDefault();
+  // =========================================================
+  // OPEN ADD QUESTION MODAL
+  // =========================================================
+  const handleOpenAddModal = () => {
+    setEditingQuestionId(null);
 
-    if (!newQuestion.question.trim()) {
-      alert("Please enter a screening question.");
+    setNewQuestion({
+      ...initialQuestionForm,
+    });
+
+    setModalError("");
+    setShowModal(true);
+  };
+
+  // =========================================================
+  // OPEN EDIT QUESTION MODAL
+  // =========================================================
+  const handleEditQuestion = (question) => {
+    setEditingQuestionId(question.id);
+
+    setNewQuestion({
+      question: question.question || "",
+      category: question.category || "TECHNICAL",
+      jobId:
+        question.jobId !== null &&
+        question.jobId !== undefined
+          ? String(question.jobId)
+          : "",
+      difficulty: question.difficulty || "MEDIUM",
+      active: question.active === true,
+    });
+
+    setModalError("");
+    setShowModal(true);
+  };
+
+  // =========================================================
+  // CLOSE MODAL
+  // =========================================================
+  const handleCloseModal = () => {
+    if (saving) {
       return;
     }
 
-    const question = {
-      id: Date.now(),
-      question: newQuestion.question.trim(),
-      category: newQuestion.category,
-      position: newQuestion.position,
-      difficulty: newQuestion.difficulty,
-      type: newQuestion.category,
-      status: "Active",
-    };
-
-    setQuestions((prev) => [question, ...prev]);
+    setShowModal(false);
+    setEditingQuestionId(null);
+    setModalError("");
 
     setNewQuestion({
-      question: "",
-      category: "Technical",
-      position: "All Positions",
-      difficulty: "Medium",
+      ...initialQuestionForm,
     });
-
-    setShowModal(false);
   };
 
-  const handleToggleStatus = (id) => {
-    setQuestions((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              status:
-                item.status === "Active"
-                  ? "Inactive"
-                  : "Active",
-            }
-          : item
-      )
-    );
+  // =========================================================
+  // BUILD BACKEND REQUEST BODY
+  // =========================================================
+  const buildQuestionPayload = (form) => {
+    return {
+      question: form.question.trim(),
+      category: form.category,
+      jobId: Number(form.jobId),
+      difficulty: form.difficulty,
+      active: form.active,
+    };
   };
 
-  const handleDelete = (id) => {
+  // =========================================================
+  // ADD OR UPDATE QUESTION
+  // =========================================================
+  const handleSaveQuestion = async (e) => {
+    e.preventDefault();
+
+    setModalError("");
+
+    if (!newQuestion.question.trim()) {
+      setModalError(
+        "Please enter a screening question."
+      );
+      return;
+    }
+
+    if (!newQuestion.jobId) {
+      setModalError(
+        "Please select a position."
+      );
+      return;
+    }
+
+    const selectedJobId = Number(newQuestion.jobId);
+
+    if (
+      !Number.isInteger(selectedJobId) ||
+      selectedJobId <= 0
+    ) {
+      setModalError(
+        "Please select a valid position."
+      );
+      return;
+    }
+
+    const payload = buildQuestionPayload(newQuestion);
+
+    try {
+      setSaving(true);
+
+      let response;
+
+      if (editingQuestionId !== null) {
+        response = await apiClient.put(
+          `/screening-questions/${editingQuestionId}`,
+          payload
+        );
+      } else {
+        response = await apiClient.post(
+          "/screening-questions",
+          payload
+        );
+      }
+
+      const result = response.data;
+
+      if (!result?.success) {
+        throw new Error(
+          result?.message ||
+            "Unable to save screening question."
+        );
+      }
+
+      handleCloseModal();
+
+      // Refresh questions from the database.
+      await fetchQuestions();
+    } catch (err) {
+      console.error("Save screening question error:", err);
+
+      setModalError(
+        getErrorMessage(
+          err,
+          "Unable to save screening question."
+        )
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // =========================================================
+  // ACTIVATE / DEACTIVATE QUESTION
+  // =========================================================
+  const handleToggleStatus = async (question) => {
+    if (actionLoadingId !== null) {
+      return;
+    }
+
+    if (
+      question.jobId === null ||
+      question.jobId === undefined
+    ) {
+      setError(
+        "This question has no associated job and cannot be updated."
+      );
+      return;
+    }
+
+    try {
+      setActionLoadingId(question.id);
+      setError("");
+
+      const payload = {
+        question: question.question,
+        category: question.category,
+        jobId: Number(question.jobId),
+        difficulty: question.difficulty,
+        active: !question.active,
+      };
+
+      const response = await apiClient.put(
+        `/screening-questions/${question.id}`,
+        payload
+      );
+
+      const result = response.data;
+
+      if (!result?.success) {
+        throw new Error(
+          result?.message ||
+            "Unable to update question status."
+        );
+      }
+
+      await fetchQuestions();
+    } catch (err) {
+      console.error("Question status update error:", err);
+
+      setError(
+        getErrorMessage(
+          err,
+          "Unable to update question status."
+        )
+      );
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // =========================================================
+  // DELETE QUESTION
+  // =========================================================
+  const handleDelete = async (id) => {
+    if (actionLoadingId !== null) {
+      return;
+    }
+
     const confirmed = window.confirm(
       "Are you sure you want to delete this question?"
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
-    setQuestions((prev) =>
-      prev.filter((item) => item.id !== id)
-    );
+    try {
+      setActionLoadingId(id);
+      setError("");
+
+      const response = await apiClient.delete(
+        `/screening-questions/${id}`
+      );
+
+      const result = response.data;
+
+      if (result?.success === false) {
+        throw new Error(
+          result.message ||
+            "Unable to delete screening question."
+        );
+      }
+
+      await fetchQuestions();
+    } catch (err) {
+      console.error("Delete screening question error:", err);
+
+      setError(
+        getErrorMessage(
+          err,
+          "Unable to delete screening question."
+        )
+      );
+    } finally {
+      setActionLoadingId(null);
+    }
   };
 
   return (
@@ -155,6 +469,7 @@ function RecruiterQuestions() {
         <div className="questions-header">
           <div>
             <h1>Screening Questions</h1>
+
             <p>
               Create and manage questions used during candidate screening
             </p>
@@ -162,61 +477,63 @@ function RecruiterQuestions() {
 
           <button
             className="add-question-btn"
-            onClick={() => setShowModal(true)}
+            onClick={handleOpenAddModal}
           >
             <span>+</span>
             Add Question
           </button>
         </div>
 
+        {error && (
+          <div
+            role="alert"
+            style={{
+              marginBottom: "16px",
+              padding: "12px 16px",
+              borderRadius: "8px",
+              background: "#fff1f1",
+              color: "#d92d20",
+              border: "1px solid #fecdca",
+            }}
+          >
+            {error}
+          </div>
+        )}
+
         <section className="questions-summary">
           <div className="question-summary-card">
             <div className="question-summary-icon">?</div>
+
             <div>
               <span>Total Questions</span>
-              <strong>{questions.length}</strong>
+              <strong>{totalQuestions}</strong>
             </div>
           </div>
 
           <div className="question-summary-card">
             <div className="question-summary-icon">✓</div>
+
             <div>
               <span>Active</span>
-              <strong>
-                {
-                  questions.filter(
-                    (item) => item.status === "Active"
-                  ).length
-                }
-              </strong>
+              <strong>{activeQuestions}</strong>
             </div>
           </div>
 
           <div className="question-summary-card">
             <div className="question-summary-icon">T</div>
+
             <div>
               <span>Technical</span>
-              <strong>
-                {
-                  questions.filter(
-                    (item) => item.category === "Technical"
-                  ).length
-                }
-              </strong>
+              <strong>{technicalQuestions}</strong>
             </div>
           </div>
 
           <div className="question-summary-card">
             <div className="question-summary-icon">B</div>
+
             <div>
               <span>Behavioral</span>
-              <strong>
-                {
-                  questions.filter(
-                    (item) => item.category === "Behavioral"
-                  ).length
-                }
-              </strong>
+              <strong>{behavioralQuestions}</strong>
             </div>
           </div>
         </section>
@@ -242,9 +559,9 @@ function RecruiterQuestions() {
               }
             >
               <option value="All">All Categories</option>
-              <option value="Technical">Technical</option>
-              <option value="Behavioral">Behavioral</option>
-              <option value="Coding">Coding</option>
+              <option value="TECHNICAL">Technical</option>
+              <option value="BEHAVIORAL">Behavioral</option>
+              <option value="CODING">Coding</option>
             </select>
           </div>
 
@@ -262,7 +579,19 @@ function RecruiterQuestions() {
               </thead>
 
               <tbody>
-                {filteredQuestions.length > 0 ? (
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan="6"
+                      className="questions-empty"
+                    >
+                      <div>
+                        <span>?</span>
+                        <h3>Loading screening questions...</h3>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredQuestions.length > 0 ? (
                   filteredQuestions.map((item, index) => (
                     <tr key={item.id}>
                       <td>
@@ -277,38 +606,51 @@ function RecruiterQuestions() {
 
                       <td>
                         <span
-                          className={`question-category ${item.category.toLowerCase()}`}
+                          className={`question-category ${
+                            item.category
+                              ? item.category.toLowerCase()
+                              : ""
+                          }`}
                         >
-                          {item.category}
+                          {formatValue(item.category)}
                         </span>
                       </td>
 
                       <td>
                         <span className="question-position">
-                          {item.position}
+                          {item.position ||
+                            jobs.find(
+                              (job) =>
+                                Number(job.id) ===
+                                Number(item.jobId)
+                            )?.title ||
+                            `Job #${item.jobId}`}
                         </span>
                       </td>
 
                       <td>
                         <span
-                          className={`question-difficulty ${item.difficulty.toLowerCase()}`}
+                          className={`question-difficulty ${
+                            item.difficulty
+                              ? item.difficulty.toLowerCase()
+                              : ""
+                          }`}
                         >
-                          {item.difficulty}
+                          {formatValue(item.difficulty)}
                         </span>
                       </td>
 
                       <td>
                         <button
                           className={`question-status ${
-                            item.status === "Active"
-                              ? "active"
-                              : "inactive"
+                            item.active ? "active" : "inactive"
                           }`}
                           onClick={() =>
-                            handleToggleStatus(item.id)
+                            handleToggleStatus(item)
                           }
+                          disabled={actionLoadingId !== null}
                         >
-                          {item.status}
+                          {item.active ? "Active" : "Inactive"}
                         </button>
                       </td>
 
@@ -317,10 +659,9 @@ function RecruiterQuestions() {
                           <button
                             className="edit-question-btn"
                             onClick={() =>
-                              alert(
-                                "Question editing can be connected next."
-                              )
+                              handleEditQuestion(item)
                             }
+                            disabled={actionLoadingId !== null}
                           >
                             Edit
                           </button>
@@ -330,6 +671,7 @@ function RecruiterQuestions() {
                             onClick={() =>
                               handleDelete(item.id)
                             }
+                            disabled={actionLoadingId !== null}
                           >
                             Delete
                           </button>
@@ -346,6 +688,7 @@ function RecruiterQuestions() {
                       <div>
                         <span>?</span>
                         <h3>No questions found</h3>
+
                         <p>
                           Try changing your search or category filter.
                         </p>
@@ -368,7 +711,7 @@ function RecruiterQuestions() {
       {showModal && (
         <div
           className="question-modal-overlay"
-          onClick={() => setShowModal(false)}
+          onClick={handleCloseModal}
         >
           <div
             className="question-modal"
@@ -376,95 +719,142 @@ function RecruiterQuestions() {
           >
             <div className="question-modal-header">
               <div>
-                <h2>Add Screening Question</h2>
-                <p>Create a new question for candidate screening.</p>
+                <h2>
+                  {editingQuestionId !== null
+                    ? "Edit Screening Question"
+                    : "Add Screening Question"}
+                </h2>
+
+                <p>
+                  {editingQuestionId !== null
+                    ? "Update the selected screening question."
+                    : "Create a new question for candidate screening."}
+                </p>
               </div>
 
               <button
+                type="button"
                 className="modal-close-btn"
-                onClick={() => setShowModal(false)}
+                onClick={handleCloseModal}
+                disabled={saving}
               >
                 ×
               </button>
             </div>
 
-            <form onSubmit={handleAddQuestion}>
+            <form onSubmit={handleSaveQuestion}>
               <div className="question-form-group full-width">
-                <label>Question</label>
+                <label htmlFor="screeningQuestion">
+                  Question
+                </label>
 
                 <textarea
+                  id="screeningQuestion"
                   name="question"
                   value={newQuestion.question}
                   onChange={handleInputChange}
                   placeholder="Enter your screening question..."
                   rows="4"
+                  disabled={saving}
                 />
               </div>
 
               <div className="question-form-row">
                 <div className="question-form-group">
-                  <label>Category</label>
+                  <label htmlFor="questionCategory">
+                    Category
+                  </label>
 
                   <select
+                    id="questionCategory"
                     name="category"
                     value={newQuestion.category}
                     onChange={handleInputChange}
+                    disabled={saving}
                   >
-                    <option value="Technical">Technical</option>
-                    <option value="Behavioral">Behavioral</option>
-                    <option value="Coding">Coding</option>
+                    <option value="TECHNICAL">
+                      Technical
+                    </option>
+                    <option value="BEHAVIORAL">
+                      Behavioral
+                    </option>
+                    <option value="CODING">
+                      Coding
+                    </option>
                   </select>
                 </div>
 
                 <div className="question-form-group">
-                  <label>Difficulty</label>
+                  <label htmlFor="questionDifficulty">
+                    Difficulty
+                  </label>
 
                   <select
+                    id="questionDifficulty"
                     name="difficulty"
                     value={newQuestion.difficulty}
                     onChange={handleInputChange}
+                    disabled={saving}
                   >
-                    <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
+                    <option value="EASY">Easy</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HARD">Hard</option>
                   </select>
                 </div>
               </div>
 
               <div className="question-form-group full-width">
-                <label>Position</label>
+                <label htmlFor="questionJobId">
+                  Position
+                </label>
 
                 <select
-                  name="position"
-                  value={newQuestion.position}
+                  id="questionJobId"
+                  name="jobId"
+                  value={newQuestion.jobId}
                   onChange={handleInputChange}
+                  disabled={saving || jobs.length === 0}
                 >
-                  <option value="All Positions">
-                    All Positions
+                  <option value="">
+                    {jobs.length === 0
+                      ? "No jobs available"
+                      : "Select a position"}
                   </option>
-                  <option value="Java Backend Developer">
-                    Java Backend Developer
-                  </option>
-                  <option value="Frontend Developer">
-                    Frontend Developer
-                  </option>
-                  <option value="Full Stack Developer">
-                    Full Stack Developer
-                  </option>
-                  <option value="Python Developer">
-                    Python Developer
-                  </option>
-                  <option value="Software Engineer">
-                    Software Engineer
-                  </option>
+
+                  {jobs.map((job) => (
+                    <option
+                      key={job.id}
+                      value={String(job.id)}
+                    >
+                      {job.title} (Job #{job.id})
+                    </option>
+                  ))}
                 </select>
               </div>
+
+              {modalError && (
+                <div
+                  role="alert"
+                  style={{
+                    marginBottom: "16px",
+                    padding: "12px 14px",
+                    borderRadius: "8px",
+                    background: "#fff1f1",
+                    color: "#d92d20",
+                    border: "1px solid #fecdca",
+                    fontSize: "14px",
+                  }}
+                >
+                  {modalError}
+                </div>
+              )}
 
               <div className="question-modal-actions">
                 <button
                   type="button"
                   className="cancel-question-btn"
-                  onClick={() => setShowModal(false)}
+                  onClick={handleCloseModal}
+                  disabled={saving}
                 >
                   Cancel
                 </button>
@@ -472,8 +862,13 @@ function RecruiterQuestions() {
                 <button
                   type="submit"
                   className="save-question-btn"
+                  disabled={saving || jobs.length === 0}
                 >
-                  Save Question
+                  {saving
+                    ? "Saving..."
+                    : editingQuestionId !== null
+                      ? "Update Question"
+                      : "Save Question"}
                 </button>
               </div>
             </form>

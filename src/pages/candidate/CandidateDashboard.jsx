@@ -60,13 +60,83 @@ function CandidateDashboard() {
 
   const firstName =
     candidateName.split(" ")[0] || "Candidate";
-
   const {
     stats = {},
     recentApplications = [],
     upcomingInterview = null,
     recommendedJobs = [],
   } = dashboard || {};
+  // Temporary frontend data.
+  // Backend integration will replace this later.
+
+  stats = {
+    applications: 4,
+    interviews: 1,
+    offers: 1,
+    profileCompletion: 85,
+  };
+
+  recentApplications = [
+    {
+      id: 1,
+      job: "Java Backend Developer",
+      company: "TalentAI",
+      appliedDate: "10 Sep 2026",
+      status: "Interview",
+    },
+    {
+      id: 2,
+      job: "Full Stack Developer",
+      company: "TalentAI",
+      appliedDate: "08 Sep 2026",
+      status: "Shortlisted",
+    },
+    {
+      id: 3,
+      job: "Software Engineer",
+      company: "TalentAI",
+      appliedDate: "05 Sep 2026",
+      status: "AI Screened",
+    },
+  ];
+
+  upcomingInterview = {
+    id: 1,
+    job: "Java Backend Developer",
+    company: "TalentAI",
+    date: "18 Sep 2026",
+    time: "11:00 AM",
+    type: "Technical",
+    mode: "Online",
+    platform: "Google Meet",
+  };
+
+  recommendedJobs = [
+    {
+      id: 101,
+      title: "Java Developer",
+      company: "TalentAI",
+      location: "Hyderabad",
+      experience: "1 - 3 Years",
+      type: "Full Time",
+    },
+    {
+      id: 102,
+      title: "Backend Engineer",
+      company: "TalentAI",
+      location: "Bengaluru",
+      experience: "1 - 2 Years",
+      type: "Full Time",
+    },
+    {
+      id: 103,
+      title: "Full Stack Developer",
+      company: "TalentAI",
+      location: "Hyderabad",
+      experience: "2 - 4 Years",
+      type: "Full Time",
+    },
+  ];
 
   const getStatusClass = (status) => {
     return status

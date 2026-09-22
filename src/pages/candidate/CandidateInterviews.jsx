@@ -46,6 +46,44 @@ function CandidateInterviews() {
     loadInterviews();
   }, []);
 
+  // Temporary frontend data.
+  // Backend API will replace this later.
+  interviews = [
+    {
+      id: 1,
+      jobTitle: "Java Backend Developer",
+      company: "TalentAI",
+      date: "18 Sep 2026",
+      time: "11:00 AM",
+      type: "Technical Interview",
+      mode: "Online",
+      platform: "Google Meet",
+      status: "Upcoming",
+    },
+    {
+      id: 2,
+      jobTitle: "Full Stack Developer",
+      company: "TalentAI",
+      date: "14 Sep 2026",
+      time: "02:30 PM",
+      type: "Technical Interview",
+      mode: "Online",
+      platform: "Microsoft Teams",
+      status: "Completed",
+    },
+    {
+      id: 3,
+      jobTitle: "Software Engineer",
+      company: "TalentAI",
+      date: "11 Sep 2026",
+      time: "10:00 AM",
+      type: "HR Interview",
+      mode: "On-site",
+      platform: "Hyderabad Office",
+      status: "Completed",
+    },
+  ];
+
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
 

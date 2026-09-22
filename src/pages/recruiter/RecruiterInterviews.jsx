@@ -1,96 +1,218 @@
-import React, { useMemo, useState } from "react";
+
+import React, { useEffect, useMemo, useState } from "react";
 import RecruiterSidebar from "./RecruiterSidebar";
 import RecruiterTopbar from "./RecruiterTopbar";
+import apiClient from "../../services/apiClient";
 import "./RecruiterInterviews.css";
 
-const initialInterviews = [
-  {
-    id: 1,
-    candidate: "Rahul Verma",
-    email: "rahul.verma@gmail.com",
-    position: "Java Backend Developer",
-    interviewer: "HR Team",
-    date: "18 Sep 2026",
-    time: "10:30 AM",
-    type: "Technical",
-    mode: "Online",
-    status: "Scheduled",
-  },
-  {
-    id: 2,
-    candidate: "Ananya Sharma",
-    email: "ananya.sharma@gmail.com",
-    position: "Frontend Developer",
-    interviewer: "Technical Team",
-    date: "18 Sep 2026",
-    time: "02:00 PM",
-    type: "Technical",
-    mode: "Online",
-    status: "Scheduled",
-  },
-  {
-    id: 3,
-    candidate: "Arjun Reddy",
-    email: "arjun.reddy@gmail.com",
-    position: "Full Stack Developer",
-    interviewer: "Hiring Manager",
-    date: "19 Sep 2026",
-    time: "11:00 AM",
-    type: "HR",
-    mode: "In Office",
-    status: "Scheduled",
-  },
-  {
-    id: 4,
-    candidate: "Priya Nair",
-    email: "priya.nair@gmail.com",
-    position: "Python Developer",
-    interviewer: "HR Team",
-    date: "16 Sep 2026",
-    time: "03:30 PM",
-    type: "HR",
-    mode: "Online",
-    status: "Completed",
-  },
-  {
-    id: 5,
-    candidate: "Kiran Kumar",
-    email: "kiran.kumar@gmail.com",
-    position: "Software Engineer",
-    interviewer: "Technical Team",
-    date: "15 Sep 2026",
-    time: "11:30 AM",
-    type: "Technical",
-    mode: "Online",
-    status: "Cancelled",
-  },
-];
+const initialInterviewForm = {
+  candidate: "",
+  position: "",
+  interviewer: "",
+  date: "",
+  time: "",
+  type: "Technical",
+  mode: "Online",
+};
+
+// =========================================================
+// FORMAT BACKEND VALUES
+// =========================================================
+
+const formatValue = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return "—";
+  }
+
+  return String(value)
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
+
+const getCandidateName = (interview) => {
+  return (
+    interview.candidateName ||
+    (interview.candidateId != null
+      ? `Candidate #${interview.candidateId}`
+      : "Unknown Candidate")
+  );
+};
+
+const getInterviewerName = (interview) => {
+  return (
+    interview.interviewerName ||
+    (interview.interviewerId != null
+      ? `Interviewer #${interview.interviewerId}`
+      : "—")
+  );
+};
+
+const getPosition = (interview) => {
+  return (
+    interview.position ||
+    (interview.jobId != null
+      ? `Job #${interview.jobId}`
+      : "—")
+  );
+};
+
+// =========================================================
+// DATE AND TIME HELPERS
+// =========================================================
+
+const parseInterviewDate = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatInterviewDate = (value) => {
+  const date = parseInterviewDate(value);
+
+  if (!date) {
+    return "—";
+  }
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatInterviewTime = (value) => {
+  const date = parseInterviewDate(value);
+
+  if (!date) {
+    return "—";
+  }
+
+  return date.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
+const getUpcomingDateParts = (value) => {
+  const date = parseInterviewDate(value);
+
+  if (!date) {
+    return {
+      day: "—",
+      month: "—",
+    };
+  }
+
+  return {
+    day: date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+    }),
+    month: date.toLocaleDateString("en-IN", {
+      month: "short",
+    }),
+  };
+};
+
+// =========================================================
+// RECRUITER INTERVIEWS
+// =========================================================
 
 function RecruiterInterviews() {
-  const [interviews, setInterviews] = useState(initialInterviews);
+  const [interviews, setInterviews] = useState([]);
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+
   const [showModal, setShowModal] = useState(false);
 
   const [newInterview, setNewInterview] = useState({
-    candidate: "",
-    position: "",
-    interviewer: "",
-    date: "",
-    time: "",
-    type: "Technical",
-    mode: "Online",
+    ...initialInterviewForm,
   });
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // =========================================================
+  // FETCH REAL INTERVIEWS FROM SPRING BOOT
+  // =========================================================
+
+  const fetchInterviews = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await apiClient.get(
+        "/interviews/management"
+      );
+
+      const result = response.data;
+
+      if (!result?.success) {
+        throw new Error(
+          result?.message ||
+            "Failed to load interview management data."
+        );
+      }
+
+      setInterviews(
+        Array.isArray(result.data) ? result.data : []
+      );
+    } catch (err) {
+      console.error("Interview management error:", err);
+
+      if (err.response?.status === 401) {
+        setError(
+          "Your session has expired. Please log in again."
+        );
+      } else if (err.response?.status === 403) {
+        setError(
+          "You are not authorized to view interview management data."
+        );
+      } else {
+        setError(
+          err.response?.data?.message ||
+            err.message ||
+            "Failed to load interviews."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInterviews();
+  }, []);
+
+  // =========================================================
+  // SEARCH AND STATUS FILTER
+  // =========================================================
+
   const filteredInterviews = useMemo(() => {
+    const text = search.trim().toLowerCase();
+
     return interviews.filter((interview) => {
-      const text = search.toLowerCase();
+      const searchableText = [
+        getCandidateName(interview),
+        interview.candidateEmail,
+        getPosition(interview),
+        getInterviewerName(interview),
+        interview.interviewType,
+        interview.interviewMode,
+        interview.status,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
 
       const matchesSearch =
-        interview.candidate.toLowerCase().includes(text) ||
-        interview.email.toLowerCase().includes(text) ||
-        interview.position.toLowerCase().includes(text) ||
-        interview.interviewer.toLowerCase().includes(text);
+        !text || searchableText.includes(text);
 
       const matchesStatus =
         statusFilter === "All" ||
@@ -100,80 +222,143 @@ function RecruiterInterviews() {
     });
   }, [interviews, search, statusFilter]);
 
+  // =========================================================
+  // SUMMARY COUNTS
+  // =========================================================
+
+  const totalInterviews = interviews.length;
+
+  const scheduledInterviews = interviews.filter(
+    (interview) => interview.status === "SCHEDULED"
+  ).length;
+
+  const completedInterviews = interviews.filter(
+    (interview) => interview.status === "COMPLETED"
+  ).length;
+
+  const cancelledInterviews = interviews.filter(
+    (interview) => interview.status === "CANCELLED"
+  ).length;
+
+  // =========================================================
+  // UPCOMING INTERVIEWS
+  // =========================================================
+
+  const upcomingInterviews = useMemo(() => {
+    const now = new Date();
+
+    return interviews
+      .filter((interview) => {
+        if (interview.status !== "SCHEDULED") {
+          return false;
+        }
+
+        const interviewDate = parseInterviewDate(
+          interview.interviewDateTime
+        );
+
+        return interviewDate && interviewDate > now;
+      })
+      .sort((first, second) => {
+        return (
+          parseInterviewDate(
+            first.interviewDateTime
+          ).getTime() -
+          parseInterviewDate(
+            second.interviewDateTime
+          ).getTime()
+        );
+      })
+      .slice(0, 3);
+  }, [interviews]);
+
+  // =========================================================
+  // SCHEDULE FORM INPUTS
+  // =========================================================
+
   const handleInputChange = (e) => {
+    const { name, value } = e.target;
+
+    setNewInterview((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+
     setNewInterview({
-      ...newInterview,
-      [e.target.name]: e.target.value,
+      ...initialInterviewForm,
     });
   };
 
-  const handleScheduleInterview = (e) => {
-    e.preventDefault();
+  // =========================================================
+  // VIEW INTERVIEW DETAILS
+  // =========================================================
 
-    if (
-      !newInterview.candidate.trim() ||
-      !newInterview.position.trim() ||
-      !newInterview.date ||
-      !newInterview.time
-    ) {
-      alert("Please fill in the required fields.");
+  const handleView = (interview) => {
+    const details = [
+      `Interview ID: ${interview.interviewId}`,
+      `Application ID: ${interview.applicationId ?? "—"}`,
+      `Candidate: ${getCandidateName(interview)}`,
+      `Candidate Email: ${interview.candidateEmail || "—"}`,
+      `Position: ${getPosition(interview)}`,
+      `Interviewer: ${getInterviewerName(interview)}`,
+      `Date: ${formatInterviewDate(
+        interview.interviewDateTime
+      )}`,
+      `Time: ${formatInterviewTime(
+        interview.interviewDateTime
+      )}`,
+      `Type: ${formatValue(interview.interviewType)}`,
+      `Mode: ${formatValue(interview.interviewMode)}`,
+      `Status: ${formatValue(interview.status)}`,
+      `Meeting Link: ${interview.meetingLink || "—"}`,
+      `Location: ${interview.location || "—"}`,
+      `Notes: ${interview.notes || "—"}`,
+    ];
+
+    window.alert(details.join("\n"));
+  };
+
+  // =========================================================
+  // JOIN INTERVIEW
+  // =========================================================
+
+  const handleJoin = (interview) => {
+    if (!interview.meetingLink) {
+      window.alert(
+        "No meeting link is available for this interview."
+      );
       return;
     }
 
-    const interview = {
-      id: Date.now(),
-      candidate: newInterview.candidate.trim(),
-      email: "candidate@email.com",
-      position: newInterview.position.trim(),
-      interviewer:
-        newInterview.interviewer.trim() || "HR Team",
-      date: newInterview.date,
-      time: newInterview.time,
-      type: newInterview.type,
-      mode: newInterview.mode,
-      status: "Scheduled",
-    };
+    let meetingUrl;
 
-    setInterviews((prev) => [interview, ...prev]);
+    try {
+      meetingUrl = new URL(interview.meetingLink);
+    } catch {
+      window.alert(
+        "The meeting link for this interview is invalid."
+      );
+      return;
+    }
 
-    setNewInterview({
-      candidate: "",
-      position: "",
-      interviewer: "",
-      date: "",
-      time: "",
-      type: "Technical",
-      mode: "Online",
-    });
+    if (
+      meetingUrl.protocol !== "https:" &&
+      meetingUrl.protocol !== "http:"
+    ) {
+      window.alert(
+        "The meeting link must use HTTP or HTTPS."
+      );
+      return;
+    }
 
-    setShowModal(false);
-  };
-
-  const handleJoin = (interview) => {
-    alert(
-      `Joining interview for ${interview.candidate}`
-    );
-  };
-
-  const handleView = (interview) => {
-    alert(
-      `Interview Details\n\nCandidate: ${interview.candidate}\nPosition: ${interview.position}\nDate: ${interview.date}\nTime: ${interview.time}\nMode: ${interview.mode}`
-    );
-  };
-
-  const handleCancel = (id) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to cancel this interview?"
-    );
-
-    if (!confirmed) return;
-
-    setInterviews((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? { ...item, status: "Cancelled" }
-          : item
-      )
+    window.open(
+      meetingUrl.href,
+      "_blank",
+      "noopener,noreferrer"
     );
   };
 
@@ -183,9 +368,14 @@ function RecruiterInterviews() {
       <RecruiterTopbar />
 
       <main className="recruiter-interviews-main">
+        {/* =====================================================
+            PAGE HEADER
+        ===================================================== */}
+
         <div className="interviews-header">
           <div>
             <h1>Interviews</h1>
+
             <p>
               Schedule and manage candidate interviews
             </p>
@@ -200,118 +390,173 @@ function RecruiterInterviews() {
           </button>
         </div>
 
+        {/* =====================================================
+            API ERROR
+        ===================================================== */}
+
+        {error && (
+          <div
+            role="alert"
+            style={{
+              marginBottom: "16px",
+              padding: "12px 16px",
+              borderRadius: "8px",
+              background: "#fff1f1",
+              color: "#d92d20",
+              border: "1px solid #fecdca",
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        {/* =====================================================
+            SUMMARY CARDS
+        ===================================================== */}
+
         <section className="interviews-summary">
           <div className="interview-summary-card">
-            <div className="interview-summary-icon">◷</div>
+            <div className="interview-summary-icon">
+              ◷
+            </div>
+
             <div>
               <span>Total Interviews</span>
-              <strong>{interviews.length}</strong>
+              <strong>{totalInterviews}</strong>
             </div>
           </div>
 
           <div className="interview-summary-card">
-            <div className="interview-summary-icon">✓</div>
+            <div className="interview-summary-icon">
+              ✓
+            </div>
+
             <div>
               <span>Scheduled</span>
-              <strong>
-                {
-                  interviews.filter(
-                    (item) => item.status === "Scheduled"
-                  ).length
-                }
-              </strong>
+              <strong>{scheduledInterviews}</strong>
             </div>
           </div>
 
           <div className="interview-summary-card">
-            <div className="interview-summary-icon">●</div>
+            <div className="interview-summary-icon">
+              ●
+            </div>
+
             <div>
               <span>Completed</span>
-              <strong>
-                {
-                  interviews.filter(
-                    (item) => item.status === "Completed"
-                  ).length
-                }
-              </strong>
+              <strong>{completedInterviews}</strong>
             </div>
           </div>
 
           <div className="interview-summary-card">
-            <div className="interview-summary-icon">!</div>
+            <div className="interview-summary-icon">
+              !
+            </div>
+
             <div>
               <span>Cancelled</span>
-              <strong>
-                {
-                  interviews.filter(
-                    (item) => item.status === "Cancelled"
-                  ).length
-                }
-              </strong>
+              <strong>{cancelledInterviews}</strong>
             </div>
           </div>
         </section>
 
+        {/* =====================================================
+            UPCOMING INTERVIEWS
+        ===================================================== */}
+
         <section className="upcoming-interviews-card">
           <div className="upcoming-title">
-            <div className="upcoming-icon">◷</div>
+            <div className="upcoming-icon">
+              ◷
+            </div>
 
             <div>
               <h3>Upcoming Interviews</h3>
+
               <p>
-                Candidate interviews scheduled for the upcoming days
+                Candidate interviews scheduled for the
+                upcoming days
               </p>
             </div>
           </div>
 
           <div className="upcoming-list">
-            {interviews
-              .filter(
-                (interview) => interview.status === "Scheduled"
-              )
-              .slice(0, 3)
-              .map((interview) => (
-                <div
-                  className="upcoming-item"
-                  key={interview.id}
-                >
-                  <div className="upcoming-date">
-                    <strong>
-                      {interview.date.split(" ")[0]}
-                    </strong>
-                    <span>
-                      {interview.date.split(" ")[1]}
-                    </span>
-                  </div>
-
-                  <div className="upcoming-details">
-                    <strong>{interview.candidate}</strong>
-                    <span>{interview.position}</span>
-                  </div>
-
-                  <div className="upcoming-time">
-                    <strong>{interview.time}</strong>
-                    <span>{interview.mode}</span>
-                  </div>
-
-                  <button
-                    className="upcoming-view-btn"
-                    onClick={() => handleView(interview)}
-                  >
-                    View
-                  </button>
-                </div>
-              ))}
-
-            {interviews.filter(
-              (interview) => interview.status === "Scheduled"
-            ).length === 0 && (
+            {loading ? (
               <div className="no-upcoming">
-                No upcoming interviews.
+                Loading upcoming interviews...
               </div>
+            ) : (
+              <>
+                {upcomingInterviews.map((interview) => {
+                  const dateParts =
+                    getUpcomingDateParts(
+                      interview.interviewDateTime
+                    );
+
+                  return (
+                    <div
+                      className="upcoming-item"
+                      key={interview.interviewId}
+                    >
+                      <div className="upcoming-date">
+                        <strong>
+                          {dateParts.day}
+                        </strong>
+
+                        <span>
+                          {dateParts.month}
+                        </span>
+                      </div>
+
+                      <div className="upcoming-details">
+                        <strong>
+                          {getCandidateName(interview)}
+                        </strong>
+
+                        <span>
+                          {getPosition(interview)}
+                        </span>
+                      </div>
+
+                      <div className="upcoming-time">
+                        <strong>
+                          {formatInterviewTime(
+                            interview.interviewDateTime
+                          )}
+                        </strong>
+
+                        <span>
+                          {formatValue(
+                            interview.interviewMode
+                          )}
+                        </span>
+                      </div>
+
+                      <button
+                        className="upcoming-view-btn"
+                        onClick={() =>
+                          handleView(interview)
+                        }
+                      >
+                        View
+                      </button>
+                    </div>
+                  );
+                })}
+
+                {upcomingInterviews.length === 0 && (
+                  <div className="no-upcoming">
+                    No upcoming interviews.
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>
+
+        {/* =====================================================
+            INTERVIEWS TABLE
+        ===================================================== */}
 
         <section className="interviews-table-card">
           <div className="interviews-toolbar">
@@ -322,7 +567,9 @@ function RecruiterInterviews() {
                 type="text"
                 placeholder="Search candidate or position..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) =>
+                  setSearch(e.target.value)
+                }
               />
             </div>
 
@@ -333,10 +580,21 @@ function RecruiterInterviews() {
                 setStatusFilter(e.target.value)
               }
             >
-              <option value="All">All Status</option>
-              <option value="Scheduled">Scheduled</option>
-              <option value="Completed">Completed</option>
-              <option value="Cancelled">Cancelled</option>
+              <option value="All">
+                All Status
+              </option>
+
+              <option value="SCHEDULED">
+                Scheduled
+              </option>
+
+              <option value="COMPLETED">
+                Completed
+              </option>
+
+              <option value="CANCELLED">
+                Cancelled
+              </option>
             </select>
           </div>
 
@@ -347,7 +605,7 @@ function RecruiterInterviews() {
                   <th>Candidate</th>
                   <th>Position</th>
                   <th>Interviewer</th>
-                  <th>Date & Time</th>
+                  <th>Date &amp; Time</th>
                   <th>Type</th>
                   <th>Mode</th>
                   <th>Status</th>
@@ -356,102 +614,153 @@ function RecruiterInterviews() {
               </thead>
 
               <tbody>
-                {filteredInterviews.length > 0 ? (
-                  filteredInterviews.map((interview) => (
-                    <tr key={interview.id}>
-                      <td>
-                        <div className="interview-candidate">
-                          <div className="interview-avatar">
-                            {interview.candidate.charAt(0)}
-                          </div>
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan="8"
+                      className="interviews-empty"
+                    >
+                      <div>
+                        <span>◷</span>
 
-                          <div>
-                            <strong>
-                              {interview.candidate}
-                            </strong>
-                            <small>
-                              {interview.email}
-                            </small>
-                          </div>
-                        </div>
-                      </td>
+                        <h3>
+                          Loading interviews...
+                        </h3>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredInterviews.length > 0 ? (
+                  filteredInterviews.map(
+                    (interview) => {
+                      const candidateName =
+                        getCandidateName(interview);
 
-                      <td>
-                        <span className="interview-position">
-                          {interview.position}
-                        </span>
-                      </td>
+                      const status =
+                        interview.status || "";
 
-                      <td>{interview.interviewer}</td>
+                      const interviewType =
+                        interview.interviewType || "";
 
-                      <td>
-                        <div className="interview-datetime">
-                          <strong>{interview.date}</strong>
-                          <span>{interview.time}</span>
-                        </div>
-                      </td>
-
-                      <td>
-                        <span
-                          className={`interview-type ${interview.type.toLowerCase()}`}
+                      return (
+                        <tr
+                          key={interview.interviewId}
                         >
-                          {interview.type}
-                        </span>
-                      </td>
+                          <td>
+                            <div className="interview-candidate">
+                              <div className="interview-avatar">
+                                {candidateName.charAt(0)}
+                              </div>
 
-                      <td>
-                        <span className="interview-mode">
-                          {interview.mode}
-                        </span>
-                      </td>
+                              <div>
+                                <strong>
+                                  {candidateName}
+                                </strong>
 
-                      <td>
-                        <span
-                          className={`interview-status ${interview.status
-                            .toLowerCase()
-                            .replace(" ", "-")}`}
-                        >
-                          {interview.status}
-                        </span>
-                      </td>
+                                <small>
+                                  {interview.candidateEmail ||
+                                    "—"}
+                                </small>
+                              </div>
+                            </div>
+                          </td>
 
-                      <td>
-                        <div className="interview-actions">
-                          <button
-                            className="interview-view-btn"
-                            onClick={() =>
-                              handleView(interview)
-                            }
-                          >
-                            View
-                          </button>
+                          <td>
+                            <span className="interview-position">
+                              {getPosition(interview)}
+                            </span>
+                          </td>
 
-                          {interview.status ===
-                            "Scheduled" && (
-                            <>
+                          <td>
+                            {getInterviewerName(
+                              interview
+                            )}
+                          </td>
+
+                          <td>
+                            <div className="interview-datetime">
+                              <strong>
+                                {formatInterviewDate(
+                                  interview.interviewDateTime
+                                )}
+                              </strong>
+
+                              <span>
+                                {formatInterviewTime(
+                                  interview.interviewDateTime
+                                )}
+                              </span>
+                            </div>
+                          </td>
+
+                          <td>
+                            <span
+                              className={`interview-type ${interviewType.toLowerCase()}`}
+                            >
+                              {formatValue(
+                                interview.interviewType
+                              )}
+                            </span>
+                          </td>
+
+                          <td>
+                            <span className="interview-mode">
+                              {formatValue(
+                                interview.interviewMode
+                              )}
+                            </span>
+                          </td>
+
+                          <td>
+                            <span
+                              className={`interview-status ${status
+                                .toLowerCase()
+                                .replaceAll("_", "-")}`}
+                            >
+                              {formatValue(status)}
+                            </span>
+                          </td>
+
+                          <td>
+                            <div className="interview-actions">
                               <button
-                                className="join-interview-btn"
+                                className="interview-view-btn"
                                 onClick={() =>
-                                  handleJoin(interview)
+                                  handleView(interview)
                                 }
                               >
-                                Join
+                                View
                               </button>
 
-                              <button
-                                className="cancel-interview-btn"
-                                onClick={() =>
-                                  handleCancel(interview.id)
-                                }
-                              >
-                                Cancel
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                              {status === "SCHEDULED" && (
+                                <>
+                                  {interview.meetingLink && (
+                                    <button
+                                      className="join-interview-btn"
+                                      onClick={() =>
+                                        handleJoin(
+                                          interview
+                                        )
+                                      }
+                                    >
+                                      Join
+                                    </button>
+                                  )}
+
+                                  <button
+                                    className="cancel-interview-btn"
+                                    disabled
+                                    title="Cancellation integration will be added next."
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+                  )
                 ) : (
                   <tr>
                     <td
@@ -460,9 +769,14 @@ function RecruiterInterviews() {
                     >
                       <div>
                         <span>◷</span>
-                        <h3>No interviews found</h3>
+
+                        <h3>
+                          No interviews found
+                        </h3>
+
                         <p>
-                          Try changing your search or status filter.
+                          Try changing your search or
+                          status filter.
                         </p>
                       </div>
                     </td>
@@ -474,38 +788,58 @@ function RecruiterInterviews() {
 
           <div className="interviews-footer">
             Showing{" "}
-            <strong>{filteredInterviews.length}</strong> of{" "}
-            <strong>{interviews.length}</strong> interviews
+            <strong>
+              {filteredInterviews.length}
+            </strong>{" "}
+            of{" "}
+            <strong>
+              {interviews.length}
+            </strong>{" "}
+            interviews
           </div>
         </section>
       </main>
 
+      {/* =====================================================
+          SCHEDULE INTERVIEW MODAL
+      ===================================================== */}
+
       {showModal && (
         <div
           className="interview-modal-overlay"
-          onClick={() => setShowModal(false)}
+          onClick={handleCloseModal}
         >
           <div
             className="interview-modal"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) =>
+              e.stopPropagation()
+            }
           >
             <div className="interview-modal-header">
               <div>
-                <h2>Schedule Interview</h2>
+                <h2>
+                  Schedule Interview
+                </h2>
+
                 <p>
                   Create a new candidate interview.
                 </p>
               </div>
 
               <button
+                type="button"
                 className="interview-modal-close"
-                onClick={() => setShowModal(false)}
+                onClick={handleCloseModal}
               >
                 ×
               </button>
             </div>
 
-            <form onSubmit={handleScheduleInterview}>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+            >
               <div className="interview-form-row">
                 <div className="interview-form-group">
                   <label>
@@ -537,7 +871,9 @@ function RecruiterInterviews() {
               </div>
 
               <div className="interview-form-group">
-                <label>Interviewer</label>
+                <label>
+                  Interviewer
+                </label>
 
                 <input
                   type="text"
@@ -578,7 +914,9 @@ function RecruiterInterviews() {
 
               <div className="interview-form-row">
                 <div className="interview-form-group">
-                  <label>Interview Type</label>
+                  <label>
+                    Interview Type
+                  </label>
 
                   <select
                     name="type"
@@ -588,19 +926,27 @@ function RecruiterInterviews() {
                     <option value="Technical">
                       Technical
                     </option>
-                    <option value="HR">HR</option>
+
+                    <option value="HR">
+                      HR
+                    </option>
                   </select>
                 </div>
 
                 <div className="interview-form-group">
-                  <label>Interview Mode</label>
+                  <label>
+                    Interview Mode
+                  </label>
 
                   <select
                     name="mode"
                     value={newInterview.mode}
                     onChange={handleInputChange}
                   >
-                    <option value="Online">Online</option>
+                    <option value="Online">
+                      Online
+                    </option>
+
                     <option value="In Office">
                       In Office
                     </option>
@@ -608,11 +954,23 @@ function RecruiterInterviews() {
                 </div>
               </div>
 
+              <p
+                style={{
+                  margin: "0 0 16px",
+                  fontSize: "13px",
+                  color: "#667085",
+                }}
+              >
+                Scheduling will be enabled after
+                connecting real applications and
+                interviewer accounts.
+              </p>
+
               <div className="interview-modal-actions">
                 <button
                   type="button"
                   className="interview-cancel-btn"
-                  onClick={() => setShowModal(false)}
+                  onClick={handleCloseModal}
                 >
                   Cancel
                 </button>
@@ -620,6 +978,8 @@ function RecruiterInterviews() {
                 <button
                   type="submit"
                   className="interview-save-btn"
+                  disabled
+                  title="Scheduling integration will be added next."
                 >
                   Schedule Interview
                 </button>

@@ -102,6 +102,7 @@ import CandidateOfferDetails from "./pages/candidate/CandidateOfferDetails";
 import CandidateProfile from "./pages/candidate/CandidateProfile";
 import CandidateNotifications from "./pages/candidate/CandidateNotifications";
 import CandidateSettings from "./pages/candidate/CandidateSettings";
+import RecruiterCandidateDetails from "./pages/recruiter/RecruiterCandidateDetails";
 function App() {
   return (
     <BrowserRouter>
@@ -480,6 +481,10 @@ function App() {
 <Route
   path="/candidate/settings"
   element={<CandidateSettings />}
+/>
+<Route
+  path="/recruiter/candidates/:id"
+  element={<RecruiterCandidateDetails />}
 />
         {/* Not Found */}
 

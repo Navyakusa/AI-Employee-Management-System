@@ -55,10 +55,67 @@ function CandidateJobApplication() {
   const [profile, setProfile] = useState(null);
   const [alreadyApplied, setAlreadyApplied] = useState(false);
 
+
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+
+  // Temporary job data.
+  // Backend integration will replace this later.
+  const jobs = [
+    {
+      id: 101,
+      title: "Java Backend Developer",
+      company: "TalentAI",
+      location: "Hyderabad",
+      type: "Full Time",
+    },
+    {
+      id: 102,
+      title: "Full Stack Developer",
+      company: "TalentAI",
+      location: "Bengaluru",
+      type: "Full Time",
+    },
+    {
+      id: 103,
+      title: "Software Engineer",
+      company: "TalentAI",
+      location: "Hyderabad",
+      type: "Full Time",
+    },
+    {
+      id: 104,
+      title: "React Developer",
+      company: "TalentAI",
+      location: "Pune",
+      type: "Full Time",
+    },
+    {
+      id: 105,
+      title: "Spring Boot Developer",
+      company: "TalentAI",
+      location: "Chennai",
+      type: "Full Time",
+    },
+    {
+      id: 106,
+      title: "Junior Java Developer",
+      company: "TalentAI",
+      location: "Hyderabad",
+      type: "Full Time",
+    },
+  ];
+
+  selectedJob = useMemo(
+    () =>
+      jobs.find(
+        (job) => String(job.id) === String(jobId)
+      ) || jobs[0],
+    [jobId]
+  );
+
 
   const [formData, setFormData] = useState({
     fullName: "",

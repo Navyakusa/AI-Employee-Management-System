@@ -1,104 +1,255 @@
-import React, { useState } from "react";
+
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Search,
   UserRound,
   Mail,
-  Phone,
   Eye,
   Download,
   Filter,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import RecruiterSidebar from "./RecruiterSidebar";
 import RecruiterTopbar from "./RecruiterTopbar";
+import apiClient from "../../services/apiClient";
 
 import "./RecruiterCandidates.css";
 
 function RecruiterCandidates() {
+  const navigate = useNavigate();
+
+  const [candidates, setCandidates] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
-  const candidates = [
-    {
-      id: 1,
-      name: "Rahul Verma",
-      email: "rahul.verma@gmail.com",
-      phone: "+91 98765 43210",
-      position: "Java Backend Developer",
-      experience: "3 Years",
-      skills: "Java, Spring Boot, SQL",
-      status: "Shortlisted",
-    },
-    {
-      id: 2,
-      name: "Ananya Sharma",
-      email: "ananya.sharma@gmail.com",
-      phone: "+91 91234 56789",
-      position: "Frontend Developer",
-      experience: "2 Years",
-      skills: "React, JavaScript, CSS",
-      status: "Interview",
-    },
-    {
-      id: 3,
-      name: "Arjun Reddy",
-      email: "arjun.reddy@gmail.com",
-      phone: "+91 99887 66554",
-      position: "Full Stack Developer",
-      experience: "4 Years",
-      skills: "React, Node.js, MongoDB",
-      status: "Screening",
-    },
-    {
-      id: 4,
-      name: "Priya Nair",
-      email: "priya.nair@gmail.com",
-      phone: "+91 90123 45678",
-      position: "Python Developer",
-      experience: "2 Years",
-      skills: "Python, Django, SQL",
-      status: "New",
-    },
-    {
-      id: 5,
-      name: "Kiran Kumar",
-      email: "kiran.kumar@gmail.com",
-      phone: "+91 93456 78901",
-      position: "Software Engineer",
-      experience: "3 Years",
-      skills: "Python, Java, AWS",
-      status: "Rejected",
-    },
-  ];
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [resumes, setResumes] = useState([]);
+  const [resumeError, setResumeError] = useState("");
+  const [downloadingId, setDownloadingId] = useState(null);
 
-  const filteredCandidates = candidates.filter((candidate) => {
-    const searchText = search.toLowerCase();
+  // ==========================================
+  // FETCH CANDIDATES FROM BACKEND
+  // ==========================================
 
-    const matchesSearch =
-      candidate.name.toLowerCase().includes(searchText) ||
-      candidate.email.toLowerCase().includes(searchText) ||
-      candidate.position.toLowerCase().includes(searchText) ||
-      candidate.skills.toLowerCase().includes(searchText);
+  useEffect(() => {
+    const fetchCandidates = async () => {
+      try {
+        setLoading(true);
+        setError("");
 
-    const matchesStatus =
-      statusFilter === "All" ||
-      candidate.status === statusFilter;
+        const response = await apiClient.get(
+          "/candidates/all"
+        );
 
-    return matchesSearch && matchesStatus;
-  });
+        console.log(
+          "Recruiter candidates response:",
+          response.data
+        );
+
+        // This endpoint returns a direct JSON array.
+        const result = response.data;
+
+        if (!Array.isArray(result)) {
+          throw new Error(
+            "Invalid candidate response received from backend."
+          );
+        }
+
+        setCandidates(result);
+      } catch (err) {
+        console.error(
+          "Error fetching recruiter candidates:",
+          err
+        );
+
+        if (err.response?.status === 401) {
+          setError(
+            "Your session has expired. Please log in again."
+          );
+        } else if (err.response?.status === 403) {
+          setError(
+            "You are not authorized to access candidates."
+          );
+        } else {
+          setError(
+            err.response?.data?.message ||
+              err.message ||
+              "Unable to load candidates."
+          );
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCandidates();
+  }, []);
+
+  // Fetch resume metadata independently so candidate list still works if it fails.
+  useEffect(() => {
+    let active = true;
+    const fetchResumes = async () => {
+      try {
+        const response = await apiClient.get("/resumes/all");
+        if (!Array.isArray(response.data?.data)) {
+          throw new Error("Invalid resume response received from backend.");
+        }
+        if (active) setResumes(response.data.data);
+      } catch (err) {
+        console.error("Error fetching resumes:", err);
+        if (active) setResumeError("Unable to load resume information.");
+      }
+    };
+    fetchResumes();
+    return () => { active = false; };
+  }, []);
+
+  // Only select a resume automatically when the candidate has one record,
+  // or when their candidate record names exactly one matching file.
+  const getCandidateResume = (candidate) => {
+    const matches = resumes.filter(
+      (resume) => Number(resume.candidateId) === Number(candidate.id)
+    );
+    if (matches.length === 1) return matches[0];
+    if (matches.length > 1 && candidate.resume) {
+      const named = matches.filter(
+        (resume) => resume.fileName === candidate.resume
+      );
+      if (named.length === 1) return named[0];
+    }
+    return null;
+  };
+
+  // ==========================================
+  // SUMMARY COUNTS
+  // ==========================================
+
+  const totalCandidates = candidates.length;
+
+  const shortlistedCount = candidates.filter(
+    (candidate) =>
+      candidate.status?.toUpperCase() ===
+      "SHORTLISTED"
+  ).length;
+
+  const interviewCount = candidates.filter(
+    (candidate) =>
+      candidate.status?.toUpperCase() ===
+      "INTERVIEW"
+  ).length;
+
+  // ==========================================
+  // SEARCH AND STATUS FILTER
+  // ==========================================
+
+  const filteredCandidates = useMemo(() => {
+    const searchText = search.trim().toLowerCase();
+
+    return candidates.filter((candidate) => {
+      const matchesSearch =
+        (candidate.name || "")
+          .toLowerCase()
+          .includes(searchText) ||
+        (candidate.email || "")
+          .toLowerCase()
+          .includes(searchText) ||
+        (candidate.skills || "")
+          .toLowerCase()
+          .includes(searchText);
+
+      const matchesStatus =
+        statusFilter === "All" ||
+        candidate.status?.toUpperCase() ===
+          statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [candidates, search, statusFilter]);
+
+  // ==========================================
+  // STATUS DISPLAY
+  // ==========================================
+
+  const formatStatus = (status) => {
+    if (!status) return "Unknown";
+
+    return status
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (letter) =>
+        letter.toUpperCase()
+      );
+  };
+
+  const getStatusClass = (status) => {
+    if (!status) return "";
+
+    return status
+      .toLowerCase()
+      .replace(/_/g, "-")
+      .replace(/\s+/g, "-");
+  };
+
+  // ==========================================
+  // VIEW CANDIDATE
+  // ==========================================
+
+  const handleViewCandidate = (candidate) => {
+    navigate(
+      `/recruiter/candidates/${candidate.id}`
+    );
+  };
+
+  // ==========================================
+  // DOWNLOAD RESUME
+  // ==========================================
+
+  const handleDownloadResume = async (candidate) => {
+    setResumeError("");
+    const resume = getCandidateResume(candidate);
+    if (!resume) {
+      setResumeError(
+        `No unambiguous resume is available for ${candidate.name || "this candidate"}.`
+      );
+      return;
+    }
+
+    setDownloadingId(candidate.id);
+    try {
+      const response = await apiClient.get(
+        `/resumes/${resume.id}/download`,
+        { responseType: "blob" }
+      );
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = resume.fileName || "candidate-resume.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error("Resume download failed:", err);
+      setResumeError(
+        `Unable to download the resume for ${candidate.name || "this candidate"}. The file may be missing from the server.`
+      );
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   return (
     <div className="recruiter-candidates-page">
-
       <RecruiterSidebar />
 
       <RecruiterTopbar />
 
       <main className="recruiter-candidates-main">
-
         {/* HEADER */}
-        <div className="recruiter-candidates-header">
 
+        <div className="recruiter-candidates-header">
           <div>
             <span className="recruiter-candidates-label">
               RECRUITMENT WORKSPACE
@@ -107,16 +258,40 @@ function RecruiterCandidates() {
             <h1>Candidates</h1>
 
             <p>
-              Manage and review candidates across your recruitment pipeline.
+              Manage and review candidates across
+              your recruitment pipeline.
             </p>
           </div>
-
         </div>
 
+        {/* ERROR */}
+
+        {error && (
+          <div
+            role="alert"
+            style={{
+              padding: "12px 16px",
+              marginBottom: "18px",
+              background: "#fef2f2",
+              color: "#dc2626",
+              border: "1px solid #fecaca",
+              borderRadius: "8px",
+              fontSize: "13px",
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        {resumeError && (
+          <div role="alert" style={{ padding: "12px 16px", marginBottom: "18px", background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "13px" }}>
+            {resumeError}
+          </div>
+        )}
 
         {/* SUMMARY */}
-        <div className="candidate-summary">
 
+        <div className="candidate-summary">
           <div className="candidate-summary-card">
             <div className="candidate-summary-icon">
               <UserRound size={19} />
@@ -124,10 +299,12 @@ function RecruiterCandidates() {
 
             <div>
               <span>Total Candidates</span>
-              <strong>{candidates.length}</strong>
+
+              <strong>
+                {loading ? "..." : totalCandidates}
+              </strong>
             </div>
           </div>
-
 
           <div className="candidate-summary-card">
             <div className="candidate-summary-icon">
@@ -136,16 +313,12 @@ function RecruiterCandidates() {
 
             <div>
               <span>Shortlisted</span>
+
               <strong>
-                {
-                  candidates.filter(
-                    (c) => c.status === "Shortlisted"
-                  ).length
-                }
+                {loading ? "..." : shortlistedCount}
               </strong>
             </div>
           </div>
-
 
           <div className="candidate-summary-card">
             <div className="candidate-summary-icon">
@@ -154,27 +327,21 @@ function RecruiterCandidates() {
 
             <div>
               <span>Interviews</span>
+
               <strong>
-                {
-                  candidates.filter(
-                    (c) => c.status === "Interview"
-                  ).length
-                }
+                {loading ? "..." : interviewCount}
               </strong>
             </div>
           </div>
-
         </div>
 
-
         {/* CANDIDATES CARD */}
+
         <section className="candidates-card">
-
           {/* TOOLBAR */}
+
           <div className="candidates-toolbar">
-
             <div className="candidate-search">
-
               <Search size={16} />
 
               <input
@@ -185,12 +352,9 @@ function RecruiterCandidates() {
                   setSearch(e.target.value)
                 }
               />
-
             </div>
 
-
             <div className="candidate-filter">
-
               <Filter size={15} />
 
               <select
@@ -199,30 +363,45 @@ function RecruiterCandidates() {
                   setStatusFilter(e.target.value)
                 }
               >
-                <option value="All">All Status</option>
-                <option value="New">New</option>
-                <option value="Screening">Screening</option>
-                <option value="Shortlisted">
+                <option value="All">
+                  All Status
+                </option>
+
+                <option value="APPLIED">
+                  Applied
+                </option>
+
+                <option value="SCREENING">
+                  Screening
+                </option>
+
+                <option value="AI_SCREENED">
+                  AI Screened
+                </option>
+
+                <option value="SHORTLISTED">
                   Shortlisted
                 </option>
-                <option value="Interview">
+
+                <option value="INTERVIEW">
                   Interview
                 </option>
-                <option value="Rejected">
+
+                <option value="SELECTED">
+                  Selected
+                </option>
+
+                <option value="REJECTED">
                   Rejected
                 </option>
               </select>
-
             </div>
-
           </div>
 
-
           {/* TABLE */}
+
           <div className="candidates-table-wrapper">
-
             <table className="candidates-table">
-
               <thead>
                 <tr>
                   <th>Candidate</th>
@@ -235,146 +414,151 @@ function RecruiterCandidates() {
               </thead>
 
               <tbody>
-
-                {filteredCandidates.length === 0 ? (
-
+                {loading ? (
                   <tr>
                     <td
-                      colSpan="6"
+                      colSpan={6}
+                      className="no-candidates"
+                    >
+                      Loading candidates...
+                    </td>
+                  </tr>
+                ) : error ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="no-candidates"
+                    >
+                      Unable to display candidates.
+                    </td>
+                  </tr>
+                ) : filteredCandidates.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
                       className="no-candidates"
                     >
                       No candidates found.
                     </td>
                   </tr>
-
                 ) : (
+                  filteredCandidates.map(
+                    (candidate) => (
+                      <tr key={candidate.id}>
+                        {/* CANDIDATE */}
 
-                  filteredCandidates.map((candidate) => (
+                        <td>
+                          <div className="candidate-name-cell">
+                            <div className="candidate-avatar">
+                              {candidate.name
+                                ?.charAt(0)
+                                ?.toUpperCase() || "C"}
+                            </div>
 
-                    <tr key={candidate.id}>
+                            <div>
+                              <strong>
+                                {candidate.name ||
+                                  "Candidate"}
+                              </strong>
 
-                      {/* CANDIDATE */}
-                      <td>
+                              <span>
+                                <Mail size={11} />
 
-                        <div className="candidate-name-cell">
-
-                          <div className="candidate-avatar">
-                            {candidate.name
-                              .charAt(0)
-                              .toUpperCase()}
-                          </div>
-
-                          <div>
-
-                            <strong>
-                              {candidate.name}
-                            </strong>
-
-                            <span>
-                              <Mail size={11} />
-                              {candidate.email}
-                            </span>
-
-                          </div>
-
-                        </div>
-
-                      </td>
-
-
-                      {/* POSITION */}
-                      <td>
-                        <span className="position-text">
-                          {candidate.position}
-                        </span>
-                      </td>
-
-
-                      {/* EXPERIENCE */}
-                      <td>
-                        {candidate.experience}
-                      </td>
-
-
-                      {/* SKILLS */}
-                      <td>
-
-                        <div className="candidate-skills">
-
-                          {candidate.skills
-                            .split(", ")
-                            .map((skill) => (
-                              <span key={skill}>
-                                {skill}
+                                {candidate.email || "—"}
                               </span>
-                            ))}
+                            </div>
+                          </div>
+                        </td>
 
-                        </div>
+                        {/* POSITION */}
 
-                      </td>
+                        <td>
+                          <span className="position-text">
+                            —
+                          </span>
+                        </td>
 
+                        {/* EXPERIENCE */}
 
-                      {/* STATUS */}
-                      <td>
+                        <td>
+                          {candidate.experience || "—"}
+                        </td>
 
-                        <span
-                          className={`candidate-status ${candidate.status
-                            .toLowerCase()
-                            .replace(" ", "-")}`}
-                        >
-                          {candidate.status}
-                        </span>
+                        {/* SKILLS */}
 
-                      </td>
+                        <td>
+                          <div className="candidate-skills">
+                            {(candidate.skills || "")
+                              .split(",")
+                              .map((skill) => skill.trim())
+                              .filter(Boolean)
+                              .map((skill) => (
+                                <span key={skill}>
+                                  {skill}
+                                </span>
+                              ))}
+                          </div>
+                        </td>
 
+                        {/* STATUS */}
 
-                      {/* ACTIONS */}
-                      <td>
-
-                        <div className="candidate-actions">
-
-                          <button
-                            title="View Candidate"
-                            onClick={() =>
-                              alert(
-                                `Viewing ${candidate.name}`
-                              )
-                            }
+                        <td>
+                          <span
+                            className={`candidate-status ${getStatusClass(
+                              candidate.status
+                            )}`}
                           >
-                            <Eye size={15} />
-                          </button>
+                            {formatStatus(
+                              candidate.status
+                            )}
+                          </span>
+                        </td>
 
-                          <button
-                            title="Download Resume"
-                            onClick={() =>
-                              alert(
-                                `Resume download for ${candidate.name}`
-                              )
-                            }
-                          >
-                            <Download size={15} />
-                          </button>
+                        {/* ACTIONS */}
 
-                        </div>
+                        <td>
+                          <div className="candidate-actions">
+                            <button
+                              type="button"
+                              title="View Candidate"
+                              onClick={() =>
+                                handleViewCandidate(
+                                  candidate
+                                )
+                              }
+                            >
+                              <Eye size={15} />
+                            </button>
 
-                      </td>
-
-                    </tr>
-
-                  ))
-
+                            <button
+                              type="button"
+                              title={
+                                downloadingId === candidate.id
+                                  ? "Downloading resume..."
+                                  : getCandidateResume(candidate)
+                                    ? "Download Resume"
+                                    : "No unambiguous resume record available"
+                              }
+                              disabled={downloadingId !== null || !getCandidateResume(candidate)}
+                              onClick={() =>
+                                handleDownloadResume(
+                                  candidate
+                                )
+                              }
+                            >
+                              <Download size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  )
                 )}
-
               </tbody>
-
             </table>
-
           </div>
-
         </section>
-
       </main>
-
     </div>
   );
 }

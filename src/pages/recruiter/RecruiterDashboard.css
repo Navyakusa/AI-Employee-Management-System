@@ -739,3 +739,39 @@
     margin-left: 64px;
   }
 }
+/* API ERROR */
+
+.recruiter-dashboard-error {
+  margin-bottom: 16px;
+  padding: 11px 14px;
+
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+
+  background: #fef2f2;
+  color: #dc2626;
+
+  font-size: 12px;
+
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+
+/* EMPTY / LOADING STATE */
+
+.recruiter-dashboard-empty {
+  width: 100%;
+  min-height: 90px;
+
+  padding: 20px;
+
+  color: #94a3b8;
+
+  font-size: 11px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
