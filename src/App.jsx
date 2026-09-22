@@ -50,11 +50,6 @@ import NotFoundPage from "./pages/public/NotFoundPage";
 import LoginPage from "./pages/public/auth/LoginPage";
 import SignupPage from "./pages/public/auth/SignupPage";
 
-<<<<<<< Updated upstream
-
-import Chatbot from "./pages/public/Chatbot";
-=======
->>>>>>> Stashed changes
 
 
 
