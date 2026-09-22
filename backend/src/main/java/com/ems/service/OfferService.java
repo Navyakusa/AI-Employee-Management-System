@@ -4,7 +4,9 @@ import com.ems.common.ApiResponse;
 import com.ems.common.OfferStatus;
 import com.ems.dto.OfferDto;
 import com.ems.dto.OfferStatsDto;
+import com.ems.entity.Candidate;
 import com.ems.entity.Offer;
+import com.ems.repository.CandidateRepository;
 import com.ems.repository.OfferRepository;
 
 import org.springframework.http.HttpStatus;
@@ -17,12 +19,16 @@ import java.util.List;
 public class OfferService {
 
     private final OfferRepository offerRepository;
+    private final CandidateRepository candidateRepository;
 
     public OfferService(
-            OfferRepository offerRepository
+            OfferRepository offerRepository,
+            CandidateRepository candidateRepository
     ) {
         this.offerRepository = offerRepository;
+        this.candidateRepository = candidateRepository;
     }
+
 
     // ============================================================
     // CREATE OFFER
@@ -34,10 +40,8 @@ public class OfferService {
 
         try {
 
-            if (
-                    dto.getCandidateName() == null ||
-                            dto.getCandidateName().trim().isEmpty()
-            ) {
+            if (dto.getCandidateName() == null ||
+                    dto.getCandidateName().trim().isEmpty()) {
 
                 return ResponseEntity
                         .badRequest()
@@ -50,10 +54,8 @@ public class OfferService {
                         );
             }
 
-            if (
-                    dto.getPosition() == null ||
-                            dto.getPosition().trim().isEmpty()
-            ) {
+            if (dto.getPosition() == null ||
+                    dto.getPosition().trim().isEmpty()) {
 
                 return ResponseEntity
                         .badRequest()
@@ -66,10 +68,8 @@ public class OfferService {
                         );
             }
 
-            if (
-                    dto.getSalary() == null ||
-                            dto.getSalary() <= 0
-            ) {
+            if (dto.getSalary() == null ||
+                    dto.getSalary() <= 0) {
 
                 return ResponseEntity
                         .badRequest()
@@ -147,9 +147,7 @@ public class OfferService {
             e.printStackTrace();
 
             return ResponseEntity
-                    .status(
-                            HttpStatus.INTERNAL_SERVER_ERROR
-                    )
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -161,8 +159,10 @@ public class OfferService {
         }
     }
 
+
     // ============================================================
     // GET ALL OFFERS
+    // HR
     // ============================================================
 
     public ResponseEntity<ApiResponse<List<OfferDto>>>
@@ -188,9 +188,7 @@ public class OfferService {
         } catch (Exception e) {
 
             return ResponseEntity
-                    .status(
-                            HttpStatus.INTERNAL_SERVER_ERROR
-                    )
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -200,6 +198,79 @@ public class OfferService {
                     );
         }
     }
+
+
+    // ============================================================
+    // GET MY OFFERS
+    // CANDIDATE
+    // ============================================================
+
+    public ResponseEntity<ApiResponse<List<OfferDto>>>
+    getOffersForCandidateEmail(
+            String email
+    ) {
+
+        try {
+
+            Candidate candidate =
+                    candidateRepository
+                            .findByEmailIgnoreCase(email)
+                            .orElse(null);
+
+            if (candidate == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Candidate not found",
+                                        null
+                                )
+                        );
+            }
+
+            List<OfferDto> offers =
+                    offerRepository
+                            .findByCandidateId(
+                                    candidate.getId()
+                            )
+                            .stream()
+                            // PENDING means draft.
+                            // Candidate should only see sent offers.
+                            .filter(
+                                    offer ->
+                                            offer.getStatus()
+                                                    != OfferStatus.PENDING
+                            )
+                            .map(this::convertToDto)
+                            .toList();
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Offers fetched successfully",
+                            offers
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to fetch candidate offers: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
+        }
+    }
+
 
     // ============================================================
     // GET OFFER BY ID
@@ -244,6 +315,7 @@ public class OfferService {
         }
     }
 
+
     // ============================================================
     // SEARCH
     // ============================================================
@@ -277,9 +349,7 @@ public class OfferService {
         } catch (Exception e) {
 
             return ResponseEntity
-                    .status(
-                            HttpStatus.INTERNAL_SERVER_ERROR
-                    )
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -289,6 +359,7 @@ public class OfferService {
                     );
         }
     }
+
 
     // ============================================================
     // FILTER BY STATUS
@@ -319,9 +390,7 @@ public class OfferService {
         } catch (Exception e) {
 
             return ResponseEntity
-                    .status(
-                            HttpStatus.INTERNAL_SERVER_ERROR
-                    )
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -332,17 +401,24 @@ public class OfferService {
         }
     }
 
+
     // ============================================================
     // SEND OFFER
+    // HR
     // ============================================================
 
-    public ResponseEntity<ApiResponse<OfferDto>> sendOffer(Long offerId) {
+    public ResponseEntity<ApiResponse<OfferDto>>
+    sendOffer(
+            Long offerId
+    ) {
 
         try {
 
-            Offer offer = getOfferEntity(offerId);
+            Offer offer =
+                    getOfferEntity(offerId);
 
-            if (offer.getStatus() == OfferStatus.ACCEPTED) {
+            if (offer.getStatus() ==
+                    OfferStatus.ACCEPTED) {
 
                 return ResponseEntity
                         .badRequest()
@@ -355,7 +431,8 @@ public class OfferService {
                         );
             }
 
-            if (offer.getStatus() == OfferStatus.REJECTED) {
+            if (offer.getStatus() ==
+                    OfferStatus.REJECTED) {
 
                 return ResponseEntity
                         .badRequest()
@@ -368,7 +445,8 @@ public class OfferService {
                         );
             }
 
-            if (offer.getStatus() == OfferStatus.SENT) {
+            if (offer.getStatus() ==
+                    OfferStatus.SENT) {
 
                 return ResponseEntity
                         .badRequest()
@@ -381,7 +459,9 @@ public class OfferService {
                         );
             }
 
-            offer.setStatus(OfferStatus.SENT);
+            offer.setStatus(
+                    OfferStatus.SENT
+            );
 
             Offer updated =
                     offerRepository.save(offer);
@@ -407,13 +487,61 @@ public class OfferService {
                     );
         }
     }
-    public ResponseEntity<ApiResponse<OfferDto>> acceptOffer(Long offerId) {
+
+
+    // ============================================================
+    // ACCEPT OFFER
+    // CANDIDATE
+    // ============================================================
+
+    public ResponseEntity<ApiResponse<OfferDto>>
+    acceptOffer(
+            Long offerId,
+            String email
+    ) {
 
         try {
 
-            Offer offer = getOfferEntity(offerId);
+            Candidate candidate =
+                    candidateRepository
+                            .findByEmailIgnoreCase(email)
+                            .orElse(null);
 
-            if (offer.getStatus() == OfferStatus.ACCEPTED) {
+            if (candidate == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Candidate not found",
+                                        null
+                                )
+                        );
+            }
+
+            Offer offer =
+                    getOfferEntity(offerId);
+
+            // IMPORTANT:
+            // Candidate can only accept their own offer.
+            if (offer.getCandidateId() == null ||
+                    !offer.getCandidateId()
+                            .equals(candidate.getId())) {
+
+                return ResponseEntity
+                        .status(HttpStatus.FORBIDDEN)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "You are not allowed to accept this offer",
+                                        null
+                                )
+                        );
+            }
+
+            if (offer.getStatus() ==
+                    OfferStatus.ACCEPTED) {
 
                 return ResponseEntity
                         .badRequest()
@@ -426,7 +554,8 @@ public class OfferService {
                         );
             }
 
-            if (offer.getStatus() == OfferStatus.REJECTED) {
+            if (offer.getStatus() ==
+                    OfferStatus.REJECTED) {
 
                 return ResponseEntity
                         .badRequest()
@@ -439,7 +568,8 @@ public class OfferService {
                         );
             }
 
-            if (offer.getStatus() == OfferStatus.PENDING) {
+            if (offer.getStatus() !=
+                    OfferStatus.SENT) {
 
                 return ResponseEntity
                         .badRequest()
@@ -452,7 +582,9 @@ public class OfferService {
                         );
             }
 
-            offer.setStatus(OfferStatus.ACCEPTED);
+            offer.setStatus(
+                    OfferStatus.ACCEPTED
+            );
 
             Offer updated =
                     offerRepository.save(offer);
@@ -478,13 +610,61 @@ public class OfferService {
                     );
         }
     }
-    public ResponseEntity<ApiResponse<OfferDto>> rejectOffer(Long offerId) {
+
+
+    // ============================================================
+    // REJECT OFFER
+    // CANDIDATE
+    // ============================================================
+
+    public ResponseEntity<ApiResponse<OfferDto>>
+    rejectOffer(
+            Long offerId,
+            String email
+    ) {
 
         try {
 
-            Offer offer = getOfferEntity(offerId);
+            Candidate candidate =
+                    candidateRepository
+                            .findByEmailIgnoreCase(email)
+                            .orElse(null);
 
-            if (offer.getStatus() == OfferStatus.REJECTED) {
+            if (candidate == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Candidate not found",
+                                        null
+                                )
+                        );
+            }
+
+            Offer offer =
+                    getOfferEntity(offerId);
+
+            // IMPORTANT:
+            // Candidate can only reject their own offer.
+            if (offer.getCandidateId() == null ||
+                    !offer.getCandidateId()
+                            .equals(candidate.getId())) {
+
+                return ResponseEntity
+                        .status(HttpStatus.FORBIDDEN)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "You are not allowed to reject this offer",
+                                        null
+                                )
+                        );
+            }
+
+            if (offer.getStatus() ==
+                    OfferStatus.REJECTED) {
 
                 return ResponseEntity
                         .badRequest()
@@ -497,7 +677,8 @@ public class OfferService {
                         );
             }
 
-            if (offer.getStatus() == OfferStatus.ACCEPTED) {
+            if (offer.getStatus() ==
+                    OfferStatus.ACCEPTED) {
 
                 return ResponseEntity
                         .badRequest()
@@ -510,7 +691,23 @@ public class OfferService {
                         );
             }
 
-            offer.setStatus(OfferStatus.REJECTED);
+            if (offer.getStatus() !=
+                    OfferStatus.SENT) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Offer must be sent before it can be rejected",
+                                        null
+                                )
+                        );
+            }
+
+            offer.setStatus(
+                    OfferStatus.REJECTED
+            );
 
             Offer updated =
                     offerRepository.save(offer);
@@ -536,6 +733,12 @@ public class OfferService {
                     );
         }
     }
+
+
+    // ============================================================
+    // OFFER STATISTICS
+    // ============================================================
+
     public ResponseEntity<ApiResponse<OfferStatsDto>>
     getStats() {
 
@@ -585,9 +788,7 @@ public class OfferService {
         } catch (Exception e) {
 
             return ResponseEntity
-                    .status(
-                            HttpStatus.INTERNAL_SERVER_ERROR
-                    )
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -597,6 +798,7 @@ public class OfferService {
                     );
         }
     }
+
 
     // ============================================================
     // HELPER
@@ -615,6 +817,11 @@ public class OfferService {
                                 )
                 );
     }
+
+
+    // ============================================================
+    // ENTITY -> DTO
+    // ============================================================
 
     private OfferDto convertToDto(
             Offer offer
@@ -667,32 +874,5 @@ public class OfferService {
                 )
 
                 .build();
-    }
-    private void validateStatusTransition(
-            OfferStatus currentStatus,
-            OfferStatus newStatus
-    ) {
-
-        if (currentStatus == OfferStatus.ACCEPTED) {
-            throw new RuntimeException(
-                    "Accepted offer status cannot be changed"
-            );
-        }
-
-        if (currentStatus == OfferStatus.REJECTED) {
-            throw new RuntimeException(
-                    "Rejected offer status cannot be changed"
-            );
-        }
-
-        if (
-                newStatus == OfferStatus.ACCEPTED &&
-                        currentStatus != OfferStatus.SENT
-        ) {
-
-            throw new RuntimeException(
-                    "Offer must be sent before it can be accepted"
-            );
-        }
     }
 }

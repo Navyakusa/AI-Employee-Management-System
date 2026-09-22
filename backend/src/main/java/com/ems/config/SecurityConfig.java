@@ -33,6 +33,7 @@ public class SecurityConfig {
     ) throws Exception {
 
         http
+
                 // =========================
                 // CORS
                 // =========================
@@ -88,6 +89,19 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/candidate-profile/**"
                         ).hasRole("CANDIDATE")
+
+                        // =========================
+                        // EMPLOYEE PROFILE
+                        // =========================
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/profile/get"
+                        ).hasRole("EMPLOYEE")
+
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/profile/update"
+                        ).hasRole("EMPLOYEE")
 
                         // =========================
                         // ATTENDANCE APIs
@@ -235,6 +249,105 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/interview-feedback/**"
+                        ).hasAnyRole(
+                                "HR",
+                                "HIRING_MANAGER",
+                                "RECRUITER",
+                                "SUPER_ADMIN"
+                        )
+
+                        // =========================
+                        // OFFER APIs
+                        // =========================
+
+                        // Candidate - My Offers
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/offers/my"
+                        ).hasRole("CANDIDATE")
+
+                        // Candidate - Accept Offer
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/offers/*/accept"
+                        ).hasRole("CANDIDATE")
+
+                        // Candidate - Reject Offer
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/offers/*/reject"
+                        ).hasRole("CANDIDATE")
+
+                        // HR - Create Offer
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/offers"
+                        ).hasAnyRole(
+                                "HR",
+                                "HIRING_MANAGER",
+                                "RECRUITER",
+                                "SUPER_ADMIN"
+                        )
+
+                        // HR - Get All Offers
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/offers"
+                        ).hasAnyRole(
+                                "HR",
+                                "HIRING_MANAGER",
+                                "RECRUITER",
+                                "SUPER_ADMIN"
+                        )
+
+                        // HR - Search Offers
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/offers/search"
+                        ).hasAnyRole(
+                                "HR",
+                                "HIRING_MANAGER",
+                                "RECRUITER",
+                                "SUPER_ADMIN"
+                        )
+
+                        // HR - Filter Offers
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/offers/status"
+                        ).hasAnyRole(
+                                "HR",
+                                "HIRING_MANAGER",
+                                "RECRUITER",
+                                "SUPER_ADMIN"
+                        )
+
+                        // HR - Send Offer
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/offers/*/send"
+                        ).hasAnyRole(
+                                "HR",
+                                "HIRING_MANAGER",
+                                "RECRUITER",
+                                "SUPER_ADMIN"
+                        )
+
+                        // HR - Offer Statistics
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/offers/stats"
+                        ).hasAnyRole(
+                                "HR",
+                                "HIRING_MANAGER",
+                                "RECRUITER",
+                                "SUPER_ADMIN"
+                        )
+
+                        // HR - Get Offer By ID
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/offers/*"
                         ).hasAnyRole(
                                 "HR",
                                 "HIRING_MANAGER",
