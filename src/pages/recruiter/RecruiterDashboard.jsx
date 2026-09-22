@@ -51,13 +51,7 @@ function RecruiterDashboard() {
         setLoading(true);
         setError("");
 
-        const response = await apiClient.get(
-
-          "/recruiter/dashboard"
-
-          "/api/recruiter/dashboard"
-
-        );
+        const response = await apiClient.get("/recruiter/dashboard");
 
         console.log(
           "Recruiter dashboard response:",
