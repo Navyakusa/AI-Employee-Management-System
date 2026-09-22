@@ -19,15 +19,15 @@ public interface ShortlistedCandidateMapper {
     )
     @Mapping(
             target = "candidateId",
-            source = "user.userId"
+            source = "candidate.id"
     )
     @Mapping(
             target = "candidateName",
-            source = "user.userName"
+            source = "candidate.name"
     )
     @Mapping(
             target = "email",
-            source = "user.email"
+            source = "candidate.email"
     )
     @Mapping(
             target = "jobId",

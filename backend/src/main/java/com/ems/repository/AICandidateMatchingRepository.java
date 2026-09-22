@@ -7,9 +7,12 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface AICandidateMatchingRepository extends JpaRepository<AICandidateMatching, Long> {
+public interface AICandidateMatchingRepository
+        extends JpaRepository<AICandidateMatching, Long> {
+
     Optional<AICandidateMatching>
-    findByCandidateIdAndJobId(
+    findFirstByCandidateIdAndJobIdOrderByIdDesc(
             Long candidateId,
             Long jobId
-    );}
+    );
+}

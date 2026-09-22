@@ -75,7 +75,7 @@ public class ApplicationService {
         Long candidateId =
                 application.getCandidateId();
 
-        // First: correct relationship
+        // Correct relationship:
         // Application.candidateId -> Candidate.id
 
         Candidate candidate =
@@ -270,8 +270,7 @@ public class ApplicationService {
             Application application =
                     new Application();
 
-            // IMPORTANT:
-            // New applications store Candidate.id.
+            // New applications store Candidate.id
             application.setCandidateId(
                     candidate.getId()
             );
@@ -408,6 +407,7 @@ public class ApplicationService {
                                 );
 
                 if (!alreadyIncluded) {
+
                     applications.add(
                             oldApplication
                     );
@@ -637,12 +637,6 @@ public class ApplicationService {
                     continue;
                 }
 
-                /*
-                 * User is optional here.
-                 *
-                 * The Candidate can exist without
-                 * a login account.
-                 */
                 User user =
                         findUserForCandidate(
                                 candidate
@@ -655,9 +649,19 @@ public class ApplicationService {
                                 )
                                 .orElse(null);
 
+                /*
+                 * IMPORTANT:
+                 *
+                 * There may be multiple AI matching
+                 * records for the same candidate + job.
+                 *
+                 * We intentionally fetch the latest
+                 * record by ID instead of expecting a
+                 * unique result.
+                 */
                 AICandidateMatching aiMatching =
                         aiCandidateMatchingRepository
-                                .findByCandidateIdAndJobId(
+                                .findFirstByCandidateIdAndJobIdOrderByIdDesc(
                                         candidate.getId(),
                                         job.getId()
                                 )
@@ -748,7 +752,6 @@ public class ApplicationService {
                         );
             }
 
-            // IMPORTANT:
             // Application.candidateId -> Candidate.id
             Candidate candidate =
                     findCandidateForApplication(
@@ -769,10 +772,10 @@ public class ApplicationService {
             }
 
             /*
-             * User is OPTIONAL.
+             * User is optional.
              *
-             * Rahul has a Candidate record but no User record.
-             * Therefore we do not fail the review request.
+             * Candidate can exist without
+             * a login account.
              */
             User user =
                     findUserForCandidate(
@@ -806,9 +809,17 @@ public class ApplicationService {
                             )
                             .orElse(null);
 
+            /*
+             * IMPORTANT:
+             *
+             * Multiple AI matching records may exist
+             * for the same candidate + job.
+             *
+             * Fetch the latest record by ID.
+             */
             AICandidateMatching aiMatching =
                     aiCandidateMatchingRepository
-                            .findByCandidateIdAndJobId(
+                            .findFirstByCandidateIdAndJobIdOrderByIdDesc(
                                     candidate.getId(),
                                     job.getId()
                             )
