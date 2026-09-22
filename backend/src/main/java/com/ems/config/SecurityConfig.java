@@ -96,12 +96,20 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/profile/get"
-                        ).hasRole("EMPLOYEE")
+                        ).hasAnyRole(
+                                "EMPLOYEE",
+                                "HIRING_MANAGER",
+                                "RECRUITER"
+                        )
 
                         .requestMatchers(
                                 HttpMethod.PUT,
                                 "/api/profile/update"
-                        ).hasRole("EMPLOYEE")
+                        ).hasAnyRole(
+                                "EMPLOYEE",
+                                "HIRING_MANAGER",
+                                "RECRUITER"
+                        )
 
                         // =========================
                         // ATTENDANCE APIs
@@ -409,7 +417,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-
     // =========================
     // CORS CONFIGURATION
     // =========================
@@ -451,7 +458,6 @@ public class SecurityConfig {
 
         return source;
     }
-
 
     // =========================
     // AUTHENTICATION MANAGER
