@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Chatbot from "./components/Chatbot";
 // Recruiter pages
 import RecruiterDashboard from "./pages/recruiter/RecruiterDashboard";
 import RecruiterNotifications from "./pages/recruiter/RecruiterNotifications";
@@ -49,8 +50,11 @@ import NotFoundPage from "./pages/public/NotFoundPage";
 import LoginPage from "./pages/public/auth/LoginPage";
 import SignupPage from "./pages/public/auth/SignupPage";
 
+<<<<<<< Updated upstream
 
 import Chatbot from "./pages/public/Chatbot";
+=======
+>>>>>>> Stashed changes
 
 
 
@@ -119,7 +123,6 @@ function App() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
-          <Route path="/chatbot" element={<Chatbot />} />
         </Route>
 
         <Route path="/hr/dashboard" element={<HRDashboard />} />
@@ -359,7 +362,7 @@ function App() {
   element={<HiringManagerJobDetails />}
 />
 <Route
-  path="/hiring-manager/candidate-review/:candidateId"
+  path="/hiring-manager/shortlisted-candidates/:applicationId"
   element={<HiringManagerCandidateReview />}
 />
 <Route
@@ -491,6 +494,8 @@ function App() {
         <Route path="*" element={<NotFoundPage />} />
 
       </Routes>
+
+      <Chatbot />
     </BrowserRouter>
   );
 }

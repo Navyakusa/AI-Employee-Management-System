@@ -1,79 +1,201 @@
+import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-
 import {
   ArrowLeft,
-  BriefcaseBusiness,
   MapPin,
+  Briefcase,
   Users,
-  Clock3,
-  Building2,
   GraduationCap,
-  CalendarDays,
-  CheckCircle2,
+  Calendar,
+  Clock,
+  Building2,
+  FileText,
 } from "lucide-react";
 
 import HiringManagerSidebar from "./HiringManagerSidebar";
 import HiringManagerNavbar from "./HiringManagerNavbar";
-
 import "./HiringManagerDashboard.css";
 
-function HiringManagerJobDetails() {
-  const navigate = useNavigate();
+const HiringManagerJobDetails = () => {
   const location = useLocation();
+  const navigate = useNavigate();
 
+  // Job data is passed from HiringManagerJobs.jsx
   const job = location.state?.job;
 
-  // ============================================================
-  // IF USER DIRECTLY OPENS URL WITHOUT JOB DATA
-  // ============================================================
-
+  /*
+  --------------------------------------------------
+  If job data is not available
+  --------------------------------------------------
+  */
   if (!job) {
     return (
-      <div className="hiring-manager-layout">
+      <div className="hr-layout">
         <HiringManagerSidebar />
 
-        <div className="hiring-manager-main">
+        <div className="hr-main-content">
           <HiringManagerNavbar />
 
-          <main className="hiring-manager-dashboard-content">
-            <div className="hiring-manager-job-not-found">
-              <BriefcaseBusiness size={40} />
+          <div className="hr-content">
+            <button
+              className="back-button"
+              onClick={() => navigate("/hiring-manager/jobs")}
+            >
+              <ArrowLeft size={18} />
+              Back to Assigned Jobs
+            </button>
 
-              <h2>Job details not available</h2>
+            <div className="empty-state">
+              <FileText size={48} />
+
+              <h2>Job Details Not Available</h2>
 
               <p>
-                Please return to Assigned Jobs and select a job.
+                The selected job information is not available.
+                Please return to Assigned Jobs and select a job again.
               </p>
 
               <button
-                onClick={() =>
-                  navigate("/hiring-manager/jobs")
-                }
+                className="primary-button"
+                onClick={() => navigate("/hiring-manager/jobs")}
               >
-                Back to Assigned Jobs
+                View Assigned Jobs
               </button>
             </div>
-          </main>
+          </div>
         </div>
       </div>
     );
   }
 
+  /*
+  --------------------------------------------------
+  Normalize job fields
+  --------------------------------------------------
+  */
+
+  const title = job.title || job.jobTitle || "Untitled Job";
+
+  const department =
+    job.department || "Not specified";
+
+  const locationValue =
+    job.location || "Not specified";
+
+  const status =
+    job.status || "OPEN";
+
+  const experience =
+    job.experience ||
+    job.experienceRequired ||
+    "Not specified";
+
+  const employmentType =
+    job.employmentType ||
+    "Not specified";
+
+  const candidates =
+    job.candidates ??
+    job.candidateCount ??
+    job.applicationCount ??
+    0;
+
+  const openings =
+    job.openings ??
+    job.numberOfOpenings ??
+    0;
+
+  const education =
+    job.education ||
+    job.educationRequired ||
+    "Not specified";
+
+  const description =
+    job.description ||
+    "No job description available.";
+
+  const skills =
+    job.skills ||
+    job.requiredSkills ||
+    [];
+
+  const postedDate =
+    job.postedDate ||
+    job.createdAt ||
+    "";
+
+  const closingDate =
+    job.closingDate ||
+    job.applicationDeadline ||
+    "";
+
+  /*
+  --------------------------------------------------
+  Format dates
+  --------------------------------------------------
+  */
+
+  const formatDate = (date) => {
+    if (!date) {
+      return "Not specified";
+    }
+
+    try {
+      return new Date(date).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return date;
+    }
+  };
+
+  /*
+  --------------------------------------------------
+  Convert skills into array
+  --------------------------------------------------
+  */
+
+  const skillList = Array.isArray(skills)
+    ? skills
+    : typeof skills === "string"
+      ? skills
+          .split(",")
+          .map((skill) => skill.trim())
+          .filter(Boolean)
+      : [];
+
+  /*
+  --------------------------------------------------
+  Status class
+  --------------------------------------------------
+  */
+
+  const statusClass =
+    String(status).toUpperCase() === "OPEN"
+      ? "status-active"
+      : "status-closed";
+
+  /*
+  --------------------------------------------------
+  Render
+  --------------------------------------------------
+  */
+
   return (
-    <div className="hiring-manager-layout">
+    <div className="hr-layout">
       <HiringManagerSidebar />
 
-      <div className="hiring-manager-main">
+      <div className="hr-main-content">
         <HiringManagerNavbar />
 
-        <main className="hiring-manager-dashboard-content">
+        <div className="hr-content">
 
-          {/* ====================================================
-              BACK BUTTON
-          ==================================================== */}
+          {/* Back Button */}
 
           <button
-            className="hiring-manager-job-details-back"
+            className="back-button"
             onClick={() =>
               navigate("/hiring-manager/jobs")
             }
@@ -82,234 +204,287 @@ function HiringManagerJobDetails() {
             Back to Assigned Jobs
           </button>
 
-          {/* ====================================================
-              JOB HEADER
-          ==================================================== */}
 
-          <section className="hiring-manager-job-details-header">
+          {/* Job Header */}
 
-            <div className="hiring-manager-job-details-title">
+          <div className="job-details-header">
 
-              <div className="hiring-manager-job-details-icon">
-                <BriefcaseBusiness size={26} />
+            <div className="job-details-header-left">
+
+              <div className="job-icon-large">
+                <Briefcase size={30} />
               </div>
 
               <div>
-                <p className="hiring-manager-label">
-                  JOB DETAILS
+                <h1>{title}</h1>
+
+                <p className="job-details-department">
+                  <Building2 size={16} />
+                  {department}
                 </p>
-
-                <h1>{job.title}</h1>
-
-                <p>{job.department}</p>
               </div>
 
             </div>
 
-            <span
-              className={`hiring-manager-job-status ${
-                job.status === "Active"
-                  ? "active"
-                  : "closed"
-              }`}
-            >
-              {job.status}
+            <span className={`job-status ${statusClass}`}>
+              {String(status).toUpperCase() === "OPEN"
+                ? "Active"
+                : "Closed"}
             </span>
 
-          </section>
+          </div>
 
-          {/* ====================================================
-              JOB INFORMATION
-          ==================================================== */}
 
-          <section className="hiring-manager-job-details-info-grid">
+          {/* Job Summary Cards */}
 
-            <div className="hiring-manager-job-detail-info-card">
-              <MapPin size={21} />
+          <div className="job-summary-grid">
+
+            <div className="job-summary-card">
+              <MapPin size={22} />
 
               <div>
                 <span>Location</span>
-                <strong>{job.location}</strong>
+                <strong>{locationValue}</strong>
               </div>
             </div>
 
-            <div className="hiring-manager-job-detail-info-card">
-              <Clock3 size={21} />
+
+            <div className="job-summary-card">
+              <Briefcase size={22} />
 
               <div>
                 <span>Experience</span>
-                <strong>{job.experience}</strong>
+                <strong>{experience}</strong>
               </div>
             </div>
 
-            <div className="hiring-manager-job-detail-info-card">
-              <BriefcaseBusiness size={21} />
 
-              <div>
-                <span>Employment Type</span>
-                <strong>
-                  {job.employmentType || "Full Time"}
-                </strong>
-              </div>
-            </div>
-
-            <div className="hiring-manager-job-detail-info-card">
-              <Users size={21} />
+            <div className="job-summary-card">
+              <Users size={22} />
 
               <div>
                 <span>Candidates</span>
-                <strong>
-                  {job.candidates}
-                </strong>
+                <strong>{candidates}</strong>
               </div>
             </div>
 
-            <div className="hiring-manager-job-detail-info-card">
-              <Building2 size={21} />
+
+            <div className="job-summary-card">
+              <Users size={22} />
 
               <div>
-                <span>Department</span>
-                <strong>
-                  {job.department}
-                </strong>
+                <span>Openings</span>
+                <strong>{openings}</strong>
               </div>
             </div>
 
-            <div className="hiring-manager-job-detail-info-card">
-              <GraduationCap size={21} />
+          </div>
 
-              <div>
-                <span>Education</span>
-                <strong>
-                  {job.education || "Not Specified"}
-                </strong>
-              </div>
-            </div>
 
-          </section>
+          {/* Main Details */}
 
-          {/* ====================================================
-              MAIN DETAILS
-          ==================================================== */}
+          <div className="job-details-grid">
 
-          <div className="hiring-manager-job-details-content-grid">
+            {/* Left Section */}
 
-            {/* LEFT */}
+            <div className="job-details-main">
 
-            <div>
+              {/* Job Description */}
 
-              {/* JOB DESCRIPTION */}
+              <section className="details-card">
 
-              <section className="hiring-manager-job-details-section">
-                <h2>Job Description</h2>
+                <div className="details-card-header">
+                  <FileText size={20} />
+                  <h2>Job Description</h2>
+                </div>
 
-                <p>
-                  {job.description ||
-                    "No job description available."}
+                <p className="job-description">
+                  {description}
                 </p>
+
               </section>
 
-              {/* REQUIRED SKILLS */}
 
-              <section className="hiring-manager-job-details-section">
-                <h2>Required Skills</h2>
+              {/* Required Skills */}
 
-                <div className="hiring-manager-job-details-skills">
+              <section className="details-card">
 
-                  {job.skills?.length > 0 ? (
-                    job.skills.map((skill) => (
-                      <span key={skill}>
-                        <CheckCircle2 size={15} />
+                <div className="details-card-header">
+                  <Briefcase size={20} />
+                  <h2>Required Skills</h2>
+                </div>
+
+                {skillList.length > 0 ? (
+                  <div className="skills-container">
+                    {skillList.map((skill, index) => (
+                      <span
+                        className="skill-tag"
+                        key={`${skill}-${index}`}
+                      >
                         {skill}
                       </span>
-                    ))
-                  ) : (
-                    <p>
-                      No required skills specified.
-                    </p>
-                  )}
+                    ))}
+                  </div>
+                ) : (
+                  <p className="muted-text">
+                    No skills specified.
+                  </p>
+                )}
 
-                </div>
               </section>
 
             </div>
 
-            {/* RIGHT */}
 
-            <div>
+            {/* Right Section */}
 
-              <section className="hiring-manager-job-details-section">
-                <h2>Job Overview</h2>
+            <div className="job-details-side">
 
-                <div className="hiring-manager-job-overview">
+              {/* Job Information */}
 
-                  <div>
-                    <span>Openings</span>
-                    <strong>
-                      {job.openings || 1}
-                    </strong>
-                  </div>
+              <section className="details-card">
 
-                  <div>
-                    <span>Applications</span>
-                    <strong>
-                      {job.candidates}
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span>Posted Date</span>
-                    <strong>
-                      {job.postedDate ||
-                        "Not Available"}
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span>Closing Date</span>
-                    <strong>
-                      {job.closingDate ||
-                        "Not Available"}
-                    </strong>
-                  </div>
-
+                <div className="details-card-header">
+                  <Briefcase size={20} />
+                  <h2>Job Information</h2>
                 </div>
+
+
+                <div className="detail-row">
+                  <span>Employment Type</span>
+                  <strong>{employmentType}</strong>
+                </div>
+
+
+                <div className="detail-row">
+                  <span>Education</span>
+                  <strong>{education}</strong>
+                </div>
+
+
+                <div className="detail-row">
+                  <span>Experience</span>
+                  <strong>{experience}</strong>
+                </div>
+
+
+                <div className="detail-row">
+                  <span>Department</span>
+                  <strong>{department}</strong>
+                </div>
+
+
+                <div className="detail-row">
+                  <span>Location</span>
+                  <strong>{locationValue}</strong>
+                </div>
+
               </section>
 
-              {/* RECRUITMENT STATUS */}
 
-              <section className="hiring-manager-job-details-section">
-                <h2>Recruitment Status</h2>
+              {/* Dates */}
 
-                <div className="hiring-manager-recruitment-status">
+              <section className="details-card">
 
-                  <CalendarDays size={20} />
+                <div className="details-card-header">
+                  <Calendar size={20} />
+                  <h2>Important Dates</h2>
+                </div>
 
-                  <div>
-                    <strong>
-                      {job.status === "Active"
-                        ? "Recruitment in Progress"
-                        : "Recruitment Closed"}
-                    </strong>
 
-                    <span>
-                      {job.status === "Active"
-                        ? "Candidate evaluation is currently active."
-                        : "This job is no longer accepting candidates."}
-                    </span>
-                  </div>
+                <div className="detail-row">
+
+                  <span>
+                    <Clock size={15} />
+                    Posted Date
+                  </span>
+
+                  <strong>
+                    {formatDate(postedDate)}
+                  </strong>
 
                 </div>
+
+
+                <div className="detail-row">
+
+                  <span>
+                    <Calendar size={15} />
+                    Closing Date
+                  </span>
+
+                  <strong>
+                    {formatDate(closingDate)}
+                  </strong>
+
+                </div>
+
+              </section>
+
+
+              {/* Candidate Information */}
+
+              <section className="details-card">
+
+                <div className="details-card-header">
+                  <Users size={20} />
+                  <h2>Candidate Overview</h2>
+                </div>
+
+
+                <div className="candidate-overview">
+
+                  <div className="candidate-number">
+                    {candidates}
+                  </div>
+
+                  <p>
+                    Candidates have applied for this
+                    position.
+                  </p>
+
+                </div>
+
               </section>
 
             </div>
 
           </div>
 
-        </main>
+
+          {/* Bottom Action */}
+
+          <div className="job-details-actions">
+
+            <button
+              className="secondary-button"
+              onClick={() =>
+                navigate(
+                  "/hiring-manager/shortlisted-candidates"
+                )
+              }
+            >
+              <Users size={18} />
+              View Shortlisted Candidates
+            </button>
+
+            <button
+              className="primary-button"
+              onClick={() =>
+                navigate(
+                  "/hiring-manager/interviews"
+                )
+              }
+            >
+              View Interviews
+            </button>
+
+          </div>
+
+        </div>
       </div>
     </div>
   );
-}
+};
 
 export default HiringManagerJobDetails;

@@ -32,9 +32,7 @@ function Navbar() {
           >
             Login
           </Link>
-          <Link to="/chatbot" className="chatbot-link">
-            AI Chatbot
-          </Link>
+          
         </div>
         
 

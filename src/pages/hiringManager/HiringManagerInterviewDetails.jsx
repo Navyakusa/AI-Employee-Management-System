@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -10,10 +11,13 @@ import {
   BriefcaseBusiness,
   Mail,
   MessageSquareText,
+  ExternalLink,
 } from "lucide-react";
 
 import HiringManagerSidebar from "./HiringManagerSidebar";
 import HiringManagerNavbar from "./HiringManagerNavbar";
+
+import { getInterviewDetails } from "./HiringManagerApi";
 
 import "./HiringManagerDashboard.css";
 
@@ -21,67 +25,251 @@ function HiringManagerInterviewDetails() {
   const navigate = useNavigate();
   const { interviewId } = useParams();
 
-  // Temporary frontend data
-  // Backend integration will replace this later
-  const interviews = [
-    {
-      id: 1,
-      candidate: "Ananya Sharma",
-      email: "ananya@gmail.com",
-      job: "Java Backend Developer",
-      date: "18 Sep 2026",
-      time: "11:00 AM",
-      mode: "Online",
-      location: "Google Meet",
-      status: "Scheduled",
-      interviewer: "Raj Kumar",
-      notes:
-        "Evaluate Java fundamentals, Spring Boot knowledge, REST APIs and backend problem-solving skills.",
-    },
-    {
-      id: 2,
-      candidate: "Rahul Verma",
-      email: "rahul@gmail.com",
-      job: "React Frontend Developer",
-      date: "20 Sep 2026",
-      time: "2:30 PM",
-      mode: "Offline",
-      location: "Hyderabad Office",
-      status: "Scheduled",
-      interviewer: "Priya Reddy",
-      notes:
-        "Evaluate React fundamentals, JavaScript, component design and frontend problem-solving skills.",
-    },
-    {
-      id: 3,
-      candidate: "Sneha Reddy",
-      email: "sneha@gmail.com",
-      job: "QA Engineer",
-      date: "15 Sep 2026",
-      time: "10:00 AM",
-      mode: "Online",
-      location: "Microsoft Teams",
-      status: "Completed",
-      interviewer: "Arjun Kumar",
-      notes:
-        "Candidate completed the technical interview. Interview feedback is available for Hiring Manager review.",
-    },
-  ];
+  const [interview, setInterview] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const interview =
-    interviews.find(
-      (item) => item.id === Number(interviewId)
-    ) || interviews[0];
+  useEffect(() => {
+    const fetchInterviewDetails = async () => {
+      try {
+        setLoading(true);
+        setError("");
 
-  const initials = interview.candidate
+        const response = await getInterviewDetails(interviewId);
+
+        console.log("Interview details:", response);
+
+        if (response?.success && response?.data) {
+          setInterview(response.data);
+        } else {
+          setError(
+            response?.message ||
+              "Interview details not found."
+          );
+        }
+      } catch (err) {
+        console.error(
+          "Failed to fetch interview details:",
+          err
+        );
+
+        setError(
+          err.message ||
+            "Failed to load interview details."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (interviewId) {
+      fetchInterviewDetails();
+    }
+  }, [interviewId]);
+
+  /*
+  ========================================================
+  HELPERS
+  ========================================================
+  */
+
+  const formatStatus = (status) => {
+    if (!status) {
+      return "Not specified";
+    }
+
+    return status
+      .toLowerCase()
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (letter) =>
+        letter.toUpperCase()
+      );
+  };
+
+  const formatDateTime = (dateTime) => {
+    if (!dateTime) {
+      return {
+        date: "Not specified",
+        time: "Not specified",
+      };
+    }
+
+    const date = new Date(dateTime);
+
+    if (Number.isNaN(date.getTime())) {
+      return {
+        date: "Not specified",
+        time: "Not specified",
+      };
+    }
+
+    return {
+      date: date.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+
+      time: date.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
+  };
+
+  /*
+  ========================================================
+  LOADING
+  ========================================================
+  */
+
+  if (loading) {
+    return (
+      <div className="hiring-manager-layout">
+
+        <HiringManagerSidebar />
+
+        <div className="hiring-manager-main">
+
+          <HiringManagerNavbar />
+
+          <main className="hiring-manager-dashboard-content">
+
+            <div
+              style={{
+                padding: "60px",
+                textAlign: "center",
+              }}
+            >
+              <h2>
+                Loading interview details...
+              </h2>
+            </div>
+
+          </main>
+
+        </div>
+
+      </div>
+    );
+  }
+
+  /*
+  ========================================================
+  ERROR
+  ========================================================
+  */
+
+  if (error || !interview) {
+    return (
+      <div className="hiring-manager-layout">
+
+        <HiringManagerSidebar />
+
+        <div className="hiring-manager-main">
+
+          <HiringManagerNavbar />
+
+          <main className="hiring-manager-dashboard-content">
+
+            <div
+              style={{
+                background: "#fee2e2",
+                color: "#b91c1c",
+                padding: "20px",
+                borderRadius: "10px",
+                marginBottom: "20px",
+              }}
+            >
+              {error ||
+                "Interview details not found."}
+            </div>
+
+            <button
+              type="button"
+              className="hm-interview-join-button"
+              onClick={() =>
+                navigate(
+                  "/hiring-manager/interviews"
+                )
+              }
+            >
+              <ArrowLeft size={16} />
+              Back to Interviews
+            </button>
+
+          </main>
+
+        </div>
+
+      </div>
+    );
+  }
+
+  /*
+  ========================================================
+  REAL BACKEND DATA
+  ========================================================
+  */
+
+  const candidateName =
+    interview.candidateName ||
+    "Not specified";
+
+  const candidateEmail =
+    interview.candidateEmail ||
+    "Not specified";
+
+  const position =
+    interview.position ||
+    "Not specified";
+
+  const status =
+    interview.status || "NOT SPECIFIED";
+
+  const interviewStatus =
+    formatStatus(status);
+
+  const dateTime =
+    formatDateTime(
+      interview.interviewDateTime
+    );
+
+  const interviewMode =
+    interview.interviewMode ||
+    "Not specified";
+
+  const interviewType =
+    interview.interviewType ||
+    "Not specified";
+
+  const interviewerName =
+    interview.interviewerName ||
+    "Not specified";
+
+  const location =
+    interview.location ||
+    "Not specified";
+
+  const notes =
+    interview.notes ||
+    "No interview notes available.";
+
+  const meetingLink =
+    interview.meetingLink ||
+    null;
+
+  const initials = candidateName
     .split(" ")
+    .filter(Boolean)
     .map((word) => word[0])
     .join("")
     .slice(0, 2)
     .toUpperCase();
 
   const isCompleted =
-    interview.status === "Completed";
+    String(status).toUpperCase() ===
+    "COMPLETED";
 
   return (
     <div className="hiring-manager-layout">
@@ -102,16 +290,19 @@ function HiringManagerInterviewDetails() {
               INTERVIEW DETAILS
             </p>
 
-            <h1>Interview Details</h1>
+            <h1>
+              Interview Details
+            </h1>
 
             <p>
-              Monitor candidate interview information,
-              assigned interviewer and interview status.
+              Monitor candidate interview
+              information, assigned interviewer
+              and interview status.
             </p>
 
           </div>
 
-          {/* MAIN DETAILS CARD */}
+          {/* INTERVIEW CARD */}
 
           <section className="hm-interview-details-page-card">
 
@@ -122,12 +313,19 @@ function HiringManagerInterviewDetails() {
               <div className="hm-interview-details-candidate">
 
                 <div className="hm-interview-details-avatar">
-                  {initials}
+                  {initials || "CA"}
                 </div>
 
                 <div>
-                  <h2>{interview.candidate}</h2>
-                  <p>{interview.job}</p>
+
+                  <h2>
+                    {candidateName}
+                  </h2>
+
+                  <p>
+                    {position}
+                  </p>
+
                 </div>
 
               </div>
@@ -139,7 +337,7 @@ function HiringManagerInterviewDetails() {
                     : "scheduled"
                 }`}
               >
-                {interview.status}
+                {interviewStatus}
               </span>
 
             </div>
@@ -160,25 +358,35 @@ function HiringManagerInterviewDetails() {
                   <Mail size={18} />
 
                   <div>
-                    <span>Email</span>
+
+                    <span>
+                      Email
+                    </span>
 
                     <strong>
-                      {interview.email}
+                      {candidateEmail}
                     </strong>
+
                   </div>
 
                 </div>
 
                 <div className="hm-interview-info-item">
 
-                  <BriefcaseBusiness size={18} />
+                  <BriefcaseBusiness
+                    size={18}
+                  />
 
                   <div>
-                    <span>Applied Position</span>
+
+                    <span>
+                      Applied Position
+                    </span>
 
                     <strong>
-                      {interview.job}
+                      {position}
                     </strong>
+
                   </div>
 
                 </div>
@@ -203,11 +411,15 @@ function HiringManagerInterviewDetails() {
                   <CalendarDays size={18} />
 
                   <div>
-                    <span>Date</span>
+
+                    <span>
+                      Date
+                    </span>
 
                     <strong>
-                      {interview.date}
+                      {dateTime.date}
                     </strong>
+
                   </div>
 
                 </div>
@@ -217,29 +429,33 @@ function HiringManagerInterviewDetails() {
                   <Clock size={18} />
 
                   <div>
-                    <span>Time</span>
+
+                    <span>
+                      Time
+                    </span>
 
                     <strong>
-                      {interview.time}
+                      {dateTime.time}
                     </strong>
+
                   </div>
 
                 </div>
 
                 <div className="hm-interview-info-item">
 
-                  {interview.mode === "Online" ? (
-                    <Video size={18} />
-                  ) : (
-                    <MapPin size={18} />
-                  )}
+                  <Video size={18} />
 
                   <div>
-                    <span>Interview Mode</span>
+
+                    <span>
+                      Interview Mode
+                    </span>
 
                     <strong>
-                      {interview.mode}
+                      {interviewMode}
                     </strong>
+
                   </div>
 
                 </div>
@@ -251,13 +467,11 @@ function HiringManagerInterviewDetails() {
                   <div>
 
                     <span>
-                      {interview.mode === "Online"
-                        ? "Platform"
-                        : "Location"}
+                      Location
                     </span>
 
                     <strong>
-                      {interview.location}
+                      {location}
                     </strong>
 
                   </div>
@@ -268,13 +482,44 @@ function HiringManagerInterviewDetails() {
 
             </div>
 
-            {/* ASSIGNED INTERVIEWER */}
+            {/* INTERVIEW TYPE */}
+
+            <div className="hm-interview-details-section">
+
+              <h3>
+                <Video size={18} />
+                Interview Type
+              </h3>
+
+              <div className="hm-interview-panel-box">
+
+                <div className="hm-interview-panel-icon">
+                  <Video size={20} />
+                </div>
+
+                <div>
+
+                  <span>
+                    Interview Type
+                  </span>
+
+                  <strong>
+                    {interviewType}
+                  </strong>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* INTERVIEWER */}
 
             <div className="hm-interview-details-section">
 
               <h3>
                 <User size={18} />
-                Assigned Interviewer
+                Interview Panel
               </h3>
 
               <div className="hm-interview-panel-box">
@@ -285,10 +530,12 @@ function HiringManagerInterviewDetails() {
 
                 <div>
 
-                  <span>Interviewer</span>
+                  <span>
+                    Assigned Interviewer
+                  </span>
 
                   <strong>
-                    {interview.interviewer}
+                    {interviewerName}
                   </strong>
 
                 </div>
@@ -297,7 +544,7 @@ function HiringManagerInterviewDetails() {
 
             </div>
 
-            {/* INTERVIEW NOTES */}
+            {/* NOTES */}
 
             <div className="hm-interview-details-section">
 
@@ -307,20 +554,56 @@ function HiringManagerInterviewDetails() {
               </h3>
 
               <div className="hm-interview-notes-box">
-                {interview.notes}
+
+                {notes}
+
               </div>
 
             </div>
+
+            {/* MEETING LINK */}
+
+            {meetingLink && (
+
+              <div className="hm-interview-details-section">
+
+                <h3>
+                  <Video size={18} />
+                  Online Interview
+                </h3>
+
+                <p>
+                  Meeting link provided for
+                  this interview.
+                </p>
+
+                <button
+                  type="button"
+                  className="hm-interview-join-button"
+                  onClick={() =>
+                    window.open(
+                      meetingLink,
+                      "_blank",
+                      "noopener,noreferrer"
+                    )
+                  }
+                >
+                  <Video size={17} />
+                  Join Interview
+                  <ExternalLink size={15} />
+                </button>
+
+              </div>
+
+            )}
 
             {/* ACTIONS */}
 
             <div className="hm-interview-details-actions">
 
-              {/* BACK */}
-
               <button
                 type="button"
-                className="hm-resume-secondary-button"
+                className="hm-interview-join-button"
                 onClick={() =>
                   navigate(
                     "/hiring-manager/interviews"
@@ -331,21 +614,21 @@ function HiringManagerInterviewDetails() {
                 Back to Interviews
               </button>
 
-              {/* VIEW FEEDBACK ONLY IF COMPLETED */}
-
               {isCompleted && (
 
                 <button
                   type="button"
-                  className="hm-resume-primary-button"
+                  className="hm-interview-join-button"
                   onClick={() =>
                     navigate(
-                      `/hiring-manager/interviews/${interview.id}/feedback`
+                      `/hiring-manager/interviews/${interviewId}/feedback`
                     )
                   }
                 >
-                  <MessageSquareText size={16} />
-                  View Feedback
+                  <MessageSquareText
+                    size={16}
+                  />
+                  Give Feedback
                 </button>
 
               )}

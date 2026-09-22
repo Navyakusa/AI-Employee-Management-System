@@ -1,99 +1,107 @@
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-import {
-  Search,
-  FileText,
-  Eye,
-  Star,
-  BriefcaseBusiness,
-} from "lucide-react";
-
 import HiringManagerSidebar from "./HiringManagerSidebar";
 import HiringManagerNavbar from "./HiringManagerNavbar";
-
+import { getShortlistedCandidates } from "./HiringManagerApi";
 import "./HiringManagerDashboard.css";
 
-function HiringManagerCandidates() {
+const HiringManagerCandidates = () => {
   const navigate = useNavigate();
 
+  const [candidates, setCandidates] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Temporary frontend data
-  // Backend will replace this later
-  const candidates = [
-    {
-      id: 1,
-      name: "Ananya Sharma",
-      email: "ananya@gmail.com",
-      phone: "+91 98765 43210",
-      location: "Hyderabad",
-      job: "Java Backend Developer",
-      department: "Engineering",
-      experience: "3 Years",
-      education: "B.Tech - Computer Science",
-      skills: ["Java", "Spring Boot", "PostgreSQL"],
-      matchScore: 92,
-      status: "Shortlisted",
-      resume: "Ananya_Sharma_Resume.pdf",
-      appliedDate: "12 Sep 2026",
-    },
-    {
-      id: 2,
-      name: "Rahul Verma",
-      email: "rahul@gmail.com",
-      phone: "+91 98765 12345",
-      location: "Bangalore",
-      job: "React Frontend Developer",
-      department: "Engineering",
-      experience: "2 Years",
-      education: "B.Tech - Information Technology",
-      skills: ["React", "JavaScript", "CSS"],
-      matchScore: 87,
-      status: "Shortlisted",
-      resume: "Rahul_Verma_Resume.pdf",
-      appliedDate: "11 Sep 2026",
-    },
-    {
-      id: 3,
-      name: "Sneha Reddy",
-      email: "sneha@gmail.com",
-      phone: "+91 91234 56789",
-      location: "Hyderabad",
-      job: "QA Engineer",
-      department: "Quality Assurance",
-      experience: "4 Years",
-      education: "B.Tech - Computer Science",
-      skills: ["Selenium", "Postman", "Java"],
-      matchScore: 83,
-      status: "Shortlisted",
-      resume: "Sneha_Reddy_Resume.pdf",
-      appliedDate: "10 Sep 2026",
-    },
-  ];
+  /*
+  ========================================================
+  FETCH SHORTLISTED CANDIDATES
+  ========================================================
+  */
+
+  useEffect(() => {
+    const loadCandidates = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await getShortlistedCandidates();
+
+        // Debugging
+        console.log("FULL API RESPONSE:", response);
+        console.log("API DATA:", response?.data);
+
+        let candidateData = [];
+
+        /*
+        ApiResponse format:
+        {
+            success: true,
+            message: "...",
+            data: [...]
+        }
+        */
+
+        if (Array.isArray(response?.data)) {
+          candidateData = response.data;
+        } else if (Array.isArray(response)) {
+          candidateData = response;
+        } else if (Array.isArray(response?.content)) {
+          candidateData = response.content;
+        }
+
+        console.log("CANDIDATES TO DISPLAY:", candidateData);
+
+        setCandidates(candidateData);
+
+      } catch (err) {
+        console.error("Failed to load candidates:", err);
+
+        setError(
+          err.message || "Failed to load shortlisted candidates"
+        );
+
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCandidates();
+  }, []);
+
+  /*
+  ========================================================
+  SEARCH
+  ========================================================
+  */
 
   const filteredCandidates = candidates.filter((candidate) => {
-    const value = searchTerm.toLowerCase();
+    const search = searchTerm.toLowerCase();
 
     return (
-      candidate.name.toLowerCase().includes(value) ||
-      candidate.email.toLowerCase().includes(value) ||
-      candidate.job.toLowerCase().includes(value)
+      candidate.candidateName
+        ?.toLowerCase()
+        .includes(search) ||
+
+      candidate.email
+        ?.toLowerCase()
+        .includes(search) ||
+
+      candidate.jobTitle
+        ?.toLowerCase()
+        .includes(search)
     );
   });
 
-  const getInitials = (name) => {
-    return name
-      .split(" ")
-      .map((word) => word[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
-  };
+  /*
+  ========================================================
+  OPEN CANDIDATE REVIEW
+  ========================================================
+  */
 
-  const handleReviewCandidate = (candidate) => {
+  const handleCandidateClick = (candidate) => {
     navigate(
-      `/hiring-manager/shortlisted-candidates/${candidate.id}`,
+      `/hiring-manager/shortlisted-candidates/${candidate.applicationId}`,
       {
         state: {
           candidate,
@@ -102,219 +110,289 @@ function HiringManagerCandidates() {
     );
   };
 
+  /*
+  ========================================================
+  PAGE
+  ========================================================
+  */
+
   return (
     <div className="hiring-manager-layout">
+
+      {/* SIDEBAR */}
+
       <HiringManagerSidebar />
 
+
+      {/* MAIN AREA */}
+
       <div className="hiring-manager-main">
+
+        {/* NAVBAR */}
+
         <HiringManagerNavbar />
 
-        <main className="hiring-manager-dashboard-content">
 
-          {/* HEADER */}
-          <div className="hiring-manager-dashboard-header">
-            <p className="hiring-manager-label">
-              CANDIDATES
-            </p>
+        {/* CONTENT */}
 
-            <h1>Shortlisted Candidates</h1>
+        <div className="hiring-manager-content">
 
-            <p>
-              Review candidates shortlisted for your assigned jobs.
-            </p>
-          </div>
+          {/* PAGE HEADER */}
 
-          {/* SUMMARY CARDS */}
-          <div className="hm-candidate-summary">
+          <div className="page-header">
 
-            <div className="hm-candidate-summary-card">
-              <div className="hm-candidate-summary-icon">
-                <Star size={21} />
-              </div>
+            <div>
 
-              <div>
-                <span>Total Shortlisted</span>
-                <strong>{candidates.length}</strong>
-              </div>
-            </div>
+              <h1>
+                Shortlisted Candidates
+              </h1>
 
-            <div className="hm-candidate-summary-card">
-              <div className="hm-candidate-summary-icon">
-                <BriefcaseBusiness size={21} />
-              </div>
+              <p>
+                Review candidates shortlisted for your assigned jobs.
+              </p>
 
-              <div>
-                <span>Assigned Jobs</span>
-                <strong>3</strong>
-              </div>
             </div>
 
           </div>
 
-          {/* CANDIDATE SECTION */}
-          <section className="hm-candidates-card">
 
-            <div className="hm-candidates-toolbar">
-              <div className="hm-candidates-search">
+          {/* SEARCH */}
 
-                <Search size={18} />
+          <div className="search-container">
 
-                <input
-                  type="text"
-                  placeholder="Search candidates or jobs..."
-                  value={searchTerm}
-                  onChange={(e) =>
-                    setSearchTerm(e.target.value)
-                  }
-                />
+            <input
+              type="text"
+              placeholder="Search by candidate name, email or job..."
+              value={searchTerm}
+              onChange={(e) =>
+                setSearchTerm(e.target.value)
+              }
+            />
+
+          </div>
+
+
+          {/* LOADING */}
+
+          {loading && (
+            <div className="empty-state">
+
+              <p>
+                Loading shortlisted candidates...
+              </p>
+
+            </div>
+          )}
+
+
+          {/* ERROR */}
+
+          {!loading && error && (
+            <div className="empty-state">
+
+              <h3>
+                Unable to load candidates
+              </h3>
+
+              <p>
+                {error}
+              </p>
+
+            </div>
+          )}
+
+
+          {/* NO DATA */}
+
+          {!loading &&
+            !error &&
+            filteredCandidates.length === 0 && (
+
+              <div className="empty-state">
+
+                <h3>
+                  No shortlisted candidates
+                </h3>
+
+                <p>
+                  No shortlisted candidates are currently available.
+                </p>
 
               </div>
-            </div>
 
-            <div className="hm-candidates-table-wrapper">
+            )}
 
-              <table className="hm-candidates-table">
 
-                <thead>
-                  <tr>
-                    <th>Candidate</th>
-                    <th>Applied Job</th>
-                    <th>Experience</th>
-                    <th>Skills</th>
-                    <th>AI Match</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
+          {/* CANDIDATES */}
 
-                <tbody>
+          {!loading &&
+            !error &&
+            filteredCandidates.length > 0 && (
 
-                  {filteredCandidates.length > 0 ? (
-                    filteredCandidates.map((candidate) => (
+              <div className="candidates-grid">
 
-                      <tr key={candidate.id}>
+                {filteredCandidates.map((candidate) => (
 
-                        <td>
-                          <div className="hm-candidate-user">
+                  <div
+                    key={candidate.applicationId}
+                    className="candidate-card"
+                    onClick={() =>
+                      handleCandidateClick(candidate)
+                    }
+                  >
 
-                            <div className="hm-candidate-avatar">
-                              {getInitials(candidate.name)}
-                            </div>
+                    {/* HEADER */}
 
-                            <div>
-                              <strong>
-                                {candidate.name}
-                              </strong>
+                    <div className="candidate-card-header">
 
-                              <span>
-                                {candidate.email}
-                              </span>
-                            </div>
+                      <div>
 
-                          </div>
-                        </td>
+                        <h3>
+                          {candidate.candidateName ||
+                            "Unknown Candidate"}
+                        </h3>
 
-                        <td>{candidate.job}</td>
+                        <p>
+                          {candidate.email || "No email"}
+                        </p>
 
-                        <td>{candidate.experience}</td>
+                      </div>
 
-                        <td>
-                          <div className="hm-candidate-skills">
 
-                            {candidate.skills.map((skill) => (
-                              <span key={skill}>
-                                {skill}
-                              </span>
-                            ))}
+                      <span className="candidate-status">
 
-                          </div>
-                        </td>
+                        {candidate.status || "N/A"}
 
-                        <td>
-                          <div className="hm-match-score">
+                      </span>
 
-                            <strong>
-                              {candidate.matchScore}%
-                            </strong>
+                    </div>
 
-                            <div className="hm-match-bar">
-                              <div
-                                className="hm-match-progress"
-                                style={{
-                                  width: `${candidate.matchScore}%`,
-                                }}
-                              />
-                            </div>
 
-                          </div>
-                        </td>
+                    {/* INFORMATION */}
 
-                        <td>
-                          <span className="hm-shortlisted-badge">
-                            {candidate.status}
-                          </span>
-                        </td>
+                    <div className="candidate-info">
 
-                        <td>
-                          <div className="hm-candidate-actions">
+                      <p>
+                        <strong>
+                          Job:
+                        </strong>{" "}
 
-                            <button
-  type="button"
-  title="View Resume"
-  onClick={() =>
-    navigate(
-      `/hiring-manager/resume-review/${candidate.id}`
-    )
-  }
->
-  <FileText size={17} />
-</button>
+                        {candidate.jobTitle || "N/A"}
 
-<button
-  type="button"
-  className="review"
-  title="Review Candidate"
-  onClick={() =>
-    navigate(
-      `/hiring-manager/candidate-review/${candidate.id}`
-    )
-  }
->
-  <Eye size={17} />
-  Review
-</button>
+                      </p>
 
-                          </div>
-                        </td>
 
-                      </tr>
+                      <p>
+                        <strong>
+                          Department:
+                        </strong>{" "}
 
-                    ))
-                  ) : (
+                        {candidate.department || "N/A"}
 
-                    <tr>
-                      <td
-                        colSpan="7"
-                        className="hm-candidates-empty"
-                      >
-                        No shortlisted candidates found.
-                      </td>
-                    </tr>
+                      </p>
 
-                  )}
 
-                </tbody>
+                      <p>
+                        <strong>
+                          Location:
+                        </strong>{" "}
 
-              </table>
+                        {candidate.location || "N/A"}
 
-            </div>
+                      </p>
 
-          </section>
 
-        </main>
+                      <p>
+                        <strong>
+                          Experience:
+                        </strong>{" "}
+
+                        {candidate.experience || "N/A"}
+
+                      </p>
+
+                    </div>
+
+
+                    {/* SKILLS */}
+
+                    <div className="candidate-skills">
+
+                      <strong>
+                        Skills:
+                      </strong>
+
+                      <p>
+                        {candidate.skills ||
+                          candidate.requiredSkills ||
+                          "Not available"}
+                      </p>
+
+                    </div>
+
+
+                    {/* FOOTER */}
+
+                    <div className="candidate-footer">
+
+                      {/* AI SCORE */}
+
+                      <div>
+
+                        <small>
+                          AI Match Score
+                        </small>
+
+                        <strong>
+
+                          {candidate.aiMatchScore !==
+                            null &&
+                          candidate.aiMatchScore !==
+                            undefined
+                            ? `${candidate.aiMatchScore}%`
+                            : "N/A"}
+
+                        </strong>
+
+                      </div>
+
+
+                      {/* APPLIED DATE */}
+
+                      <div>
+
+                        <small>
+                          Applied
+                        </small>
+
+                        <strong>
+
+                          {candidate.appliedAt
+                            ? new Date(
+                                candidate.appliedAt
+                              ).toLocaleDateString()
+                            : "N/A"}
+
+                        </strong>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                ))}
+
+              </div>
+
+            )}
+
+        </div>
+
       </div>
+
     </div>
   );
-}
+};
 
 export default HiringManagerCandidates;

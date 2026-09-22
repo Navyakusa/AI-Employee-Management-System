@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -25,21 +25,14 @@ function HiringManagerCandidateDecisionDetails() {
   const { candidateId } = useParams();
 
   const [finalNotes, setFinalNotes] = useState("");
-  const [decision, setDecision] = useState(() => {
-  return (
-    localStorage.getItem(
-      `candidateDecision_${candidateId}`
-    ) || "Pending"
-  );
-});
 
-  // Temporary frontend data.
-  // Backend integration will replace this later.
-  //
-  // Only candidates with:
-  // 1. Completed interview
-  // 2. Submitted interviewer feedback
-  // should reach this page.
+  /*
+  ======================================================
+  TEMPORARY FRONTEND DATA
+  ======================================================
+  Backend integration will replace this later.
+  */
+
   const candidates = [
     {
       id: 3,
@@ -81,11 +74,125 @@ function HiringManagerCandidateDecisionDetails() {
     },
   ];
 
-  const candidate =
-    candidates.find(
-      (item) =>
-        item.id === Number(candidateId)
-    ) || candidates[0];
+  /*
+  ======================================================
+  FIND CANDIDATE
+  ======================================================
+  */
+
+  const candidate = candidates.find(
+    (item) => item.id === Number(candidateId)
+  );
+
+  /*
+  ======================================================
+  GET STORED DECISION
+  ======================================================
+  */
+
+  const [decision, setDecision] = useState(() => {
+    if (!candidate) {
+      return "Pending";
+    }
+
+    return (
+      localStorage.getItem(
+        `candidateDecision_${candidate.id}`
+      ) || "Pending"
+    );
+  });
+
+  /*
+  ======================================================
+  CANDIDATE NOT FOUND
+  ======================================================
+  */
+
+  if (!candidate) {
+    return (
+      <div className="hiring-manager-layout">
+
+        <HiringManagerSidebar />
+
+        <div className="hiring-manager-main">
+
+          <HiringManagerNavbar />
+
+          <main className="hiring-manager-dashboard-content">
+
+            <div className="hiring-manager-dashboard-header">
+
+              <p className="hiring-manager-label">
+                FINAL REVIEW
+              </p>
+
+              <h1>
+                Candidate Not Found
+              </h1>
+
+              <p>
+                The requested candidate decision record
+                could not be found.
+              </p>
+
+            </div>
+
+
+            <section className="hm-final-decision-card">
+
+              <div className="hm-final-section">
+
+                <h3>
+                  <AlertCircle size={18} />
+                  Candidate Unavailable
+                </h3>
+
+                <p
+                  style={{
+                    color: "#64748b",
+                    lineHeight: "1.6",
+                  }}
+                >
+                  This candidate is not available in the
+                  current frontend data. Backend integration
+                  will provide the real candidate record later.
+                </p>
+
+              </div>
+
+
+              <div className="hm-interview-details-actions">
+
+                <button
+                  type="button"
+                  className="hm-resume-secondary-button"
+                  onClick={() =>
+                    navigate(
+                      "/hiring-manager/decisions"
+                    )
+                  }
+                >
+                  <ArrowLeft size={16} />
+                  Back to Candidate Decisions
+                </button>
+
+              </div>
+
+            </section>
+
+          </main>
+
+        </div>
+
+      </div>
+    );
+  }
+
+  /*
+  ======================================================
+  INITIALS
+  ======================================================
+  */
 
   const initials = candidate.name
     .split(" ")
@@ -93,6 +200,12 @@ function HiringManagerCandidateDecisionDetails() {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+  /*
+  ======================================================
+  STAR RATING
+  ======================================================
+  */
 
   const renderStars = (rating) =>
     Array.from({ length: 5 }).map(
@@ -109,44 +222,68 @@ function HiringManagerCandidateDecisionDetails() {
       )
     );
 
+  /*
+  ======================================================
+  APPROVE
+  ======================================================
+  */
+
   const handleApprove = () => {
-  const newDecision = "Approved";
+    const newDecision = "Approved";
 
-  setDecision(newDecision);
+    setDecision(newDecision);
 
-  localStorage.setItem(
-    `candidateDecision_${candidate.id}`,
-    newDecision
-  );
+    localStorage.setItem(
+      `candidateDecision_${candidate.id}`,
+      newDecision
+    );
 
-  navigate("/hiring-manager/decisions");
-};
+    navigate("/hiring-manager/decisions");
+  };
 
-const handleReject = () => {
-  const newDecision = "Rejected";
+  /*
+  ======================================================
+  REJECT
+  ======================================================
+  */
 
-  setDecision(newDecision);
+  const handleReject = () => {
+    const newDecision = "Rejected";
 
-  localStorage.setItem(
-    `candidateDecision_${candidate.id}`,
-    newDecision
-  );
+    setDecision(newDecision);
 
-  navigate("/hiring-manager/decisions");
-};
+    localStorage.setItem(
+      `candidateDecision_${candidate.id}`,
+      newDecision
+    );
+
+    navigate("/hiring-manager/decisions");
+  };
+
+  /*
+  ======================================================
+  RENDER
+  ======================================================
+  */
 
   return (
     <div className="hiring-manager-layout">
+
+      {/* SIDEBAR */}
 
       <HiringManagerSidebar />
 
       <div className="hiring-manager-main">
 
+        {/* NAVBAR */}
+
         <HiringManagerNavbar />
 
         <main className="hiring-manager-dashboard-content">
 
-          {/* HEADER */}
+          {/* ==================================================
+              HEADER
+          ================================================== */}
 
           <div className="hiring-manager-dashboard-header">
 
@@ -154,7 +291,9 @@ const handleReject = () => {
               FINAL REVIEW
             </p>
 
-            <h1>Candidate Decision</h1>
+            <h1>
+              Candidate Decision
+            </h1>
 
             <p>
               Review the candidate, AI analysis and
@@ -164,9 +303,16 @@ const handleReject = () => {
 
           </div>
 
+
+          {/* ==================================================
+              MAIN CARD
+          ================================================== */}
+
           <section className="hm-final-decision-card">
 
-            {/* CANDIDATE HEADER */}
+            {/* ==================================================
+                CANDIDATE HEADER
+            ================================================== */}
 
             <div className="hm-final-candidate-header">
 
@@ -177,6 +323,7 @@ const handleReject = () => {
                 </div>
 
                 <div>
+
                   <h2>
                     {candidate.name}
                   </h2>
@@ -184,9 +331,11 @@ const handleReject = () => {
                   <p>
                     {candidate.email}
                   </p>
+
                 </div>
 
               </div>
+
 
               <span
                 className={`hm-decision-status ${decision.toLowerCase()}`}
@@ -196,7 +345,10 @@ const handleReject = () => {
 
             </div>
 
-            {/* CANDIDATE INFORMATION */}
+
+            {/* ==================================================
+                CANDIDATE INFORMATION
+            ================================================== */}
 
             <div className="hm-final-section">
 
@@ -205,6 +357,7 @@ const handleReject = () => {
                 Candidate Information
               </h3>
 
+
               <div className="hm-final-info-grid">
 
                 <div className="hm-final-info-item">
@@ -212,6 +365,7 @@ const handleReject = () => {
                   <BriefcaseBusiness size={18} />
 
                   <div>
+
                     <span>
                       Applied Position
                     </span>
@@ -219,15 +373,18 @@ const handleReject = () => {
                     <strong>
                       {candidate.job}
                     </strong>
+
                   </div>
 
                 </div>
+
 
                 <div className="hm-final-info-item">
 
                   <User size={18} />
 
                   <div>
+
                     <span>
                       Experience
                     </span>
@@ -235,6 +392,7 @@ const handleReject = () => {
                     <strong>
                       {candidate.experience}
                     </strong>
+
                   </div>
 
                 </div>
@@ -243,7 +401,10 @@ const handleReject = () => {
 
             </div>
 
-            {/* AI ANALYSIS */}
+
+            {/* ==================================================
+                AI ANALYSIS
+            ================================================== */}
 
             <div className="hm-final-section">
 
@@ -252,11 +413,13 @@ const handleReject = () => {
                 AI Candidate Analysis
               </h3>
 
+
               <div className="hm-final-ai-card">
 
                 <div className="hm-final-ai-top">
 
                   <div>
+
                     <span>
                       AI Match Score
                     </span>
@@ -264,17 +427,18 @@ const handleReject = () => {
                     <strong>
                       {candidate.matchScore}%
                     </strong>
+
                   </div>
 
                 </div>
+
 
                 <div className="hm-final-ai-bar">
 
                   <div
                     className="hm-final-ai-progress"
                     style={{
-                      width:
-                        `${candidate.matchScore}%`,
+                      width: `${candidate.matchScore}%`,
                     }}
                   />
 
@@ -284,7 +448,10 @@ const handleReject = () => {
 
             </div>
 
-            {/* INTERVIEW RESULT */}
+
+            {/* ==================================================
+                INTERVIEW RESULT
+            ================================================== */}
 
             <div className="hm-final-section">
 
@@ -292,6 +459,7 @@ const handleReject = () => {
                 <MessageSquareText size={18} />
                 Interview Result
               </h3>
+
 
               <div className="hm-final-interview-header">
 
@@ -302,11 +470,15 @@ const handleReject = () => {
                   </span>
 
                   <strong className="hm-final-completed">
+
                     <CheckCircle2 size={15} />
+
                     {candidate.interviewStatus}
+
                   </strong>
 
                 </div>
+
 
                 <div>
 
@@ -319,6 +491,7 @@ const handleReject = () => {
                   </strong>
 
                 </div>
+
 
                 <div>
 
@@ -346,7 +519,10 @@ const handleReject = () => {
 
             </div>
 
-            {/* INTERVIEW RATINGS */}
+
+            {/* ==================================================
+                INTERVIEW RATINGS
+            ================================================== */}
 
             <div className="hm-final-section">
 
@@ -354,7 +530,10 @@ const handleReject = () => {
                 Interview Evaluation
               </h3>
 
+
               <div className="hm-final-rating-grid">
+
+                {/* TECHNICAL */}
 
                 <div className="hm-final-rating-card">
 
@@ -376,6 +555,9 @@ const handleReject = () => {
 
                 </div>
 
+
+                {/* COMMUNICATION */}
+
                 <div className="hm-final-rating-card">
 
                   <MessagesSquare size={21} />
@@ -395,6 +577,9 @@ const handleReject = () => {
                   </div>
 
                 </div>
+
+
+                {/* PROBLEM SOLVING */}
 
                 <div className="hm-final-rating-card">
 
@@ -420,7 +605,10 @@ const handleReject = () => {
 
             </div>
 
-            {/* STRENGTHS */}
+
+            {/* ==================================================
+                STRENGTHS
+            ================================================== */}
 
             <div className="hm-final-section">
 
@@ -429,16 +617,17 @@ const handleReject = () => {
                 Candidate Strengths
               </h3>
 
+
               <div className="hm-final-list">
 
                 {candidate.strengths.map(
-                  (strength) => (
+                  (strength, index) => (
 
-                    <div key={strength}>
+                    <div
+                      key={`${strength}-${index}`}
+                    >
 
-                      <CheckCircle2
-                        size={16}
-                      />
+                      <CheckCircle2 size={16} />
 
                       <span>
                         {strength}
@@ -453,7 +642,10 @@ const handleReject = () => {
 
             </div>
 
-            {/* CONCERNS */}
+
+            {/* ==================================================
+                CONCERNS
+            ================================================== */}
 
             <div className="hm-final-section">
 
@@ -462,16 +654,17 @@ const handleReject = () => {
                 Areas of Concern
               </h3>
 
+
               <div className="hm-final-list">
 
                 {candidate.concerns.map(
-                  (concern) => (
+                  (concern, index) => (
 
-                    <div key={concern}>
+                    <div
+                      key={`${concern}-${index}`}
+                    >
 
-                      <AlertCircle
-                        size={16}
-                      />
+                      <AlertCircle size={16} />
 
                       <span>
                         {concern}
@@ -486,7 +679,10 @@ const handleReject = () => {
 
             </div>
 
-            {/* INTERVIEWER FEEDBACK */}
+
+            {/* ==================================================
+                INTERVIEWER FEEDBACK
+            ================================================== */}
 
             <div className="hm-final-section">
 
@@ -495,13 +691,17 @@ const handleReject = () => {
                 Interviewer Feedback
               </h3>
 
+
               <div className="hm-final-feedback-box">
                 {candidate.feedback}
               </div>
 
             </div>
 
-            {/* RECOMMENDATION */}
+
+            {/* ==================================================
+                RECOMMENDATION
+            ================================================== */}
 
             <div className="hm-final-section">
 
@@ -509,11 +709,13 @@ const handleReject = () => {
                 Interviewer Recommendation
               </h3>
 
+
               <div className="hm-final-recommendation">
 
                 <CheckCircle2 size={20} />
 
                 <div>
+
                   <span>
                     Recommendation
                   </span>
@@ -521,13 +723,17 @@ const handleReject = () => {
                   <strong>
                     {candidate.recommendation}
                   </strong>
+
                 </div>
 
               </div>
 
             </div>
 
-            {/* FINAL NOTES */}
+
+            {/* ==================================================
+                FINAL NOTES
+            ================================================== */}
 
             <div className="hm-final-section">
 
@@ -535,16 +741,18 @@ const handleReject = () => {
                 Hiring Manager Final Notes
               </h3>
 
+
               <p className="hm-final-notes-description">
                 Add your final observations before
                 completing the hiring decision.
               </p>
 
+
               <textarea
                 value={finalNotes}
-                onChange={(e) =>
+                onChange={(event) =>
                   setFinalNotes(
-                    e.target.value
+                    event.target.value
                   )
                 }
                 placeholder="Enter final hiring decision notes..."
@@ -557,13 +765,17 @@ const handleReject = () => {
 
             </div>
 
-            {/* FINAL DECISION */}
+
+            {/* ==================================================
+                FINAL DECISION
+            ================================================== */}
 
             <div className="hm-final-section">
 
               <h3>
                 Final Hiring Decision
               </h3>
+
 
               {decision === "Pending" ? (
 
@@ -577,6 +789,7 @@ const handleReject = () => {
                     <CheckCircle2 size={17} />
                     Approve Candidate
                   </button>
+
 
                   <button
                     type="button"
@@ -601,6 +814,7 @@ const handleReject = () => {
                     <XCircle size={21} />
                   )}
 
+
                   <div>
 
                     <span>
@@ -619,7 +833,10 @@ const handleReject = () => {
 
             </div>
 
-            {/* BACK */}
+
+            {/* ==================================================
+                BACK
+            ================================================== */}
 
             <div className="hm-interview-details-actions">
 

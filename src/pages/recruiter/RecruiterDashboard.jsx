@@ -52,7 +52,11 @@ function RecruiterDashboard() {
         setError("");
 
         const response = await apiClient.get(
+
           "/recruiter/dashboard"
+
+          "/api/recruiter/dashboard"
+
         );
 
         console.log(

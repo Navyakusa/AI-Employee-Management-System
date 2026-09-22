@@ -1,107 +1,413 @@
-import { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
-  Search,
-  CheckCircle2,
+  CheckCircle,
   XCircle,
+  Search,
+  Filter,
   User,
   BriefcaseBusiness,
-  Star,
-  Eye,
-  MessageSquareText,
+  Sparkles,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 
 import HiringManagerSidebar from "./HiringManagerSidebar";
 import HiringManagerNavbar from "./HiringManagerNavbar";
+
+import {
+  getCandidateDecisions,
+  approveCandidate,
+  rejectCandidate,
+} from "./HiringManagerApi";
 
 import "./HiringManagerDashboard.css";
 
 function HiringManagerDecisions() {
   const navigate = useNavigate();
 
+  const [candidates, setCandidates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
 
-  // Temporary frontend data.
-  // IMPORTANT:
-  // Only candidates with COMPLETED interviews
-  // and submitted interviewer feedback should appear here.
-  //
-  // Backend integration will replace this later.
-  const [candidates] = useState([
-    {
-      id: 3,
-      interviewId: 3,
-      name: "Sneha Reddy",
-      email: "sneha@gmail.com",
-      job: "QA Engineer",
-      experience: "4 Years",
+  const [actionLoading, setActionLoading] = useState(null);
+  const [actionError, setActionError] = useState("");
 
-      matchScore: 83,
+  // ======================================================
+  // FETCH CANDIDATE DECISIONS
+  // ======================================================
 
-      interviewScore: 4.0,
-      interviewStatus: "Completed",
-      feedbackAvailable: true,
+  const fetchDecisions = async (search = "") => {
+    try {
+      setLoading(true);
+      setError("");
 
-      interviewer: "Arjun Kumar",
-      recommendation: "Recommended",
+      const response = await getCandidateDecisions(search);
 
-      decisionStatus:
-  localStorage.getItem("candidateDecision_3") ||
-  "Pending",
-    },
-  ]);
+      console.log("Candidate decisions response:", response);
 
-  const filteredCandidates = candidates.filter(
-    (candidate) => {
-      const value = searchTerm
-        .trim()
-        .toLowerCase();
+      const apiCandidates = response?.data || [];
 
-      return (
-        candidate.name
+      const formattedCandidates = apiCandidates.map((candidate) => ({
+        applicationId: candidate.applicationId,
+        candidateId: candidate.candidateId,
+        jobId: candidate.jobId,
+
+        candidateName:
+          candidate.candidateName || "Unknown Candidate",
+
+        email:
+          candidate.candidateEmail || "Not specified",
+
+        jobTitle:
+          candidate.jobTitle || "Not specified",
+
+        experience:
+          candidate.experience || "Not specified",
+
+        interviewScore:
+          candidate.interviewScore ?? null,
+
+        aiMatchPercentage:
+          candidate.aiMatchPercentage ?? null,
+
+        status:
+          candidate.status || "PENDING",
+      }));
+
+      setCandidates(formattedCandidates);
+    } catch (err) {
+      console.error(
+        "Failed to fetch candidate decisions:",
+        err
+      );
+
+      setError(
+        err.message ||
+          "Failed to load candidate decisions."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDecisions();
+  }, []);
+
+  // ======================================================
+  // APPROVE CANDIDATE
+  // ======================================================
+
+  const handleApprove = async (candidate) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to approve ${candidate.candidateName}?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setActionLoading(candidate.applicationId);
+      setActionError("");
+
+      const response = await approveCandidate(
+        candidate.applicationId
+      );
+
+      console.log("Approve response:", response);
+
+      // Update UI using backend response
+      if (response?.data) {
+        setCandidates((previousCandidates) =>
+          previousCandidates.map((item) =>
+            item.applicationId ===
+            candidate.applicationId
+              ? {
+                  ...item,
+                  status:
+                    response.data.status ||
+                    "SELECTED",
+                  interviewScore:
+                    response.data.interviewScore ??
+                    item.interviewScore,
+                  aiMatchPercentage:
+                    response.data.aiMatchPercentage ??
+                    item.aiMatchPercentage,
+                }
+              : item
+          )
+        );
+      } else {
+        await fetchDecisions(searchTerm);
+      }
+    } catch (err) {
+      console.error(
+        "Failed to approve candidate:",
+        err
+      );
+
+      setActionError(
+        err.message ||
+          "Failed to approve candidate."
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // ======================================================
+  // REJECT CANDIDATE
+  // ======================================================
+
+  const handleReject = async (candidate) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to reject ${candidate.candidateName}?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setActionLoading(candidate.applicationId);
+      setActionError("");
+
+      const response = await rejectCandidate(
+        candidate.applicationId
+      );
+
+      console.log("Reject response:", response);
+
+      if (response?.data) {
+        setCandidates((previousCandidates) =>
+          previousCandidates.map((item) =>
+            item.applicationId ===
+            candidate.applicationId
+              ? {
+                  ...item,
+                  status:
+                    response.data.status ||
+                    "REJECTED",
+                  interviewScore:
+                    response.data.interviewScore ??
+                    item.interviewScore,
+                  aiMatchPercentage:
+                    response.data.aiMatchPercentage ??
+                    item.aiMatchPercentage,
+                }
+              : item
+          )
+        );
+      } else {
+        await fetchDecisions(searchTerm);
+      }
+    } catch (err) {
+      console.error(
+        "Failed to reject candidate:",
+        err
+      );
+
+      setActionError(
+        err.message ||
+          "Failed to reject candidate."
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // ======================================================
+  // SEARCH + FILTER
+  // ======================================================
+
+  const filteredCandidates = useMemo(() => {
+    const search =
+      searchTerm.trim().toLowerCase();
+
+    return candidates.filter((candidate) => {
+      const matchesSearch =
+        !search ||
+        candidate.candidateName
           .toLowerCase()
-          .includes(value) ||
+          .includes(search) ||
         candidate.email
           .toLowerCase()
-          .includes(value) ||
-        candidate.job
+          .includes(search) ||
+        candidate.jobTitle
           .toLowerCase()
-          .includes(value)
-      );
-    }
-  );
+          .includes(search);
+
+      const normalizedStatus =
+        candidate.status?.toUpperCase();
+
+      const matchesStatus =
+        statusFilter === "All" ||
+        normalizedStatus ===
+          statusFilter.toUpperCase();
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [
+    candidates,
+    searchTerm,
+    statusFilter,
+  ]);
+
+  // ======================================================
+  // COUNTS
+  // ======================================================
 
   const pendingCount = candidates.filter(
     (candidate) =>
-      candidate.decisionStatus === "Pending"
+      candidate.status?.toUpperCase() ===
+      "PENDING"
   ).length;
 
   const approvedCount = candidates.filter(
     (candidate) =>
-      candidate.decisionStatus === "Approved"
+      ["SELECTED", "HIRED"].includes(
+        candidate.status?.toUpperCase()
+      )
   ).length;
 
   const rejectedCount = candidates.filter(
     (candidate) =>
-      candidate.decisionStatus === "Rejected"
+      candidate.status?.toUpperCase() ===
+      "REJECTED"
   ).length;
 
-  const getInitials = (name) =>
-    name
-      .split(" ")
-      .map((word) => word[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
+  // ======================================================
+  // STATUS DISPLAY
+  // ======================================================
+
+  const getDisplayStatus = (status) => {
+    switch (status?.toUpperCase()) {
+      case "SELECTED":
+        return "Approved";
+
+      case "HIRED":
+        return "Hired";
+
+      case "REJECTED":
+        return "Rejected";
+
+      case "PENDING":
+        return "Pending";
+
+      default:
+        return status || "Pending";
+    }
+  };
+
+  // ======================================================
+  // LOADING
+  // ======================================================
+
+  if (loading) {
+    return (
+      <div className="hiring-manager-layout">
+        <HiringManagerSidebar />
+
+        <div className="hiring-manager-main">
+          <HiringManagerNavbar />
+
+          <main className="hiring-manager-dashboard-content">
+            <div className="hiring-manager-dashboard-header">
+              <p className="hiring-manager-label">
+                CANDIDATE DECISIONS
+              </p>
+
+              <h1>Candidate Decisions</h1>
+
+              <p>
+                Review shortlisted candidates and
+                make final hiring decisions.
+              </p>
+            </div>
+
+            <section className="hm-decision-empty">
+              <div className="hm-decision-empty-icon">
+                <Clock size={38} />
+              </div>
+
+              <h2>Loading Candidates</h2>
+
+              <p>
+                Fetching candidate decisions from
+                the backend.
+              </p>
+            </section>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // ======================================================
+  // ERROR
+  // ======================================================
+
+  if (error) {
+    return (
+      <div className="hiring-manager-layout">
+        <HiringManagerSidebar />
+
+        <div className="hiring-manager-main">
+          <HiringManagerNavbar />
+
+          <main className="hiring-manager-dashboard-content">
+            <div className="hiring-manager-dashboard-header">
+              <p className="hiring-manager-label">
+                CANDIDATE DECISIONS
+              </p>
+
+              <h1>Candidate Decisions</h1>
+
+              <p>
+                Review shortlisted candidates and
+                make final hiring decisions.
+              </p>
+            </div>
+
+            <section className="hm-decision-empty">
+              <div className="hm-decision-empty-icon">
+                <AlertCircle size={38} />
+              </div>
+
+              <h2>Unable to Load Candidates</h2>
+
+              <p>{error}</p>
+
+              <button
+                type="button"
+                onClick={() =>
+                  fetchDecisions(searchTerm)
+                }
+              >
+                Try Again
+              </button>
+            </section>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // ======================================================
+  // MAIN RENDER
+  // ======================================================
 
   return (
     <div className="hiring-manager-layout">
-
       <HiringManagerSidebar />
 
       <div className="hiring-manager-main">
-
         <HiringManagerNavbar />
 
         <main className="hiring-manager-dashboard-content">
@@ -109,67 +415,64 @@ function HiringManagerDecisions() {
           {/* HEADER */}
 
           <div className="hiring-manager-dashboard-header">
-
             <p className="hiring-manager-label">
-              HIRING DECISIONS
+              CANDIDATE DECISIONS
             </p>
 
             <h1>Candidate Decisions</h1>
 
             <p>
-              Review candidates who have completed
-              their interviews and make the final
-              hiring decision.
+              Review candidates and make final
+              hiring decisions based on interview
+              and AI results.
             </p>
-
           </div>
+
+          {/* ACTION ERROR */}
+
+          {actionError && (
+            <div
+              style={{
+                marginBottom: "20px",
+                padding: "12px 16px",
+                borderRadius: "8px",
+                background: "#fee2e2",
+                color: "#991b1b",
+              }}
+            >
+              {actionError}
+            </div>
+          )}
 
           {/* SUMMARY */}
 
-          <section className="hm-decision-summary">
-
-            {/* PENDING */}
+          <div className="hm-decision-summary">
 
             <div className="hm-decision-summary-card">
-
               <div className="hm-decision-summary-icon pending">
-                <User size={21} />
+                <Clock size={21} />
               </div>
 
               <div>
-                <span>
-                  Pending Decisions
-                </span>
+                <span>Pending Decisions</span>
 
-                <strong>
-                  {pendingCount}
-                </strong>
+                <strong>{pendingCount}</strong>
               </div>
-
             </div>
 
-            {/* APPROVED */}
-
             <div className="hm-decision-summary-card">
-
               <div className="hm-decision-summary-icon approved">
-                <CheckCircle2 size={21} />
+                <CheckCircle size={21} />
               </div>
 
               <div>
                 <span>Approved</span>
 
-                <strong>
-                  {approvedCount}
-                </strong>
+                <strong>{approvedCount}</strong>
               </div>
-
             </div>
 
-            {/* REJECTED */}
-
             <div className="hm-decision-summary-card">
-
               <div className="hm-decision-summary-icon rejected">
                 <XCircle size={21} />
               </div>
@@ -177,274 +480,321 @@ function HiringManagerDecisions() {
               <div>
                 <span>Rejected</span>
 
-                <strong>
-                  {rejectedCount}
-                </strong>
+                <strong>{rejectedCount}</strong>
+              </div>
+            </div>
+
+          </div>
+
+          {/* SEARCH + FILTER */}
+
+          <div className="hm-decision-toolbar">
+
+            <div className="hm-decision-search">
+              <Search size={19} />
+
+              <input
+                type="text"
+                placeholder="Search candidate, email or job..."
+                value={searchTerm}
+                onChange={(event) =>
+                  setSearchTerm(event.target.value)
+                }
+              />
+            </div>
+
+            <div className="hm-decision-filter">
+              <Filter size={18} />
+
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(
+                    event.target.value
+                  )
+                }
+              >
+                <option value="All">
+                  All Status
+                </option>
+
+                <option value="Pending">
+                  Pending
+                </option>
+
+                <option value="Approved">
+                  Approved
+                </option>
+
+                <option value="Rejected">
+                  Rejected
+                </option>
+
+                <option value="Hired">
+                  Hired
+                </option>
+              </select>
+            </div>
+
+          </div>
+
+          {/* RESULTS COUNT */}
+
+          <div className="hm-decision-results">
+            Showing{" "}
+            <strong>
+              {filteredCandidates.length}
+            </strong>{" "}
+            candidate
+            {filteredCandidates.length !== 1
+              ? "s"
+              : ""}
+          </div>
+
+          {/* CANDIDATES */}
+
+          {filteredCandidates.length > 0 ? (
+
+            <section className="hm-decision-grid">
+
+              {filteredCandidates.map(
+                (candidate) => {
+
+                  const displayStatus =
+                    getDisplayStatus(
+                      candidate.status
+                    );
+
+                  const isActionLoading =
+                    actionLoading ===
+                    candidate.applicationId;
+
+                  return (
+                    <div
+                      className="hm-decision-card"
+                      key={candidate.applicationId}
+                    >
+
+                      {/* HEADER */}
+
+                      <div className="hm-decision-card-header">
+
+                        <div className="hm-decision-candidate">
+
+                          <div className="hm-decision-avatar">
+                            <User size={21} />
+                          </div>
+
+                          <div>
+                            <h3>
+                              {candidate.candidateName}
+                            </h3>
+
+                            <p>
+                              {candidate.email}
+                            </p>
+                          </div>
+
+                        </div>
+
+                        <span
+                          className={`hm-decision-status ${displayStatus.toLowerCase()}`}
+                        >
+                          {displayStatus}
+                        </span>
+
+                      </div>
+
+                      {/* JOB */}
+
+                      <div className="hm-decision-job">
+                        <BriefcaseBusiness size={17} />
+
+                        <span>
+                          {candidate.jobTitle}
+                        </span>
+                      </div>
+
+                      {/* EXPERIENCE */}
+
+                      <div className="hm-decision-info-row">
+                        <span>
+                          Experience
+                        </span>
+
+                        <strong>
+                          {candidate.experience}
+                        </strong>
+                      </div>
+
+                      {/* AI SCORE */}
+
+                      <div className="hm-decision-score-section">
+
+                        <div className="hm-decision-score-header">
+
+                          <span>
+                            <Sparkles size={15} />
+                            AI Match Score
+                          </span>
+
+                          <strong>
+                            {candidate.aiMatchPercentage !==
+                            null
+                              ? `${candidate.aiMatchPercentage}%`
+                              : "Not Available"}
+                          </strong>
+
+                        </div>
+
+                        <div className="hm-decision-score-bar">
+                          <div
+                            className="hm-decision-score-fill"
+                            style={{
+                              width:
+                                candidate.aiMatchPercentage !==
+                                null
+                                  ? `${Math.min(
+                                      Math.max(
+                                        candidate.aiMatchPercentage,
+                                        0
+                                      ),
+                                      100
+                                    )}%`
+                                  : "0%",
+                            }}
+                          />
+                        </div>
+
+                      </div>
+
+                      {/* INTERVIEW SCORE */}
+
+                      <div className="hm-decision-interview-score">
+                        <span>
+                          Interview Score
+                        </span>
+
+                        <strong>
+                          {candidate.interviewScore !==
+                          null
+                            ? `${candidate.interviewScore} / 5`
+                            : "Not Available"}
+                        </strong>
+                      </div>
+
+                      {/* APPLICATION STATUS */}
+
+                      <div className="hm-decision-interview-status">
+                        <span>
+                          Application Status
+                        </span>
+
+                        <strong>
+                          {displayStatus}
+                        </strong>
+                      </div>
+
+                      {/* ACTIONS */}
+
+                      <div className="hm-decision-actions">
+
+                        {/* VIEW CANDIDATE */}
+
+                        <button
+                          type="button"
+                          className="hm-decision-view-button"
+                          onClick={() =>
+                            navigate(
+                              `/hiring-manager/shortlisted-candidates/${candidate.applicationId}`
+                            )
+                          }
+                        >
+                          View Candidate
+                        </button>
+
+                        {/* APPROVE */}
+
+                        {candidate.status?.toUpperCase() ===
+                          "PENDING" && (
+                          <button
+                            type="button"
+                            className="hm-decision-approve-button"
+                            disabled={isActionLoading}
+                            onClick={() =>
+                              handleApprove(candidate)
+                            }
+                          >
+                            <CheckCircle size={16} />
+
+                            {isActionLoading
+                              ? "Processing..."
+                              : "Approve"}
+                          </button>
+                        )}
+
+                        {/* REJECT */}
+
+                        {candidate.status?.toUpperCase() ===
+                          "PENDING" && (
+                          <button
+                            type="button"
+                            className="hm-decision-reject-button"
+                            disabled={isActionLoading}
+                            onClick={() =>
+                              handleReject(candidate)
+                            }
+                          >
+                            <XCircle size={16} />
+
+                            {isActionLoading
+                              ? "Processing..."
+                              : "Reject"}
+                          </button>
+                        )}
+
+                      </div>
+
+                    </div>
+                  );
+                }
+              )}
+
+            </section>
+
+          ) : (
+
+            <div className="hm-decision-empty">
+
+              <div className="hm-decision-empty-icon">
+                <User size={38} />
               </div>
 
-            </div>
+              <h2>No Candidates Found</h2>
 
-          </section>
+              <p>
+                {candidates.length === 0
+                  ? "There are currently no candidate decisions available."
+                  : "No candidates match your current search or status filter."}
+              </p>
 
-          {/* DECISIONS TABLE */}
-
-          <section className="hm-decisions-card">
-
-            {/* TOOLBAR */}
-
-            <div className="hm-decisions-toolbar">
-
-              <div className="hm-decisions-search">
-
-                <Search size={18} />
-
-                <input
-                  type="text"
-                  placeholder="Search candidate or job..."
-                  value={searchTerm}
-                  onChange={(e) =>
-                    setSearchTerm(
-                      e.target.value
-                    )
-                  }
-                />
-
-              </div>
+              {candidates.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setStatusFilter("All");
+                  }}
+                >
+                  Clear Filters
+                </button>
+              )}
 
             </div>
-
-            {/* TABLE */}
-
-            <div className="hm-decisions-table-wrapper">
-
-              <table className="hm-decisions-table">
-
-                <thead>
-
-                  <tr>
-                    <th>Candidate</th>
-                    <th>Job</th>
-                    <th>AI Match</th>
-                    <th>Interview</th>
-                    <th>Recommendation</th>
-                    <th>Decision Status</th>
-                    <th>Action</th>
-                  </tr>
-
-                </thead>
-
-                <tbody>
-
-                  {filteredCandidates.length > 0 ? (
-
-                    filteredCandidates.map(
-                      (candidate) => (
-
-                        <tr key={candidate.id}>
-
-                          {/* CANDIDATE */}
-
-                          <td>
-
-                            <div className="hm-decision-user">
-
-                              <div className="hm-decision-avatar">
-                                {getInitials(
-                                  candidate.name
-                                )}
-                              </div>
-
-                              <div>
-
-                                <strong>
-                                  {candidate.name}
-                                </strong>
-
-                                <span>
-                                  {candidate.email}
-                                </span>
-
-                              </div>
-
-                            </div>
-
-                          </td>
-
-                          {/* JOB */}
-
-                          <td>
-
-                            <div className="hm-decision-job">
-
-                              <BriefcaseBusiness
-                                size={15}
-                              />
-
-                              <div>
-
-                                <strong>
-                                  {candidate.job}
-                                </strong>
-
-                                <span>
-                                  {
-                                    candidate.experience
-                                  }
-                                </span>
-
-                              </div>
-
-                            </div>
-
-                          </td>
-
-                          {/* AI MATCH */}
-
-                          <td>
-
-                            <span className="hm-decision-match">
-                              {
-                                candidate.matchScore
-                              }
-                              %
-                            </span>
-
-                          </td>
-
-                          {/* INTERVIEW */}
-
-                          <td>
-
-                            <div className="hm-decision-interview-info">
-
-                              <div className="hm-interview-rating">
-
-                                <Star size={15} />
-
-                                <strong>
-                                  {
-                                    candidate.interviewScore
-                                  }
-                                </strong>
-
-                                <span>/ 5</span>
-
-                              </div>
-
-                              <span className="hm-decision-interview-completed">
-                                Completed
-                              </span>
-
-                            </div>
-
-                          </td>
-
-                          {/* RECOMMENDATION */}
-
-                          <td>
-
-                            <div className="hm-decision-recommendation">
-
-                              <MessageSquareText
-                                size={15}
-                              />
-
-                              <span>
-                                {
-                                  candidate.recommendation
-                                }
-                              </span>
-
-                            </div>
-
-                          </td>
-
-                          {/* DECISION STATUS */}
-
-                          <td>
-
-                            <span
-                              className={`hm-decision-status ${candidate.decisionStatus.toLowerCase()}`}
-                            >
-                              {
-                                candidate.decisionStatus
-                              }
-                            </span>
-
-                          </td>
-
-                          {/* ACTION */}
-
-                          <td>
-
-                            {candidate.decisionStatus ===
-                            "Pending" ? (
-
-                              <button
-                                type="button"
-                                className="hm-decision-review-button"
-                                onClick={() =>
-                                  navigate(
-                                    `/hiring-manager/decisions/${candidate.id}`
-                                  )
-                                }
-                              >
-                                <Eye size={16} />
-                                Review Decision
-                              </button>
-
-                            ) : (
-
-                              <button
-                                type="button"
-                                className="hm-decision-view-button"
-                                onClick={() =>
-                                  navigate(
-                                    `/hiring-manager/decisions/${candidate.id}`
-                                  )
-                                }
-                              >
-                                <Eye size={16} />
-                                View Decision
-                              </button>
-
-                            )}
-
-                          </td>
-
-                        </tr>
-
-                      )
-                    )
-
-                  ) : (
-
-                    <tr>
-
-                      <td
-                        colSpan="7"
-                        className="hm-decisions-empty"
-                      >
-                        No candidates ready for
-                        final decision.
-                      </td>
-
-                    </tr>
-
-                  )}
-
-                </tbody>
-
-              </table>
-
-            </div>
-
-          </section>
+          )}
 
         </main>
-
       </div>
-
     </div>
   );
 }
