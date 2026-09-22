@@ -6,6 +6,7 @@ import com.ems.dto.AvailableInterviewerDto;
 import com.ems.dto.InterviewManagementDto;
 import com.ems.dto.InterviewRequestDto;
 import com.ems.dto.InterviewStatsDto;
+import com.ems.dto.InterviewerCandidateDto;
 import com.ems.entity.Application;
 import com.ems.entity.Candidate;
 import com.ems.entity.Interview;
@@ -126,9 +127,6 @@ public class InterviewService {
 
             // -------------------------------------------------
             // 3. Find candidate
-            //
-            // IMPORTANT:
-            // application.candidateId -> Candidate.id
             // -------------------------------------------------
 
             Candidate candidate =
@@ -229,8 +227,6 @@ public class InterviewService {
                     application.getApplicationId()
             );
 
-            // IMPORTANT:
-            // Store Candidate.id.
             interview.setCandidateId(
                     candidate.getId()
             );
@@ -282,9 +278,6 @@ public class InterviewService {
 
             // -------------------------------------------------
             // 8. Candidate notification
-            //
-            // Candidate may or may not have a User account.
-            // Only create notification when a User account exists.
             // -------------------------------------------------
 
             User candidateUser =
@@ -460,6 +453,259 @@ public class InterviewService {
 
 
     // =========================================================
+    // INTERVIEWER - MY CANDIDATES
+    // =========================================================
+
+    public ResponseEntity<ApiResponse<List<InterviewerCandidateDto>>>
+    getMyCandidates(
+            Authentication authentication) {
+
+        try {
+
+            if (authentication == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.UNAUTHORIZED)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Authentication is required",
+                                        null
+                                )
+                        );
+            }
+
+            String email =
+                    authentication.getName();
+
+            // -------------------------------------------------
+            // 1. Find logged-in interviewer
+            // -------------------------------------------------
+
+            User interviewer =
+                    userRepository
+                            .findByEmailIgnoreCase(email)
+                            .orElse(null);
+
+            if (interviewer == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Interviewer account not found",
+                                        null
+                                )
+                        );
+            }
+
+            // -------------------------------------------------
+            // 2. Verify interviewer role
+            // -------------------------------------------------
+
+            if (interviewer.getRole() == null ||
+                    !interviewer.getRole()
+                            .equalsIgnoreCase("INTERVIEWER")) {
+
+                return ResponseEntity
+                        .status(HttpStatus.FORBIDDEN)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Only interviewers can access assigned candidates",
+                                        null
+                                )
+                        );
+            }
+
+            // -------------------------------------------------
+            // 3. Find interviews assigned to interviewer
+            // -------------------------------------------------
+
+            List<Interview> interviews =
+                    interviewRepository.findByInterviewerId(
+                            interviewer.getUserId()
+                    );
+
+            // -------------------------------------------------
+            // 4. Convert to interviewer candidate DTO
+            // -------------------------------------------------
+
+            List<InterviewerCandidateDto> result =
+                    interviews.stream()
+                            .map(this::toInterviewerCandidateDto)
+                            .toList();
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Interviewer candidates fetched successfully",
+                            result
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to fetch interviewer candidates: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
+        }
+    }
+
+
+    // =========================================================
+    // CONVERT INTERVIEW TO INTERVIEWER CANDIDATE DTO
+    // =========================================================
+
+    private InterviewerCandidateDto toInterviewerCandidateDto(
+            Interview interview) {
+
+        InterviewerCandidateDto dto =
+                new InterviewerCandidateDto();
+
+        // -------------------------------------------------
+        // Interview information
+        // -------------------------------------------------
+
+        dto.setInterviewId(
+                interview.getInterviewId()
+        );
+
+        dto.setInterviewDateTime(
+                interview.getInterviewDateTime()
+        );
+
+        dto.setInterviewMode(
+                interview.getInterviewMode()
+        );
+
+        dto.setInterviewStatus(
+                interview.getStatus() != null
+                        ? interview.getStatus().name()
+                        : null
+        );
+
+        // -------------------------------------------------
+        // Candidate information
+        // -------------------------------------------------
+
+        if (interview.getCandidateId() != null) {
+
+            Candidate candidate =
+                    candidateRepository
+                            .findById(
+                                    interview.getCandidateId()
+                            )
+                            .orElse(null);
+
+            if (candidate != null) {
+
+                dto.setCandidateId(
+                        candidate.getId()
+                );
+
+                dto.setCandidateName(
+                        candidate.getName()
+                );
+
+                dto.setEmail(
+                        candidate.getEmail()
+                );
+
+                dto.setPhone(
+                        candidate.getPhone()
+                );
+
+                dto.setLocation(
+                        candidate.getLocation()
+                );
+
+                dto.setEducation(
+                        candidate.getEducation()
+                );
+
+                dto.setExperience(
+                        candidate.getExperience()
+                );
+
+                dto.setSkills(
+                        candidate.getSkills()
+                );
+
+                dto.setResume(
+                        candidate.getResume()
+                );
+
+                dto.setLinkedin(
+                        candidate.getLinkedin()
+                );
+
+                dto.setPortfolio(
+                        candidate.getPortfolio()
+                );
+
+                dto.setExpectedSalary(
+                        candidate.getExpectedSalary()
+                );
+
+                dto.setNoticePeriod(
+                        candidate.getNoticePeriod()
+                );
+
+                dto.setSource(
+                        candidate.getSource()
+                );
+
+                dto.setApplicationDate(
+                        candidate.getApplicationDate()
+                );
+
+                dto.setCandidateStatus(
+                        candidate.getStatus()
+                );
+            }
+        }
+
+        // -------------------------------------------------
+        // Job information
+        // -------------------------------------------------
+
+        if (interview.getJobId() != null) {
+
+            Job job =
+                    jobRepository
+                            .findById(
+                                    interview.getJobId()
+                            )
+                            .orElse(null);
+
+            if (job != null) {
+
+                dto.setJobId(
+                        job.getId()
+                );
+
+                dto.setJobTitle(
+                        job.getTitle()
+                );
+            }
+        }
+
+        return dto;
+    }
+
+
+    // =========================================================
     // EMPLOYER - INTERVIEWS BY JOB
     // =========================================================
 
@@ -548,7 +794,10 @@ public class InterviewService {
                             interview
                     );
 
+            // -------------------------------------------------
             // Candidate notification
+            // -------------------------------------------------
+
             Candidate candidate =
                     candidateRepository
                             .findById(
@@ -576,7 +825,10 @@ public class InterviewService {
                 }
             }
 
+            // -------------------------------------------------
             // Interviewer notification
+            // -------------------------------------------------
+
             if (interview.getInterviewerId() != null) {
 
                 notificationService.createNotification(

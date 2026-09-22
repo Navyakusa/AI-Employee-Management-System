@@ -10,28 +10,23 @@ import com.ems.repository.AIResumeScreeningRepository;
 import com.ems.repository.CandidateRepository;
 import com.ems.repository.JobRepository;
 import com.ems.repository.ResumeRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import jakarta.persistence.PrePersist;
-import java.time.LocalDateTime;
+
 @Service
 public class AIResumeScreeningService {
-    private LocalDateTime screenedAt;
 
-    @PrePersist
-    public void prePersist() {
-        if (screenedAt == null) {
-            screenedAt = LocalDateTime.now();
-        }
-    }
     @Autowired
     private CandidateRepository candidateRepository;
+
     @Autowired
     private AIResumeScreeningRepository screeningRepository;
 
@@ -52,357 +47,698 @@ public class AIResumeScreeningService {
     // AI RESUME SCREENING
     // =========================================================
 
-    public ResponseEntity<ApiResponse<AIResumeScreeningResponseDto>> screenResume(AIResumeScreeningRequestDto requestDto) {
+    public ResponseEntity<ApiResponse<AIResumeScreeningResponseDto>>
+    screenResume(AIResumeScreeningRequestDto requestDto) {
 
         try {
 
-            // =================================================
-            // 1. GET LATEST RESUME
-            // =================================================
+            // =====================================================
+            // 1. VALIDATE REQUEST
+            // =====================================================
 
-            Resume resume = resumeRepository.findFirstByCandidateIdOrderByIdDesc(requestDto.getCandidateId()).orElseThrow(() -> new RuntimeException("Resume not found for candidate ID: " + requestDto.getCandidateId()));
+            if (requestDto == null) {
+                throw new RuntimeException(
+                        "Screening request cannot be null"
+                );
+            }
 
+            if (requestDto.getCandidateId() == null) {
+                throw new RuntimeException(
+                        "Candidate ID is required"
+                );
+            }
 
-            // =================================================
-            // 2. GET JOB
-            // =================================================
-
-            Job job = jobRepository.findById(requestDto.getJobId()).orElseThrow(() -> new RuntimeException("Job not found with ID: " + requestDto.getJobId()));
-
-
-            // =================================================
-            // 3. VALIDATE RESUME TEXT
-            // =================================================
-
-            String resumeText = resume.getExtractedText();
-
-            if (resumeText == null || resumeText.isBlank()) {
-
-                throw new RuntimeException("Extracted resume text is empty for candidate ID: " + requestDto.getCandidateId());
+            if (requestDto.getJobId() == null) {
+                throw new RuntimeException(
+                        "Job ID is required"
+                );
             }
 
 
-            // =================================================
-            // 4. CREATE PYTHON JOB DTO
-            // =================================================
+            // =====================================================
+            // 2. GET LATEST RESUME
+            // =====================================================
 
-            PythonScreeningJobDto pythonJob = new PythonScreeningJobDto();
-
-            pythonJob.setJob_id("J_" + job.getId());
-
-            pythonJob.setJob_title(safeText(job.getTitle()));
-
-            pythonJob.setSeniority(determineJobSeniority(job.getExperienceMin()));
-
-            /*
-             * Your Job entity does not currently appear
-             * to have an industry field.
-             *
-             * We use department as the closest available
-             * value for now.
-             */
-            pythonJob.setIndustry(safeText(job.getDepartment()));
-
-            pythonJob.setMust_have_skills(toPythonSkillFormat(job.getRequiredSkills()));
-
-            pythonJob.setNice_to_have_skills(toPythonSkillFormat(job.getPreferredSkills()));
-
-            pythonJob.setDescription(safeText(job.getDescription()));
-
-            pythonJob.setResponsibilities(safeText(job.getResponsibilities()));
-
-            pythonJob.setRequirements(buildRequirements(job));
+            Resume resume =
+                    resumeRepository
+                            .findFirstByCandidateIdOrderByIdDesc(
+                                    requestDto.getCandidateId()
+                            )
+                            .orElseThrow(() ->
+                                    new RuntimeException(
+                                            "Resume not found for candidate ID: "
+                                                    + requestDto.getCandidateId()
+                                    )
+                            );
 
 
-            // =================================================
-            // 5. CREATE PYTHON SCREENING REQUEST
-            // =================================================
+            // =====================================================
+            // 3. GET JOB
+            // =====================================================
 
-            PythonScreeningRequestDto pythonRequest = new PythonScreeningRequestDto();
+            Job job =
+                    jobRepository
+                            .findById(requestDto.getJobId())
+                            .orElseThrow(() ->
+                                    new RuntimeException(
+                                            "Job not found with ID: "
+                                                    + requestDto.getJobId()
+                                    )
+                            );
+
+
+            // =====================================================
+            // 4. GET RESUME TEXT
+            // =====================================================
+
+            String resumeText =
+                    safeText(resume.getExtractedText());
+
+            if (resumeText.isBlank()) {
+
+                throw new RuntimeException(
+                        "Extracted resume text is empty for candidate ID: "
+                                + requestDto.getCandidateId()
+                );
+            }
+
+
+            // =====================================================
+            // 5. DEBUG RESUME DATA
+            // =====================================================
+
+            System.out.println("=================================");
+            System.out.println("AI RESUME SCREENING");
+            System.out.println("Candidate ID       = "
+                    + requestDto.getCandidateId());
+            System.out.println("Job ID             = "
+                    + requestDto.getJobId());
+            System.out.println("Resume ID          = "
+                    + resume.getId());
+            System.out.println("Resume File        = "
+                    + resume.getFileName());
+            System.out.println("Extracted Skills   = "
+                    + resume.getExtractedSkills());
+            System.out.println("Extracted Experience = "
+                    + resume.getExtractedExperience());
+            System.out.println("Extracted Education  = "
+                    + resume.getExtractedEducation());
+            System.out.println("Resume Text Length  = "
+                    + resumeText.length());
+            System.out.println("=================================");
+
+
+            // =====================================================
+            // 6. BUILD PYTHON JOB
+            // =====================================================
+
+            PythonScreeningJobDto pythonJob =
+                    new PythonScreeningJobDto();
+
+            pythonJob.setJob_id(
+                    "J_" + job.getId()
+            );
+
+            pythonJob.setJob_title(
+                    safeText(job.getTitle())
+            );
+
+            pythonJob.setSeniority(
+                    determineJobSeniority(
+                            job.getExperienceMin()
+                    )
+            );
+
+            pythonJob.setIndustry(
+                    safeText(job.getDepartment())
+            );
+
+            pythonJob.setMust_have_skills(
+                    toPythonSkillFormat(
+                            job.getRequiredSkills()
+                    )
+            );
+
+            pythonJob.setNice_to_have_skills(
+                    toPythonSkillFormat(
+                            job.getPreferredSkills()
+                    )
+            );
+
+            pythonJob.setDescription(
+                    safeText(job.getDescription())
+            );
+
+            pythonJob.setResponsibilities(
+                    safeText(job.getResponsibilities())
+            );
+
+            pythonJob.setRequirements(
+                    buildRequirements(job)
+            );
+
+
+            // =====================================================
+            // 7. BUILD PYTHON REQUEST
+            // =====================================================
+
+            PythonScreeningRequestDto pythonRequest =
+                    new PythonScreeningRequestDto();
 
             pythonRequest.setJob(pythonJob);
 
-            /*
-             * IMPORTANT:
-             *
-             * We send resume_text only.
-             *
-             * FastAPI ScreeningRequest allows:
-             *
-             * job + resume
-             *
-             * OR
-             *
-             * job + resume_text
-             *
-             * We are using the second option.
-             */
-            pythonRequest.setResumeText(resumeText);
+            pythonRequest.setResumeText(
+                    resumeText
+            );
 
 
-            // =================================================
-            // 6. CALL PYTHON AI
-            // =================================================
+            // =====================================================
+            // 8. DEBUG PYTHON REQUEST
+            // =====================================================
 
             System.out.println("=================================");
-            System.out.println("CALLING PYTHON RESUME SCREENING");
-            System.out.println("Candidate ID = " + requestDto.getCandidateId());
-            System.out.println("Job ID = " + requestDto.getJobId());
+            System.out.println("PYTHON SCREENING REQUEST");
+            System.out.println("Job ID              = "
+                    + pythonJob.getJob_id());
+            System.out.println("Job Title           = "
+                    + pythonJob.getJob_title());
+            System.out.println("Seniority           = "
+                    + pythonJob.getSeniority());
+            System.out.println("Industry            = "
+                    + pythonJob.getIndustry());
+            System.out.println("Must Have Skills    = "
+                    + pythonJob.getMust_have_skills());
+            System.out.println("Nice To Have Skills = "
+                    + pythonJob.getNice_to_have_skills());
+            System.out.println("Requirements        = "
+                    + pythonJob.getRequirements());
+            System.out.println("Resume Text Length  = "
+                    + resumeText.length());
             System.out.println("=================================");
 
-            PythonScreeningResponseDto pythonResponse = pythonAIClient.screenResume(pythonRequest);
 
+            // =====================================================
+            // 9. CALL PYTHON
+            // =====================================================
+
+            PythonScreeningResponseDto pythonResponse =
+                    pythonAIClient.screenResume(
+                            pythonRequest
+                    );
 
             if (pythonResponse == null) {
 
-                throw new RuntimeException("Python screening returned null response");
+                throw new RuntimeException(
+                        "Python screening returned null response"
+                );
             }
 
 
-            // =================================================
-            // 7. DEBUG PYTHON RESULT
-            // =================================================
+            // =====================================================
+            // 10. DEBUG PYTHON RESPONSE
+            // =====================================================
 
             System.out.println("=================================");
-            System.out.println("PYTHON SCREENING RESULT");
-            System.out.println("Job ID = " + pythonResponse.getJob_id());
-            System.out.println("Resume ID = " + pythonResponse.getResume_id());
-            System.out.println("Resume Profile = " + pythonResponse.getExtracted_resume_profile());
-            System.out.println("Job Requirements = " + pythonResponse.getExtracted_job_requirements());
-            System.out.println("Screening Dimensions = " + pythonResponse.getScreening_dimensions());
+            System.out.println("PYTHON SCREENING RESPONSE");
+
+            System.out.println(
+                    "Job ID = "
+                            + pythonResponse.getJob_id()
+            );
+
+            System.out.println(
+                    "Resume ID = "
+                            + pythonResponse.getResume_id()
+            );
+
+            System.out.println(
+                    "Extracted Resume Profile = "
+                            + pythonResponse
+                            .getExtracted_resume_profile()
+            );
+
+            System.out.println(
+                    "Extracted Job Requirements = "
+                            + pythonResponse
+                            .getExtracted_job_requirements()
+            );
+
+            System.out.println(
+                    "Screening Dimensions = "
+                            + pythonResponse
+                            .getScreening_dimensions()
+            );
+
             System.out.println("=================================");
 
 
-            // =================================================
-            // 8. CREATE DATABASE ENTITY
-            // =================================================
+            // =====================================================
+            // 11. CREATE SCREENING ENTITY
+            // =====================================================
 
-            AIResumeScreening screening = screeningMapper.toEntity(requestDto);
+            AIResumeScreening screening =
+                    screeningMapper.toEntity(requestDto);
 
-            screening.setCandidateId(requestDto.getCandidateId());
+            screening.setCandidateId(
+                    requestDto.getCandidateId()
+            );
 
-            screening.setJobId(requestDto.getJobId());
+            screening.setJobId(
+                    requestDto.getJobId()
+            );
 
 
-            // =================================================
-            // 9. MAP EXTRACTED RESUME PROFILE
-            // =================================================
+            // =====================================================
+            // 12. MAP PYTHON RESUME PROFILE
+            // =====================================================
 
-            Map<String, Object> resumeProfile = pythonResponse.getExtracted_resume_profile();
+            Map<String, Object> resumeProfile =
+                    pythonResponse
+                            .getExtracted_resume_profile();
 
             if (resumeProfile != null) {
 
-                screening.setSkills(objectToString(resumeProfile.get("skills")));
+                screening.setSkills(
+                        objectToString(
+                                firstPresent(
+                                        resumeProfile,
+                                        "skills",
+                                        "skill",
+                                        "extracted_skills"
+                                )
+                        )
+                );
 
-                screening.setExperience(objectToString(resumeProfile.get("experience")));
+                screening.setExperience(
+                        objectToString(
+                                firstPresent(
+                                        resumeProfile,
+                                        "experience",
+                                        "experiences",
+                                        "work_experience",
+                                        "extracted_experience"
+                                )
+                        )
+                );
 
-                screening.setEducation(objectToString(resumeProfile.get("education")));
+                screening.setEducation(
+                        objectToString(
+                                firstPresent(
+                                        resumeProfile,
+                                        "education",
+                                        "educations",
+                                        "extracted_education"
+                                )
+                        )
+                );
 
-                screening.setCertifications(objectToString(resumeProfile.get("certifications")));
+                screening.setCertifications(
+                        objectToString(
+                                firstPresent(
+                                        resumeProfile,
+                                        "certifications",
+                                        "certificates"
+                                )
+                        )
+                );
 
-                screening.setJobTitles(objectToString(resumeProfile.get("job_titles")));
+                screening.setJobTitles(
+                        objectToString(
+                                firstPresent(
+                                        resumeProfile,
+                                        "job_titles",
+                                        "job_title"
+                                )
+                        )
+                );
 
-                screening.setCompanies(objectToString(resumeProfile.get("companies")));
+                screening.setCompanies(
+                        objectToString(
+                                firstPresent(
+                                        resumeProfile,
+                                        "companies",
+                                        "company"
+                                )
+                        )
+                );
 
-                screening.setTechnologies(objectToString(resumeProfile.get("technologies")));
+                screening.setTechnologies(
+                        objectToString(
+                                firstPresent(
+                                        resumeProfile,
+                                        "technologies",
+                                        "technology"
+                                )
+                        )
+                );
 
-                screening.setProjects(objectToString(resumeProfile.get("projects")));
+                screening.setProjects(
+                        objectToString(
+                                firstPresent(
+                                        resumeProfile,
+                                        "projects",
+                                        "project"
+                                )
+                        )
+                );
 
-                screening.setYearsOfExperience(objectToDouble(resumeProfile.get("years_of_experience")));
+
+                // =================================================
+                // YEARS OF EXPERIENCE
+                // =================================================
+
+                Object years =
+                        firstPresent(
+                                resumeProfile,
+                                "years_of_experience",
+                                "yearsOfExperience",
+                                "experience_years",
+                                "total_experience",
+                                "years_experience"
+                        );
+
+                Double yearsOfExperience =
+                        objectToDouble(years);
+
+                screening.setYearsOfExperience(
+                        yearsOfExperience
+                );
+
+                System.out.println(
+                        "Extracted Years Of Experience = "
+                                + yearsOfExperience
+                );
             }
 
 
-            // =================================================
-            // 10. CALCULATE SCORE FROM PYTHON DIMENSIONS
-            // =================================================
+            // =====================================================
+            // 13. CALCULATE SCREENING SCORE
+            // =====================================================
 
-            double screeningScore = calculateOverallScore(pythonResponse.getScreening_dimensions());
+            double screeningScore =
+                    calculateOverallScore(
+                            pythonResponse
+                                    .getScreening_dimensions()
+                    );
 
-            screening.setScreeningScore(screeningScore);
+            screening.setScreeningScore(
+                    screeningScore
+            );
 
 
-            // =================================================
-            // 11. RESULT / RECOMMENDATION
-            // =================================================
+            System.out.println(
+                    "FINAL SCREENING SCORE = "
+                            + screeningScore
+            );
+
+
+            // =====================================================
+            // 14. SCREENING RESULT
+            // =====================================================
 
             if (screeningScore >= 70) {
 
-                screening.setScreeningResult("QUALIFIED");
+                screening.setScreeningResult(
+                        "QUALIFIED"
+                );
 
-                screening.setRecommendation("Candidate appears suitable for further HR screening.");
+                screening.setRecommendation(
+                        "Candidate appears suitable for further HR screening."
+                );
 
             } else if (screeningScore >= 50) {
 
-                screening.setScreeningResult("REVIEW");
+                screening.setScreeningResult(
+                        "REVIEW"
+                );
 
-                screening.setRecommendation("Candidate requires further manual review.");
+                screening.setRecommendation(
+                        "Candidate requires further manual review."
+                );
 
             } else {
 
-                screening.setScreeningResult("NOT_QUALIFIED");
+                screening.setScreeningResult(
+                        "NOT_QUALIFIED"
+                );
 
-                screening.setRecommendation("Candidate does not sufficiently match the job requirements.");
+                screening.setRecommendation(
+                        "Candidate does not sufficiently match the job requirements."
+                );
             }
 
 
-            // =================================================
-            // 12. SAVE DATABASE
-            // =================================================
+            // =====================================================
+            // 15. SCREENED TIME
+            // =====================================================
 
-            AIResumeScreening savedScreening = screeningRepository.save(screening);
-
-
-            // =================================================
-            // 13. MAP RESPONSE
-            // =================================================
-
-            AIResumeScreeningResponseDto responseDto = screeningMapper.toResponseDto(savedScreening);
+            screening.setScreenedAt(
+                    LocalDateTime.now()
+            );
 
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(new ApiResponse<>(true, "AI resume screening completed successfully", responseDto));
+            // =====================================================
+            // 16. SAVE
+            // =====================================================
 
+            AIResumeScreening savedScreening =
+                    screeningRepository.save(
+                            screening
+                    );
+
+
+            // =====================================================
+            // 17. RESPONSE
+            // =====================================================
+
+            AIResumeScreeningResponseDto responseDto =
+                    screeningMapper.toResponseDto(
+                            savedScreening
+                    );
+
+            return ResponseEntity
+                    .status(HttpStatus.CREATED)
+                    .body(
+                            new ApiResponse<>(
+                                    true,
+                                    "AI resume screening completed successfully",
+                                    responseDto
+                            )
+                    );
 
         } catch (Exception e) {
 
             e.printStackTrace();
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to perform AI resume screening: " + e.getMessage(), null));
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to perform AI resume screening: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
         }
     }
 
 
     // =========================================================
-    // GET ALL SCREENINGS
+    // SCORE CALCULATION
     // =========================================================
 
-    public ResponseEntity<ApiResponse<List<AIResumeScreeningResponseDto>>> getAllScreenings() {
+    private double calculateOverallScore(
+            List<Map<String, Object>> dimensions) {
 
-        try {
+        if (dimensions == null ||
+                dimensions.isEmpty()) {
 
-            List<AIResumeScreeningResponseDto> screenings = screeningRepository.findAll().stream().map(screeningMapper::toResponseDto).toList();
-
-            return ResponseEntity.ok(new ApiResponse<>(true, "AI resume screenings retrieved successfully", screenings));
-
-        } catch (Exception e) {
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to retrieve AI resume screenings: " + e.getMessage(), null));
-        }
-    }
-
-
-    // =========================================================
-    // GET SCREENING BY ID
-    // =========================================================
-
-    public ResponseEntity<ApiResponse<AIResumeScreeningResponseDto>> getScreeningById(Long id) {
-
-        try {
-
-            AIResumeScreening screening = screeningRepository.findById(id).orElseThrow(() -> new RuntimeException("AI resume screening not found with id: " + id));
-
-            return ResponseEntity.ok(new ApiResponse<>(true, "AI resume screening retrieved successfully", screeningMapper.toResponseDto(screening)));
-
-        } catch (Exception e) {
-
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, e.getMessage(), null));
-        }
-    }
-
-
-    // =========================================================
-    // CALCULATE OVERALL SCREENING SCORE
-    // =========================================================
-
-    private double calculateOverallScore(List<Map<String, Object>> dimensions) {
-
-        if (dimensions == null || dimensions.isEmpty()) {
+            System.out.println(
+                    "WARNING: Python returned no screening dimensions"
+            );
 
             return 0.0;
         }
 
-        List<Double> scores = new ArrayList<>();
+        List<Double> scores =
+                new ArrayList<>();
 
-        for (Map<String, Object> dimension : dimensions) {
+        for (Map<String, Object> dimension :
+                dimensions) {
 
-            Double score = extractDimensionScore(dimension);
+            Double score =
+                    extractDimensionScore(
+                            dimension
+                    );
 
             if (score != null) {
 
-                scores.add(score);
+                scores.add(
+                        normalizeScore(score)
+                );
             }
         }
 
         if (scores.isEmpty()) {
+
+            System.out.println(
+                    "WARNING: No usable screening scores found"
+            );
+
             return 0.0;
         }
 
-        double total = scores.stream().mapToDouble(Double::doubleValue).sum();
+        double total =
+                scores.stream()
+                        .mapToDouble(
+                                Double::doubleValue
+                        )
+                        .sum();
 
-        double average = total / scores.size();
+        double average =
+                total / scores.size();
 
-        return Math.round(average * 100.0) / 100.0;
+        return Math.round(
+                average * 100.0
+        ) / 100.0;
     }
 
 
     // =========================================================
-    // EXTRACT SCORE FROM SCREENING DIMENSION
+    // EXTRACT DIMENSION SCORE
     // =========================================================
 
-    private Double extractDimensionScore(Map<String, Object> dimension) {
+    private Double extractDimensionScore(
+            Map<String, Object> dimension) {
 
         if (dimension == null) {
             return null;
         }
 
-        /*
-         * FastAPI ScreeningDimension supports
-         * different score fields.
-         */
 
-        Object matchPct = dimension.get("match_pct");
+        Object matchPct =
+                firstPresent(
+                        dimension,
+                        "match_pct",
+                        "match_percentage",
+                        "matchPercent",
+                        "score"
+                );
 
         if (matchPct != null) {
 
-            return objectToDouble(matchPct);
+            return objectToDouble(
+                    matchPct
+            );
         }
 
 
-        Object similarityPct = dimension.get("similarity_pct");
+        Object similarityPct =
+                firstPresent(
+                        dimension,
+                        "similarity_pct",
+                        "similarity_percentage",
+                        "similarityPercent"
+                );
 
         if (similarityPct != null) {
 
-            return objectToDouble(similarityPct);
+            return objectToDouble(
+                    similarityPct
+            );
         }
 
 
-        Object similarityScore = dimension.get("similarity_score");
+        Object similarityScore =
+                firstPresent(
+                        dimension,
+                        "similarity_score",
+                        "similarity",
+                        "score_value"
+                );
 
         if (similarityScore != null) {
 
-            Double score = objectToDouble(similarityScore);
+            Double score =
+                    objectToDouble(
+                            similarityScore
+                    );
 
             if (score == null) {
                 return null;
             }
 
-            /*
-             * If Python returns similarity as
-             * 0.0 - 1.0 convert it to percentage.
-             */
-            if (score >= 0 && score <= 1) {
-
-                return score * 100;
-            }
-
-            return score;
+            return normalizeScore(score);
         }
 
 
-        Object match = dimension.get("match");
+        Object match =
+                firstPresent(
+                        dimension,
+                        "match",
+                        "matched"
+                );
 
         if (match instanceof Boolean value) {
 
-            return value ? 100.0 : 0.0;
+            return value
+                    ? 100.0
+                    : 0.0;
+        }
+
+        return null;
+    }
+
+
+    // =========================================================
+    // NORMALIZE SCORE
+    // =========================================================
+
+    private double normalizeScore(
+            Double score) {
+
+        if (score == null) {
+            return 0.0;
+        }
+
+        if (score >= 0 &&
+                score <= 1) {
+
+            return score * 100.0;
+        }
+
+        if (score < 0) {
+            return 0.0;
+        }
+
+        if (score > 100) {
+            return 100.0;
+        }
+
+        return score;
+    }
+
+
+    // =========================================================
+    // FIND FIRST PRESENT VALUE
+    // =========================================================
+
+    private Object firstPresent(
+            Map<String, Object> map,
+            String... keys) {
+
+        if (map == null) {
+            return null;
+        }
+
+        for (String key : keys) {
+
+            if (map.containsKey(key) &&
+                    map.get(key) != null) {
+
+                return map.get(key);
+            }
         }
 
         return null;
@@ -415,15 +751,28 @@ public class AIResumeScreeningService {
 
     private String buildRequirements(Job job) {
 
-        String requiredSkills = safeText(job.getRequiredSkills());
+        String requiredSkills =
+                safeText(
+                        job.getRequiredSkills()
+                );
 
-        String education = safeText(job.getEducation());
+        String education =
+                safeText(
+                        job.getEducation()
+                );
 
-        StringBuilder requirements = new StringBuilder();
+        StringBuilder requirements =
+                new StringBuilder();
 
         if (!requiredSkills.isBlank()) {
 
-            requirements.append("Required skills: ").append(requiredSkills);
+            requirements.append(
+                    "Required skills: "
+            );
+
+            requirements.append(
+                    requiredSkills
+            );
         }
 
         if (!education.isBlank()) {
@@ -432,7 +781,13 @@ public class AIResumeScreeningService {
                 requirements.append(". ");
             }
 
-            requirements.append("Education: ").append(education);
+            requirements.append(
+                    "Education: "
+            );
+
+            requirements.append(
+                    education
+            );
         }
 
         return requirements.toString();
@@ -443,9 +798,11 @@ public class AIResumeScreeningService {
     // JOB SENIORITY
     // =========================================================
 
-    private String determineJobSeniority(Integer experienceMin) {
+    private String determineJobSeniority(
+            Integer experienceMin) {
 
-        if (experienceMin == null || experienceMin <= 2) {
+        if (experienceMin == null ||
+                experienceMin <= 2) {
 
             return "Junior";
         }
@@ -460,32 +817,49 @@ public class AIResumeScreeningService {
 
 
     // =========================================================
-    // CONVERT SKILLS TO PYTHON FORMAT
+    // PYTHON SKILL FORMAT
     // =========================================================
 
-    private String toPythonSkillFormat(String skills) {
+    private String toPythonSkillFormat(
+            String skills) {
 
-        if (skills == null || skills.isBlank()) {
+        if (skills == null ||
+                skills.isBlank()) {
 
             return "[]";
         }
 
-        String[] values = skills.split("[,;|]");
+        String[] values =
+                skills.split("[,;|]");
 
-        StringBuilder builder = new StringBuilder("[");
+        StringBuilder builder =
+                new StringBuilder("[");
+
+        boolean first = true;
 
         for (String value : values) {
 
-            String skill = value.trim();
+            String skill =
+                    value.trim();
 
-            if (!skill.isBlank()) {
-
-                if (builder.length() > 1) {
-                    builder.append(" ");
-                }
-
-                builder.append("'").append(skill).append("'");
+            if (skill.isBlank()) {
+                continue;
             }
+
+            if (!first) {
+                builder.append(", ");
+            }
+
+            builder.append("'")
+                    .append(
+                            skill.replace(
+                                    "'",
+                                    "\\'"
+                            )
+                    )
+                    .append("'");
+
+            first = false;
         }
 
         builder.append("]");
@@ -498,7 +872,8 @@ public class AIResumeScreeningService {
     // OBJECT -> STRING
     // =========================================================
 
-    private String objectToString(Object value) {
+    private String objectToString(
+            Object value) {
 
         if (value == null) {
             return "";
@@ -506,7 +881,17 @@ public class AIResumeScreeningService {
 
         if (value instanceof List<?> list) {
 
-            return list.stream().map(String::valueOf).filter(item -> !item.isBlank()).reduce((a, b) -> a + ", " + b).orElse("");
+            return list.stream()
+                    .map(String::valueOf)
+                    .filter(
+                            item ->
+                                    !item.isBlank()
+                    )
+                    .reduce(
+                            (a, b) ->
+                                    a + ", " + b
+                    )
+                    .orElse("");
         }
 
         return String.valueOf(value);
@@ -517,7 +902,8 @@ public class AIResumeScreeningService {
     // OBJECT -> DOUBLE
     // =========================================================
 
-    private Double objectToDouble(Object value) {
+    private Double objectToDouble(
+            Object value) {
 
         if (value == null) {
             return null;
@@ -528,27 +914,26 @@ public class AIResumeScreeningService {
             return number.doubleValue();
         }
 
-        /*
-         * Python resume parser can sometimes return
-         * years as a list/string instead of a number.
-         */
         if (value instanceof List<?> list) {
 
             for (Object item : list) {
 
-                Double number = extractFirstNumber(String.valueOf(item));
+                Double number =
+                        extractFirstNumber(
+                                String.valueOf(item)
+                        );
 
                 if (number != null) {
                     return number;
                 }
             }
 
-            return 0.0;
+            return null;
         }
 
-        Double number = extractFirstNumber(String.valueOf(value));
-
-        return number == null ? 0.0 : number;
+        return extractFirstNumber(
+                String.valueOf(value)
+        );
     }
 
 
@@ -556,20 +941,29 @@ public class AIResumeScreeningService {
     // EXTRACT FIRST NUMBER
     // =========================================================
 
-    private Double extractFirstNumber(String value) {
+    private Double extractFirstNumber(
+            String value) {
 
-        if (value == null || value.isBlank()) {
+        if (value == null ||
+                value.isBlank()) {
 
             return null;
         }
 
-        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\\d+(?:\\.\\d+)?").matcher(value);
+        java.util.regex.Matcher matcher =
+                java.util.regex.Pattern
+                        .compile(
+                                "\\d+(?:\\.\\d+)?"
+                        )
+                        .matcher(value);
 
         if (matcher.find()) {
 
             try {
 
-                return Double.parseDouble(matcher.group());
+                return Double.parseDouble(
+                        matcher.group()
+                );
 
             } catch (NumberFormatException ignored) {
 
@@ -585,10 +979,109 @@ public class AIResumeScreeningService {
     // NULL SAFE STRING
     // =========================================================
 
-    private String safeText(String value) {
+    private String safeText(
+            String value) {
 
-        return value == null ? "" : value.trim();
+        return value == null
+                ? ""
+                : value.trim();
     }
+
+
+    // =========================================================
+    // GET ALL SCREENINGS
+    // =========================================================
+
+    public ResponseEntity<ApiResponse<List<AIResumeScreeningResponseDto>>>
+    getAllScreenings() {
+
+        try {
+
+            List<AIResumeScreeningResponseDto> screenings =
+                    screeningRepository
+                            .findAll()
+                            .stream()
+                            .map(
+                                    screeningMapper::toResponseDto
+                            )
+                            .toList();
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "AI resume screenings retrieved successfully",
+                            screenings
+                    )
+            );
+
+        } catch (Exception e) {
+
+            return ResponseEntity
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to retrieve AI resume screenings: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
+        }
+    }
+
+
+    // =========================================================
+    // GET SCREENING BY ID
+    // =========================================================
+
+    public ResponseEntity<ApiResponse<AIResumeScreeningResponseDto>>
+    getScreeningById(Long id) {
+
+        try {
+
+            AIResumeScreening screening =
+                    screeningRepository
+                            .findById(id)
+                            .orElseThrow(() ->
+                                    new RuntimeException(
+                                            "AI resume screening not found with id: "
+                                                    + id
+                                    )
+                            );
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "AI resume screening retrieved successfully",
+                            screeningMapper.toResponseDto(
+                                    screening
+                            )
+                    )
+            );
+
+        } catch (Exception e) {
+
+            return ResponseEntity
+                    .status(
+                            HttpStatus.NOT_FOUND
+                    )
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    e.getMessage(),
+                                    null
+                            )
+                    );
+        }
+    }
+
+
+    // =========================================================
+    // MANAGEMENT
+    // =========================================================
+
     public ResponseEntity<ApiResponse<List<AIScreeningManagementDto>>>
     getScreeningManagementData() {
 
@@ -600,21 +1093,31 @@ public class AIResumeScreeningService {
             List<AIScreeningManagementDto> result =
                     new ArrayList<>();
 
-            for (AIResumeScreening screening : screenings) {
+            for (AIResumeScreening screening :
+                    screenings) {
 
                 AIScreeningManagementDto dto =
                         new AIScreeningManagementDto();
 
-                dto.setScreeningId(screening.getId());
+                dto.setScreeningId(
+                        screening.getId()
+                );
 
-                dto.setCandidateId(screening.getCandidateId());
-                dto.setJobId(screening.getJobId());
+                dto.setCandidateId(
+                        screening.getCandidateId()
+                );
+
+                dto.setJobId(
+                        screening.getJobId()
+                );
 
                 dto.setYearsOfExperience(
                         screening.getYearsOfExperience()
                 );
 
-                dto.setSkills(screening.getSkills());
+                dto.setSkills(
+                        screening.getSkills()
+                );
 
                 dto.setAiMatch(
                         screening.getScreeningScore()
@@ -633,28 +1136,34 @@ public class AIResumeScreeningService {
                 );
 
 
-                // Candidate
                 candidateRepository
-                        .findById(screening.getCandidateId())
-                        .ifPresent(candidate -> {
+                        .findById(
+                                screening.getCandidateId()
+                        )
+                        .ifPresent(
+                                candidate -> {
 
-                            dto.setCandidateName(
-                                    candidate.getName()
-                            );
+                                    dto.setCandidateName(
+                                            candidate.getName()
+                                    );
 
-                            dto.setCandidateEmail(
-                                    candidate.getEmail()
-                            );
-                        });
-
-
-                // Job
-                jobRepository
-                        .findById(screening.getJobId())
-                        .ifPresent(job ->
-                                dto.setPosition(job.getTitle())
+                                    dto.setCandidateEmail(
+                                            candidate.getEmail()
+                                    );
+                                }
                         );
 
+
+                jobRepository
+                        .findById(
+                                screening.getJobId()
+                        )
+                        .ifPresent(
+                                job ->
+                                        dto.setPosition(
+                                                job.getTitle()
+                                        )
+                        );
 
                 result.add(dto);
             }
@@ -672,7 +1181,9 @@ public class AIResumeScreeningService {
             e.printStackTrace();
 
             return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -682,6 +1193,12 @@ public class AIResumeScreeningService {
                     );
         }
     }
+
+
+    // =========================================================
+    // STATISTICS
+    // =========================================================
+
     public ResponseEntity<ApiResponse<AIScreeningStatsDto>>
     getScreeningStats() {
 
@@ -692,7 +1209,9 @@ public class AIResumeScreeningService {
 
             long highMatch =
                     screeningRepository
-                            .countByScreeningScoreGreaterThanEqual(80.0);
+                            .countByScreeningScoreGreaterThanEqual(
+                                    80.0
+                            );
 
             long recommended =
                     screeningRepository
@@ -727,7 +1246,9 @@ public class AIResumeScreeningService {
             e.printStackTrace();
 
             return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -737,30 +1258,55 @@ public class AIResumeScreeningService {
                     );
         }
     }
+
+
+    // =========================================================
+    // SEARCH
+    // =========================================================
+
     public ResponseEntity<ApiResponse<List<AIScreeningManagementDto>>>
     searchScreenings(String keyword) {
 
         try {
 
-            ResponseEntity<ApiResponse<List<AIScreeningManagementDto>>> response =
+            ResponseEntity<ApiResponse<List<AIScreeningManagementDto>>>
+                    response =
                     getScreeningManagementData();
 
             List<AIScreeningManagementDto> screenings =
-                    response.getBody() != null
+                    response.getBody() != null &&
+                            response.getBody().getData() != null
                             ? response.getBody().getData()
                             : new ArrayList<>();
 
-            String search = keyword == null
-                    ? ""
-                    : keyword.trim().toLowerCase();
+            String search =
+                    keyword == null
+                            ? ""
+                            : keyword.trim().toLowerCase();
 
             List<AIScreeningManagementDto> filtered =
                     screenings.stream()
-                            .filter(dto ->
-                                    containsIgnoreCase(dto.getCandidateName(), search)
-                                            || containsIgnoreCase(dto.getCandidateEmail(), search)
-                                            || containsIgnoreCase(dto.getPosition(), search)
-                                            || containsIgnoreCase(dto.getSkills(), search)
+                            .filter(
+                                    dto ->
+                                            containsIgnoreCase(
+                                                    dto.getCandidateName(),
+                                                    search
+                                            )
+                                                    ||
+                                                    containsIgnoreCase(
+                                                            dto.getCandidateEmail(),
+                                                            search
+                                                    )
+                                                    ||
+                                                    containsIgnoreCase(
+                                                            dto.getPosition(),
+                                                            search
+                                                    )
+                                                    ||
+                                                    containsIgnoreCase(
+                                                            dto.getSkills(),
+                                                            search
+                                                    )
                             )
                             .toList();
 
@@ -777,7 +1323,9 @@ public class AIResumeScreeningService {
             e.printStackTrace();
 
             return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -788,29 +1336,35 @@ public class AIResumeScreeningService {
         }
     }
 
-    private boolean containsIgnoreCase(String value, String search) {
-        return value != null &&
-                value.toLowerCase().contains(search);
-    }
+
+    // =========================================================
+    // FILTER BY RESULT
+    // =========================================================
+
     public ResponseEntity<ApiResponse<List<AIScreeningManagementDto>>>
     filterByResult(String result) {
 
         try {
 
-            ResponseEntity<ApiResponse<List<AIScreeningManagementDto>>> response =
+            ResponseEntity<ApiResponse<List<AIScreeningManagementDto>>>
+                    response =
                     getScreeningManagementData();
 
             List<AIScreeningManagementDto> screenings =
-                    response.getBody() != null
+                    response.getBody() != null &&
+                            response.getBody().getData() != null
                             ? response.getBody().getData()
                             : new ArrayList<>();
 
             List<AIScreeningManagementDto> filtered =
                     screenings.stream()
-                            .filter(dto ->
-                                    dto.getResult() != null &&
-                                            dto.getResult()
-                                                    .equalsIgnoreCase(result)
+                            .filter(
+                                    dto ->
+                                            dto.getResult() != null &&
+                                                    dto.getResult()
+                                                            .equalsIgnoreCase(
+                                                                    result
+                                                            )
                             )
                             .toList();
 
@@ -827,7 +1381,9 @@ public class AIResumeScreeningService {
             e.printStackTrace();
 
             return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -836,5 +1392,19 @@ public class AIResumeScreeningService {
                             )
                     );
         }
+    }
+
+
+    // =========================================================
+    // STRING SEARCH HELPER
+    // =========================================================
+
+    private boolean containsIgnoreCase(
+            String value,
+            String search) {
+
+        return value != null &&
+                value.toLowerCase()
+                        .contains(search);
     }
 }

@@ -5,6 +5,7 @@ import com.ems.dto.AvailableInterviewerDto;
 import com.ems.dto.InterviewManagementDto;
 import com.ems.dto.InterviewRequestDto;
 import com.ems.dto.InterviewStatsDto;
+import com.ems.dto.InterviewerCandidateDto;
 import com.ems.entity.Interview;
 import com.ems.service.InterviewService;
 
@@ -23,7 +24,6 @@ public class InterviewController {
     @Autowired
     private InterviewService interviewService;
 
-
     // =========================================================
     // SCHEDULE INTERVIEW
     // =========================================================
@@ -34,7 +34,6 @@ public class InterviewController {
 
         return interviewService.scheduleInterview(dto);
     }
-
 
     // =========================================================
     // AVAILABLE INTERVIEWERS
@@ -47,7 +46,6 @@ public class InterviewController {
         return interviewService.getAvailableInterviewers();
     }
 
-
     // =========================================================
     // CANDIDATE - MY INTERVIEWS
     // =========================================================
@@ -59,6 +57,16 @@ public class InterviewController {
         return interviewService.getMyInterviews(authentication);
     }
 
+    // =========================================================
+    // INTERVIEWER - MY CANDIDATES
+    // =========================================================
+
+    @GetMapping("/interviewer/my-candidates")
+    public ResponseEntity<ApiResponse<List<InterviewerCandidateDto>>>
+    getMyCandidates(Authentication authentication) {
+
+        return interviewService.getMyCandidates(authentication);
+    }
 
     // =========================================================
     // INTERVIEWS BY JOB
@@ -70,7 +78,6 @@ public class InterviewController {
 
         return interviewService.getInterviewsByJob(jobId);
     }
-
 
     // =========================================================
     // RESCHEDULE INTERVIEW
@@ -87,7 +94,6 @@ public class InterviewController {
         );
     }
 
-
     // =========================================================
     // UPDATE INTERVIEW STATUS
     // =========================================================
@@ -103,7 +109,6 @@ public class InterviewController {
         );
     }
 
-
     // =========================================================
     // INTERVIEW MANAGEMENT
     // =========================================================
@@ -114,7 +119,6 @@ public class InterviewController {
 
         return interviewService.getInterviewManagementData();
     }
-
 
     // =========================================================
     // INTERVIEW STATISTICS
@@ -127,7 +131,6 @@ public class InterviewController {
         return interviewService.getInterviewStats();
     }
 
-
     // =========================================================
     // UPCOMING INTERVIEWS
     // =========================================================
@@ -138,7 +141,6 @@ public class InterviewController {
 
         return interviewService.getUpcomingInterviews();
     }
-
 
     // =========================================================
     // SEARCH INTERVIEWS
@@ -152,7 +154,6 @@ public class InterviewController {
         return interviewService.searchInterviews(keyword);
     }
 
-
     // =========================================================
     // INTERVIEWS BY STATUS
     // =========================================================
@@ -164,7 +165,6 @@ public class InterviewController {
 
         return interviewService.getInterviewsByStatus(status);
     }
-
 
     // =========================================================
     // INTERVIEW DETAILS
