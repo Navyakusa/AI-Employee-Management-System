@@ -34,6 +34,7 @@ def extract_individual_skills(raw_skill_blocks: list) -> list:
         pieces = re.split(r"[,;\n•]", block)
         for piece in pieces:
             piece = piece.strip()
+            piece = re.sub(r"^[-*]\s*", "", piece)                    # strip "- " / "* " bullet markers
             piece = re.sub(r"^[A-Za-z /&]+:\s*", "", piece)          # strip "Languages:" etc.
             piece = re.sub(r"\s*\([^)]*\)\s*$", "", piece)            # strip "(2 years)" etc.
             piece = piece.strip(" .")

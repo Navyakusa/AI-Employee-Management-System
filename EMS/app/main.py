@@ -94,7 +94,7 @@ def parse_resume_endpoint(payload: ResumeParseRequest):
 # Module 6 -- AI Resume Screening (standalone from Module 7 matching)
 # ---------------------------------------------------------------------------
 
-@app.post("/screen-resume", response_model=ScreeningResponse, tags=["screening"])
+@app.post("/screen-resume", response_model=ScreeningResponse, response_model_exclude_none=True, tags=["screening"])
 def screen_resume_endpoint(payload: ScreeningRequest):
     if (payload.resume is None) == (payload.resume_text is None):
         raise HTTPException(status_code=400, detail="Provide exactly one of 'resume' or 'resume_text'.")
@@ -117,7 +117,7 @@ def screen_resume_endpoint(payload: ScreeningRequest):
 # Modules 6/7 -- Candidate Matching
 # ---------------------------------------------------------------------------
 
-@app.post("/match-score", response_model=MatchScoreResponse, tags=["matching"])
+@app.post("/match-score", response_model=MatchScoreResponse, response_model_exclude_none=True, tags=["matching"])
 def match_score_endpoint(payload: MatchScoreRequest, explain: bool = False):
     if (payload.resume is None) == (payload.resume_text is None):
         raise HTTPException(status_code=400, detail="Provide exactly one of 'resume' or 'resume_text'.")
@@ -178,7 +178,7 @@ def rank_candidates_endpoint(payload: RankCandidatesRequest):
 # Module 19 -- Interview Question Generation
 # ---------------------------------------------------------------------------
 
-@app.post("/generate-interview-questions", response_model=InterviewQuestionsResponse, tags=["interview-questions"])
+@app.post("/generate-interview-questions", response_model=InterviewQuestionsResponse, response_model_exclude_none=True, tags=["interview-questions"])
 def generate_interview_questions_endpoint(payload: InterviewQuestionsRequest):
     result = generate_interview_questions(
         payload.job.dict(), payload.resume.dict(),
@@ -216,7 +216,7 @@ def predict_salary_endpoint(job_posting: JobPostingInput):
 # only; the actual approve/reject decision is made and stored by the backend.
 # ---------------------------------------------------------------------------
 
-@app.post("/recommend-candidate-decision", response_model=CandidateDecisionResponse, tags=["decision"])
+@app.post("/recommend-candidate-decision", response_model=CandidateDecisionResponse, response_model_exclude_none=True, tags=["decision"])
 def recommend_candidate_decision_endpoint(payload: CandidateDecisionRequest):
     if payload.match_probability_pct is None and (payload.job is None or payload.resume is None):
         raise HTTPException(
