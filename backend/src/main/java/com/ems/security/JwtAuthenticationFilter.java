@@ -8,6 +8,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -15,6 +17,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 public class JwtAuthenticationFilter
@@ -26,7 +31,6 @@ public class JwtAuthenticationFilter
     @Autowired
     private CustomUserDetailsService userDetailsService;
 
-
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
@@ -34,7 +38,10 @@ public class JwtAuthenticationFilter
             FilterChain filterChain)
             throws ServletException, IOException {
 
-        // Get Authorization header
+        // =====================================================
+        // GET AUTHORIZATION HEADER
+        // =====================================================
+
         String authHeader =
                 request.getHeader("Authorization");
 
@@ -42,8 +49,10 @@ public class JwtAuthenticationFilter
                 "Authorization Header: " + authHeader
         );
 
+        // =====================================================
+        // NO TOKEN
+        // =====================================================
 
-        // No token
         if (authHeader == null ||
                 !authHeader.startsWith("Bearer ")) {
 
@@ -55,13 +64,14 @@ public class JwtAuthenticationFilter
             return;
         }
 
+        // =====================================================
+        // EXTRACT JWT TOKEN
+        // =====================================================
 
-        // Remove "Bearer "
         String token =
                 authHeader.substring(7);
 
         String email;
-
 
         try {
 
@@ -87,9 +97,10 @@ public class JwtAuthenticationFilter
             return;
         }
 
+        // =====================================================
+        // AUTHENTICATE USER
+        // =====================================================
 
-        // Authenticate only if authentication
-        // is not already available
         if (email != null &&
                 SecurityContextHolder
                         .getContext()
@@ -99,6 +110,9 @@ public class JwtAuthenticationFilter
                     userDetailsService
                             .loadUserByUsername(email);
 
+            // =================================================
+            // VALIDATE TOKEN
+            // =================================================
 
             boolean valid =
                     jwtService.validateToken(
@@ -106,27 +120,55 @@ public class JwtAuthenticationFilter
                             userDetails.getUsername()
                     );
 
-
             if (valid) {
 
-                UsernamePasswordAuthenticationToken authentication =
+                // =============================================
+                // NORMALIZE AUTHORITIES
+                // =============================================
+
+                Collection<? extends GrantedAuthority>
+                        originalAuthorities =
+                        userDetails.getAuthorities();
+
+                List<GrantedAuthority>
+                        normalizedAuthorities =
+                        originalAuthorities
+                                .stream()
+                                .map(this::normalizeAuthority)
+                                .collect(Collectors.toList());
+
+                System.out.println(
+                        "Original Authorities: "
+                                + originalAuthorities
+                );
+
+                System.out.println(
+                        "Normalized Authorities: "
+                                + normalizedAuthorities
+                );
+
+                // =============================================
+                // CREATE AUTHENTICATION
+                // =============================================
+
+                UsernamePasswordAuthenticationToken
+                        authentication =
                         new UsernamePasswordAuthenticationToken(
                                 userDetails,
                                 null,
-                                userDetails.getAuthorities()
+                                normalizedAuthorities
                         );
-
 
                 authentication.setDetails(
                         new WebAuthenticationDetailsSource()
                                 .buildDetails(request)
                 );
 
-
                 SecurityContextHolder
                         .getContext()
-                        .setAuthentication(authentication);
-
+                        .setAuthentication(
+                                authentication
+                        );
 
                 System.out.println(
                         "Authenticated User: "
@@ -135,15 +177,73 @@ public class JwtAuthenticationFilter
 
                 System.out.println(
                         "Authorities: "
-                                + userDetails.getAuthorities()
+                                + normalizedAuthorities
                 );
             }
         }
-
 
         filterChain.doFilter(
                 request,
                 response
         );
+    }
+
+    // =========================================================
+    // NORMALIZE ROLE AUTHORITY
+    // =========================================================
+
+    private GrantedAuthority normalizeAuthority(
+            GrantedAuthority authority) {
+
+        if (authority == null ||
+                authority.getAuthority() == null) {
+
+            return authority;
+        }
+
+        String authorityName =
+                authority.getAuthority().trim();
+
+        // Already in Spring Security format
+        if (authorityName.startsWith("ROLE_")) {
+
+            return new SimpleGrantedAuthority(
+                    authorityName
+            );
+        }
+
+        // Convert application roles to ROLE_ format
+        if (isApplicationRole(authorityName)) {
+
+            return new SimpleGrantedAuthority(
+                    "ROLE_" + authorityName
+            );
+        }
+
+        // Keep non-role authorities unchanged
+        return new SimpleGrantedAuthority(
+                authorityName
+        );
+    }
+
+    // =========================================================
+    // APPLICATION ROLES
+    // =========================================================
+
+    private boolean isApplicationRole(
+            String authority) {
+
+        return switch (authority.toUpperCase()) {
+
+            case "CANDIDATE",
+                 "EMPLOYEE",
+                 "RECRUITER",
+                 "HIRING_MANAGER",
+                 "EMPLOYER",
+                 "INTERVIEWER",
+                 "SUPER_ADMIN" -> true;
+
+            default -> false;
+        };
     }
 }
