@@ -3,6 +3,38 @@
 FastAPI service wrapping all 7 AI/ML modules from the project report. Built and tested
 end-to-end against the models trained in the accompanying notebooks.
 
+## Performance / latency
+
+All models (spaCy NER, XGBoost matching/attrition/salary, TF-IDF vectorizer) load **once, at
+server startup** -- not on each request. Startup typically takes a couple of seconds (the spaCy
+model is the slowest piece, ~2-12s depending on disk cache state). After that, individual
+requests are fast: single-digit to low-double-digit milliseconds for most endpoints.
+
+**If requests seem consistently slow, check these in order:**
+
+1. **Is the server actually staying up between requests?** If something is restarting the
+   `uvicorn` process between calls (a process manager set to restart on every request, a
+   serverless-style deployment that spins up fresh each time, `--reload` triggering restarts from
+   file changes), every request pays the full startup cost again. Run with a plain
+   `uvicorn app.main:app --port 8000` (no `--reload`) for anything other than active local
+   development.
+2. **Is `explain=true` being sent on every `/match-score` call?** SHAP's explanation computation
+   is meaningfully slower than a plain score -- only request it for the specific view that
+   actually displays the explanation, not on every call.
+3. **Is `resume_text` being sent repeatedly for the same candidate** on every `/match-score` /
+   `/skill-gap` / `/rank-candidates` call, instead of parsing once and reusing the structured
+   result? Each `resume_text` call re-runs the full NER pipeline. If a candidate's profile is
+   already parsed and stored in the database, pass the structured `resume` object instead --
+   it skips NER entirely and is faster.
+4. **Concurrent load:** a single `uvicorn` process handles requests one worker's worth of CPU at
+   a time. For concurrent traffic beyond a light demo, run with multiple workers:
+   `uvicorn app.main:app --port 8000 --workers 4` (each worker loads its own copy of the models,
+   so this increases memory use accordingly).
+5. **Network vs. compute:** if the ML service and backend are on different machines, some of the
+   perceived latency may be network round-trip, not model computation -- time a direct `curl` to
+   the ML service (see `GET /health`) versus the full request path through the backend to isolate
+   which side the delay is actually on.
+
 ## Setup
 
 ```bash
@@ -75,8 +107,24 @@ if you know them; otherwise they're treated as unknown rather than guessed.
 | `POST /generate-interview-questions` | 19 | Job + resume -> tailored interview questions |
 | `POST /predict-attrition` | 34 | Employee record -> attrition risk (LOW/MEDIUM/HIGH) |
 | `POST /predict-salary` | 35 | Job posting -> estimated salary range |
+| `POST /recommend-candidate-decision` | 23 (support) | Match score + interview feedback -> suggested recommendation (Recommended / Hold / Not Recommended) |
 
 Full request/response schemas (with example values) are visible at `/docs`.
+
+### About `/recommend-candidate-decision`
+
+This supports the Hiring Manager's "Approve/Reject Candidates" permission, but it does **not**
+make or store that decision -- it returns a *suggested* recommendation for the Hiring Manager to
+review, by combining:
+- The AI match score (40% weight) -- either pass `match_probability_pct` directly if you already
+  have it from a prior `/match-score` call, or pass `job` + `resume` to compute it fresh
+- The interviewer's structured feedback (60% weight) -- Technical Skills, Communication, Problem
+  Solving, Teamwork, Leadership, each 0-10, matching the report's Module 23 example
+
+Interview feedback is weighted higher since it's a direct human judgment made after actually
+meeting the candidate. The **actual** approve/reject click, and its permanent storage against the
+candidate's record, is the backend team's responsibility -- this endpoint is stateless like every
+other one in this service, and only ever returns a suggestion.
 
 ### Module 6 vs Module 7 -- what's the difference?
 

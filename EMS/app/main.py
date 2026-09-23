@@ -10,10 +10,28 @@ Wraps all 7 AI/ML modules from the project report as REST endpoints:
   19. Interview Question Generation -> POST /generate-interview-questions
   34. Attrition Prediction          -> POST /predict-attrition
   35. Salary Prediction             -> POST /predict-salary
+  --  Candidate Decision Recommendation -> POST /recommend-candidate-decision
 
-Run with: uvicorn app.main:app --reload --port 8000
+Run with: uvicorn app.main:app --port 8000   (do NOT use --reload in production/demo --
+see the note in the "why imports are at the top" comment below)
 Docs available at http://localhost:8000/docs once running.
+
+PERFORMANCE NOTE: every `from app.X import Y` below is at the TOP of this file,
+not inside each endpoint function. This is deliberate and matters a lot for
+latency: importing a module runs its top-level code exactly once, the first
+time it's imported. app.resume_parsing's spaCy model alone takes ~12 SECONDS
+to load from disk. If these imports were inside the endpoint functions instead
+(as an earlier version of this file had them), that 12s load would happen on
+the very FIRST request to whichever endpoint touches resume parsing --
+appearing as one random, extremely slow request -- rather than once, predictably,
+at server startup before any real traffic arrives. Importing everything here
+means all models (spaCy NER, XGBoost matching/attrition/salary, TF-IDF
+vectorizer) finish loading during `uvicorn` startup, so even the very first
+real request is fast.
 """
+import time
+import logging
+
 from fastapi import FastAPI, HTTPException
 
 from app.schemas import (
@@ -27,12 +45,32 @@ from app.schemas import (
     CandidateDecisionRequest, CandidateDecisionResponse,
 )
 
+logger = logging.getLogger("uvicorn")
+
+# --- All model loading happens HERE, once, at import time (= server startup) ---
+_t0 = time.time()
+
+from app.resume_parsing import parse_resume, build_resume_dict_from_text
+from app.screening import (
+    extract_job_requirements, extract_resume_profile,
+    extract_resume_profile_from_text, screen_resume_against_job,
+)
+from app.matching import score_candidate
+from app.skill_gap import skill_gap_analysis, rank_candidates_for_job
+from app.interview import generate_interview_questions
+from app.attrition import predict_attrition_risk
+from app.salary import predict_salary_range
+from app.decision import recommend_candidate_decision
+
+logger.info(f"All models loaded in {time.time() - _t0:.2f}s")
+# ---------------------------------------------------------------------------
+
 app = FastAPI(
     title="AI Recruitment Platform -- ML Service",
     description="AI/ML endpoints for resume parsing, candidate matching, skill gap analysis, "
                  "candidate ranking, interview question generation, attrition prediction, "
                  "and salary prediction.",
-    version="1.0.0",
+    version="1.0.1",
 )
 
 
@@ -48,7 +86,6 @@ def health_check():
 
 @app.post("/parse-resume", response_model=ResumeParseResponse, tags=["resume-parsing"])
 def parse_resume_endpoint(payload: ResumeParseRequest):
-    from app.resume_parsing import parse_resume
     profile = parse_resume(payload.resume_text)
     return profile
 
@@ -59,11 +96,6 @@ def parse_resume_endpoint(payload: ResumeParseRequest):
 
 @app.post("/screen-resume", response_model=ScreeningResponse, tags=["screening"])
 def screen_resume_endpoint(payload: ScreeningRequest):
-    from app.screening import (
-        extract_job_requirements, extract_resume_profile,
-        extract_resume_profile_from_text, screen_resume_against_job,
-    )
-
     if (payload.resume is None) == (payload.resume_text is None):
         raise HTTPException(status_code=400, detail="Provide exactly one of 'resume' or 'resume_text'.")
 
@@ -87,15 +119,12 @@ def screen_resume_endpoint(payload: ScreeningRequest):
 
 @app.post("/match-score", response_model=MatchScoreResponse, tags=["matching"])
 def match_score_endpoint(payload: MatchScoreRequest, explain: bool = False):
-    from app.matching import score_candidate
-
     if (payload.resume is None) == (payload.resume_text is None):
         raise HTTPException(status_code=400, detail="Provide exactly one of 'resume' or 'resume_text'.")
 
     if payload.resume is not None:
         resume_dict = payload.resume.dict()
     else:
-        from app.resume_parsing import build_resume_dict_from_text
         resume_dict = build_resume_dict_from_text(
             payload.resume_text, seniority=payload.resume_seniority, industry=payload.resume_industry
         )
@@ -117,15 +146,12 @@ def match_score_endpoint(payload: MatchScoreRequest, explain: bool = False):
 
 @app.post("/skill-gap", response_model=SkillGapResponse, tags=["skill-gap"])
 def skill_gap_endpoint(payload: SkillGapRequest):
-    from app.skill_gap import skill_gap_analysis
-
     if (payload.resume is None) == (payload.resume_text is None):
         raise HTTPException(status_code=400, detail="Provide exactly one of 'resume' or 'resume_text'.")
 
     if payload.resume is not None:
         resume_dict = payload.resume.dict()
     else:
-        from app.resume_parsing import build_resume_dict_from_text
         resume_dict = build_resume_dict_from_text(payload.resume_text)
 
     return skill_gap_analysis(payload.job.dict(), resume_dict)
@@ -137,9 +163,6 @@ def skill_gap_endpoint(payload: SkillGapRequest):
 
 @app.post("/rank-candidates", response_model=list[RankedCandidate], tags=["ranking"])
 def rank_candidates_endpoint(payload: RankCandidatesRequest):
-    from app.skill_gap import rank_candidates_for_job
-    from app.resume_parsing import build_resume_dict_from_text
-
     candidates_dicts = [c.dict() for c in payload.candidates]
     for i, text in enumerate(payload.candidate_texts):
         candidates_dicts.append(build_resume_dict_from_text(text, resume_id=f"TEXT_{i}"))
@@ -157,7 +180,6 @@ def rank_candidates_endpoint(payload: RankCandidatesRequest):
 
 @app.post("/generate-interview-questions", response_model=InterviewQuestionsResponse, tags=["interview-questions"])
 def generate_interview_questions_endpoint(payload: InterviewQuestionsRequest):
-    from app.interview import generate_interview_questions
     result = generate_interview_questions(
         payload.job.dict(), payload.resume.dict(),
         num_questions=payload.num_questions, provider=payload.provider,
@@ -176,7 +198,6 @@ def generate_interview_questions_endpoint(payload: InterviewQuestionsRequest):
 
 @app.post("/predict-attrition", response_model=AttritionResponse, tags=["attrition"])
 def predict_attrition_endpoint(employee: EmployeeInput):
-    from app.attrition import predict_attrition_risk
     return predict_attrition_risk(employee.dict())
 
 
@@ -186,7 +207,6 @@ def predict_attrition_endpoint(employee: EmployeeInput):
 
 @app.post("/predict-salary", response_model=SalaryResponse, tags=["salary"])
 def predict_salary_endpoint(job_posting: JobPostingInput):
-    from app.salary import predict_salary_range
     return predict_salary_range(job_posting.dict())
 
 
@@ -198,8 +218,6 @@ def predict_salary_endpoint(job_posting: JobPostingInput):
 
 @app.post("/recommend-candidate-decision", response_model=CandidateDecisionResponse, tags=["decision"])
 def recommend_candidate_decision_endpoint(payload: CandidateDecisionRequest):
-    from app.decision import recommend_candidate_decision
-
     if payload.match_probability_pct is None and (payload.job is None or payload.resume is None):
         raise HTTPException(
             status_code=400,
@@ -217,7 +235,6 @@ def recommend_candidate_decision_endpoint(payload: CandidateDecisionRequest):
     if payload.match_probability_pct is not None:
         match_pct = payload.match_probability_pct
     else:
-        from app.matching import score_candidate
         result = score_candidate(payload.job.dict(), payload.resume.dict())
         match_pct = result["match_probability_pct"]
 

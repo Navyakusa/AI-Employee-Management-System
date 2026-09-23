@@ -216,7 +216,57 @@ print("=" * 70)
 check("POST /predict-salary", client.post("/predict-salary", json=SAMPLE_JOB_POSTING))
 
 print("=" * 70)
-print("9. Error handling -- empty candidate list should return 400")
+print("9. Candidate Decision Recommendation -- using an existing match score")
+print("=" * 70)
+check("POST /recommend-candidate-decision (with match_probability_pct)", client.post(
+    "/recommend-candidate-decision",
+    json={
+        "match_probability_pct": 83.0,
+        "interview_feedback": {
+            "technical_skills": 9, "communication": 8, "problem_solving": 9,
+            "teamwork": 8, "leadership": 7
+        }
+    }
+))
+
+print("=" * 70)
+print("9b. Candidate Decision Recommendation -- computing match score fresh from job+resume")
+print("=" * 70)
+check("POST /recommend-candidate-decision (with job+resume)", client.post(
+    "/recommend-candidate-decision",
+    json={
+        "job": SAMPLE_JOB,
+        "resume": SAMPLE_RESUME,
+        "interview_feedback": {
+            "technical_skills": 4, "communication": 5, "problem_solving": 3,
+            "teamwork": 6, "leadership": 5
+        }
+    }
+))
+
+print("=" * 70)
+print("9c. Candidate Decision -- error case: neither match_probability_pct nor job+resume given")
+print("=" * 70)
+check(
+    "POST /recommend-candidate-decision (missing input, should fail)",
+    client.post("/recommend-candidate-decision", json={"interview_feedback": {"technical_skills": 8}}),
+    expect_status=400,
+)
+
+print("=" * 70)
+print("9d. Candidate Decision -- error case: BOTH match_probability_pct AND job+resume given")
+print("=" * 70)
+check(
+    "POST /recommend-candidate-decision (both given, should fail)",
+    client.post("/recommend-candidate-decision", json={
+        "match_probability_pct": 80, "job": SAMPLE_JOB, "resume": SAMPLE_RESUME,
+        "interview_feedback": {"technical_skills": 8}
+    }),
+    expect_status=400,
+)
+
+print("=" * 70)
+print("10. Error handling -- empty candidate list should return 400")
 print("=" * 70)
 check(
     "POST /rank-candidates (empty list)",
