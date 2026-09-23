@@ -248,6 +248,18 @@ public class SecurityConfig {
                                 // APPLICATION MANAGEMENT
                                 // =================================================
 
+                                // HR can view candidates eligible for interview
+                                .requestMatchers(
+                                        HttpMethod.GET,
+                                        "/api/applications/eligible-for-interview"
+                                ).hasAnyRole(
+                                        "HR",
+                                        "EMPLOYER",
+                                        "HIRING_MANAGER",
+                                        "RECRUITER",
+                                        "SUPER_ADMIN"
+                                )
+
                                 .requestMatchers(
                                         HttpMethod.GET,
                                         "/api/applications/job/**"
@@ -296,10 +308,12 @@ public class SecurityConfig {
                                         "SUPER_ADMIN"
                                 )
 
+                                // HR can view available interviewers
                                 .requestMatchers(
                                         HttpMethod.GET,
                                         "/api/interviews/available-interviewers"
                                 ).hasAnyRole(
+                                        "HR",
                                         "HIRING_MANAGER",
                                         "RECRUITER",
                                         "SUPER_ADMIN"
@@ -338,10 +352,12 @@ public class SecurityConfig {
                                         "SUPER_ADMIN"
                                 )
 
+                                // HR can access interview management
                                 .requestMatchers(
                                         HttpMethod.GET,
                                         "/api/interviews/management"
                                 ).hasAnyRole(
+                                        "HR",
                                         "HIRING_MANAGER",
                                         "RECRUITER",
                                         "SUPER_ADMIN"
