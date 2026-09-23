@@ -6,9 +6,11 @@ import com.ems.dto.ForgotPasswordRequestDto;
 import com.ems.dto.LoginDto;
 import com.ems.dto.ResetPasswordRequestDto;
 import com.ems.dto.SignupDto;
+import com.ems.entity.Candidate;
 import com.ems.entity.PasswordResetToken;
 import com.ems.entity.User;
 import com.ems.exception.InvalidCredentialsException;
+import com.ems.repository.CandidateRepository;
 import com.ems.repository.PasswordResetTokenRepository;
 import com.ems.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,7 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -38,6 +39,9 @@ public class AuthService {
 
     @Autowired
     private EmailNotificationService emailNotificationService;
+
+    @Autowired
+    private CandidateRepository candidateRepository;
 
 
     // =========================================================
@@ -138,6 +142,7 @@ public class AuthService {
     // SIGNUP
     // =========================================================
 
+    @Transactional
     public ResponseEntity<ApiResponse<User>> signup(
             SignupDto signupDto) {
 
@@ -164,6 +169,10 @@ public class AuthService {
                         HttpStatus.CONFLICT
                 );
             }
+
+            // =================================================
+            // CREATE USER
+            // =================================================
 
             User user = new User();
 
@@ -212,6 +221,51 @@ public class AuthService {
 
             User savedUser =
                     userRepository.save(user);
+
+            // =================================================
+            // CREATE CANDIDATE PROFILE
+            // =================================================
+            //
+            // Only users with the CANDIDATE role get a
+            // Candidate profile.
+            //
+            // The Candidate profile is linked to the User
+            // through the same email address.
+            // =================================================
+
+            if (signupDto.getRole() != null
+                    && signupDto.getRole()
+                    .equalsIgnoreCase("CANDIDATE")) {
+
+                Candidate candidate =
+                        new Candidate();
+
+                candidate.setName(
+                        signupDto.getUserName()
+                );
+
+                candidate.setEmail(
+                        signupDto.getEmail()
+                );
+
+                candidate.setStatus(
+                        "ACTIVE"
+                );
+
+                candidate.setApplicationDate(
+                        LocalDateTime.now()
+                );
+
+                candidate.setSource(
+                        "SIGNUP"
+                );
+
+                candidateRepository.save(candidate);
+            }
+
+            // =================================================
+            // RESPONSE
+            // =================================================
 
             ApiResponse<User> response =
                     new ApiResponse<>(
@@ -267,28 +321,29 @@ public class AuthService {
 
             /*
              * Do not reveal whether an email exists.
-             * This prevents user-account enumeration.
              */
             if (user == null) {
 
                 return ResponseEntity.ok(
                         new ApiResponse<>(
                                 true,
-                                "If the email is registered, " +
-                                        "password reset instructions " +
-                                        "have been sent",
+                                "If the email is registered, "
+                                        + "password reset instructions "
+                                        + "have been sent",
                                 null
                         )
                 );
             }
 
-            // Delete old reset tokens for this user
+            // Delete old reset tokens
             passwordResetTokenRepository
-                    .deleteByUserId(user.getUserId());
+                    .deleteByUserId(
+                            user.getUserId()
+                    );
 
-            // Generate secure random token
+            // Generate reset token
             String resetToken =
-                    UUID.randomUUID().toString();
+                    java.util.UUID.randomUUID().toString();
 
             PasswordResetToken passwordResetToken =
                     new PasswordResetToken();
@@ -302,7 +357,8 @@ public class AuthService {
             );
 
             passwordResetToken.setExpiryDate(
-                    LocalDateTime.now().plusMinutes(30)
+                    LocalDateTime.now()
+                            .plusMinutes(30)
             );
 
             passwordResetToken.setUsed(false);
@@ -321,9 +377,9 @@ public class AuthService {
             return ResponseEntity.ok(
                     new ApiResponse<>(
                             true,
-                            "If the email is registered, " +
-                                    "password reset instructions " +
-                                    "have been sent",
+                            "If the email is registered, "
+                                    + "password reset instructions "
+                                    + "have been sent",
                             null
                     )
             );

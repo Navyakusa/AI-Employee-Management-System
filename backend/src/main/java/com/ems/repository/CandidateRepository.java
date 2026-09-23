@@ -6,16 +6,32 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
 
-public interface CandidateRepository extends JpaRepository<Candidate, Long> {
+public interface CandidateRepository
+        extends JpaRepository<Candidate, Long> {
+
+    // Find Candidate profile using the email
+    // from the authenticated user's JWT.
     Optional<Candidate> findByEmailIgnoreCase(String email);
-    List<Candidate> findByNameContainingIgnoreCase(String name);
 
-    List<Candidate> findByStatusIgnoreCase(String status);
+    // Search candidates by name.
+    List<Candidate> findByNameContainingIgnoreCase(
+            String name
+    );
 
-    List<Candidate> findByNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
+    // Filter candidates by status.
+    List<Candidate> findByStatusIgnoreCase(
+            String status
+    );
+
+    // Search candidates by name OR email.
+    List<Candidate>
+    findByNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
             String name,
             String email
     );
 
-    long countByStatusIgnoreCase(String status);
+    // Count candidates by status.
+    long countByStatusIgnoreCase(
+            String status
+    );
 }
