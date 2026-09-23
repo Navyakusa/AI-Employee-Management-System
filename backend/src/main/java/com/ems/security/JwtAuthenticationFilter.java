@@ -241,6 +241,7 @@ public class JwtAuthenticationFilter
                  "HIRING_MANAGER",
                  "EMPLOYER",
                  "INTERVIEWER",
+                 "HR",
                  "SUPER_ADMIN" -> true;
 
             default -> false;
