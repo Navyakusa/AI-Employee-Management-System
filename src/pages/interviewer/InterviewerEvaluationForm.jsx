@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -14,41 +14,22 @@ import {
 import InterviewerSidebar from "./InterviewerSidebar";
 import InterviewerNavbar from "./InterviewerNavbar";
 
+import {
+  getInterviewById,
+  getEvaluationByInterviewId,
+  submitEvaluation,
+} from "../../services/interviewerService";
+
 import "./InterviewerDashboard.css";
 
 function InterviewerEvaluationForm() {
   const navigate = useNavigate();
   const { interviewId } = useParams();
 
-  // Temporary frontend data
-  const interviews = [
-    {
-      id: 3,
-      candidateId: 3,
-      candidate: "Sneha Reddy",
-      email: "sneha@gmail.com",
-      job: "QA Engineer",
-      date: "15 Sep 2026",
-      type: "Technical",
-      status: "Completed",
-      evaluationStatus: "Pending",
-    },
-    {
-      id: 5,
-      candidateId: 5,
-      candidate: "Meghana Rao",
-      email: "meghana@gmail.com",
-      job: "Full Stack Developer",
-      date: "14 Sep 2026",
-      type: "Technical",
-      status: "Completed",
-      evaluationStatus: "Submitted",
-    },
-  ];
-
-  const interview = interviews.find(
-    (item) => item.id === Number(interviewId)
-  );
+  const [interview, setInterview] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   const [formData, setFormData] = useState({
     technicalRating: 0,
@@ -62,9 +43,49 @@ function InterviewerEvaluationForm() {
   });
 
   const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
   const [submitted, setSubmitted] = useState(false);
 
-  if (!interview) {
+  useEffect(() => {
+    /*
+      GAP: getInterviewById() still fetches the full /interviews/my list
+      under the hood, since there's no GET /interviews/{id} yet — see
+      the comment in interviewerService.js. Swap the service internals
+      once backend adds a direct endpoint; nothing here will need to
+      change.
+    */
+    Promise.all([
+      getInterviewById(interviewId),
+      getEvaluationByInterviewId(interviewId),
+    ])
+      .then(([matchedInterview, existingEvaluation]) => {
+        setInterview(matchedInterview);
+        setAlreadySubmitted(Boolean(existingEvaluation));
+      })
+      .catch(() => {
+        setLoadError("Unable to load this interview right now.");
+      })
+      .finally(() => setLoading(false));
+  }, [interviewId]);
+
+  if (loading) {
+    return (
+      <div className="interviewer-layout">
+        <InterviewerSidebar />
+
+        <div className="interviewer-main">
+          <InterviewerNavbar />
+
+          <main className="interviewer-dashboard-content">
+            <p>Loading evaluation form...</p>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError || !interview) {
     return (
       <div className="interviewer-layout">
         <InterviewerSidebar />
@@ -74,26 +95,22 @@ function InterviewerEvaluationForm() {
 
           <main className="interviewer-dashboard-content">
             <section className="interviewer-details-not-found">
-
               <ClipboardCheck size={42} />
 
               <h2>Evaluation not found</h2>
 
               <p>
-                The requested interview evaluation
-                could not be found.
+                {loadError ||
+                  "The requested interview evaluation could not be found."}
               </p>
 
               <button
                 type="button"
-                onClick={() =>
-                  navigate("/interviewer/evaluations")
-                }
+                onClick={() => navigate("/interviewer/evaluations")}
               >
                 <ArrowLeft size={16} />
                 Back to Evaluations
               </button>
-
             </section>
           </main>
         </div>
@@ -102,10 +119,7 @@ function InterviewerEvaluationForm() {
   }
 
   // Don't allow duplicate evaluation
-  if (
-    interview.evaluationStatus === "Submitted" &&
-    !submitted
-  ) {
+  if (alreadySubmitted && !submitted) {
     return (
       <div className="interviewer-layout">
         <InterviewerSidebar />
@@ -114,29 +128,23 @@ function InterviewerEvaluationForm() {
           <InterviewerNavbar />
 
           <main className="interviewer-dashboard-content">
-
             <section className="interviewer-evaluation-already-submitted">
-
               <CheckCircle2 size={45} />
 
               <h2>Evaluation Already Submitted</h2>
 
               <p>
-                Feedback for {interview.candidate} has
-                already been submitted.
+                Feedback for {interview.candidate} has already been
+                submitted.
               </p>
 
               <button
                 type="button"
-                onClick={() =>
-                  navigate("/interviewer/evaluations")
-                }
+                onClick={() => navigate("/interviewer/evaluations")}
               >
                 Back to Evaluations
               </button>
-
             </section>
-
           </main>
         </div>
       </div>
@@ -153,71 +161,42 @@ function InterviewerEvaluationForm() {
   const handleTextChange = (event) => {
     const { name, value } = event.target;
 
-    setFormData((previous) => ({
-      ...previous,
-      [name]: value,
-    }));
-
-    setErrors((previous) => ({
-      ...previous,
-      [name]: "",
-    }));
+    setFormData((previous) => ({ ...previous, [name]: value }));
+    setErrors((previous) => ({ ...previous, [name]: "" }));
   };
 
   const handleRating = (field, value) => {
-    setFormData((previous) => ({
-      ...previous,
-      [field]: value,
-    }));
-
-    setErrors((previous) => ({
-      ...previous,
-      [field]: "",
-    }));
+    setFormData((previous) => ({ ...previous, [field]: value }));
+    setErrors((previous) => ({ ...previous, [field]: "" }));
   };
 
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.technicalRating) {
-      newErrors.technicalRating =
-        "Technical rating is required.";
-    }
+    if (!formData.technicalRating)
+      newErrors.technicalRating = "Technical rating is required.";
 
-    if (!formData.communicationRating) {
-      newErrors.communicationRating =
-        "Communication rating is required.";
-    }
+    if (!formData.communicationRating)
+      newErrors.communicationRating = "Communication rating is required.";
 
-    if (!formData.problemSolvingRating) {
+    if (!formData.problemSolvingRating)
       newErrors.problemSolvingRating =
         "Problem-solving rating is required.";
-    }
 
-    if (!formData.overallRating) {
-      newErrors.overallRating =
-        "Overall rating is required.";
-    }
+    if (!formData.overallRating)
+      newErrors.overallRating = "Overall rating is required.";
 
-    if (!formData.strengths.trim()) {
-      newErrors.strengths =
-        "Candidate strengths are required.";
-    }
+    if (!formData.strengths.trim())
+      newErrors.strengths = "Candidate strengths are required.";
 
-    if (!formData.improvementAreas.trim()) {
-      newErrors.improvementAreas =
-        "Areas for improvement are required.";
-    }
+    if (!formData.improvementAreas.trim())
+      newErrors.improvementAreas = "Areas for improvement are required.";
 
-    if (!formData.feedback.trim()) {
-      newErrors.feedback =
-        "Interview feedback is required.";
-    }
+    if (!formData.feedback.trim())
+      newErrors.feedback = "Interview feedback is required.";
 
-    if (!formData.recommendation) {
-      newErrors.recommendation =
-        "Please select a recommendation.";
-    }
+    if (!formData.recommendation)
+      newErrors.recommendation = "Please select a recommendation.";
 
     setErrors(newErrors);
 
@@ -231,30 +210,38 @@ function InterviewerEvaluationForm() {
       return;
     }
 
-    // Frontend only.
-    console.log("Evaluation:", {
+    setSubmitting(true);
+    setSubmitError(null);
+
+    /*
+      ASSUMPTION: request body field names below match InterviewFeedbackDto
+      exactly. CONFIRM with backend and adjust if their DTO uses different
+      names (e.g. rating vs technicalRating).
+    */
+    submitEvaluation({
       interviewId: interview.id,
       candidateId: interview.candidateId,
       ...formData,
-    });
-
-    setSubmitted(true);
+    })
+      .then(() => setSubmitted(true))
+      .catch(() => {
+        setSubmitError(
+          "Couldn't submit your evaluation. Please try again."
+        );
+      })
+      .finally(() => setSubmitting(false));
   };
 
   if (submitted) {
     return (
       <div className="interviewer-layout">
-
         <InterviewerSidebar />
 
         <div className="interviewer-main">
-
           <InterviewerNavbar />
 
           <main className="interviewer-dashboard-content">
-
             <section className="interviewer-evaluation-success">
-
               <div className="interviewer-evaluation-success-icon">
                 <CheckCircle2 size={35} />
               </div>
@@ -263,75 +250,52 @@ function InterviewerEvaluationForm() {
 
               <p>
                 Your interview feedback for{" "}
-                <strong>{interview.candidate}</strong>{" "}
-                has been submitted successfully.
+                <strong>{interview.candidate}</strong> has been
+                submitted successfully.
               </p>
 
               <p className="interviewer-evaluation-success-note">
-                The Hiring Manager can review this
-                feedback during the candidate decision
-                process.
+                The Hiring Manager can review this feedback during the
+                candidate decision process.
               </p>
 
               <button
                 type="button"
-                onClick={() =>
-                  navigate("/interviewer/evaluations")
-                }
+                onClick={() => navigate("/interviewer/evaluations")}
               >
                 Back to Evaluations
               </button>
-
             </section>
-
           </main>
-
         </div>
-
       </div>
     );
   }
 
-  const RatingInput = ({
-    label,
-    field,
-    description,
-  }) => (
+  const RatingInput = ({ label, field, description }) => (
     <div className="interviewer-evaluation-rating-field">
-
       <div className="interviewer-evaluation-field-heading">
         <div>
           <label>{label}</label>
           <span>{description}</span>
         </div>
 
-        {formData[field] > 0 && (
-          <strong>
-            {formData[field]} / 5
-          </strong>
-        )}
+        {formData[field] > 0 && <strong>{formData[field]} / 5</strong>}
       </div>
 
-      <div className="interviewer-evaluation-stars">
-
+      <div className="interviewer-evaluation-rating-stars">
         {[1, 2, 3, 4, 5].map((value) => (
           <button
             key={value}
             type="button"
-            className={
-              value <= formData[field]
-                ? "selected"
-                : ""
-            }
-            onClick={() =>
-              handleRating(field, value)
-            }
-            title={`${value} out of 5`}
+            onClick={() => handleRating(field, value)}
           >
-            <Star size={22} />
+            <Star
+              size={22}
+              className={value <= formData[field] ? "active" : ""}
+            />
           </button>
         ))}
-
       </div>
 
       {errors[field] && (
@@ -339,54 +303,41 @@ function InterviewerEvaluationForm() {
           {errors[field]}
         </span>
       )}
-
     </div>
   );
 
   return (
     <div className="interviewer-layout">
-
       <InterviewerSidebar />
 
       <div className="interviewer-main">
-
         <InterviewerNavbar />
 
         <main className="interviewer-dashboard-content">
-
           <div className="interviewer-dashboard-header">
-
-            <p className="interviewer-label">
-              INTERVIEW FEEDBACK
-            </p>
+            <p className="interviewer-label">INTERVIEW FEEDBACK</p>
 
             <h1>Candidate Evaluation</h1>
 
             <p>
-              Record your assessment and recommendation
-              after completing the interview.
+              Record your assessment and recommendation after completing
+              the interview.
             </p>
-
           </div>
 
           {/* CANDIDATE SUMMARY */}
 
           <section className="interviewer-evaluation-candidate-card">
-
             <div className="interviewer-evaluation-candidate-avatar">
               {initials}
             </div>
 
             <div className="interviewer-evaluation-candidate-info">
-
               <h2>{interview.candidate}</h2>
-
               <span>{interview.email}</span>
-
             </div>
 
             <div className="interviewer-evaluation-candidate-meta">
-
               <div>
                 <BriefcaseBusiness size={16} />
                 {interview.job}
@@ -401,14 +352,12 @@ function InterviewerEvaluationForm() {
                 <ClipboardCheck size={16} />
                 {interview.type} Interview
               </div>
-
             </div>
 
             <span className="interviewer-evaluation-completed-badge">
               <CheckCircle2 size={14} />
               Interview Completed
             </span>
-
           </section>
 
           {/* FORM */}
@@ -417,26 +366,22 @@ function InterviewerEvaluationForm() {
             className="interviewer-evaluation-form"
             onSubmit={handleSubmit}
           >
-
             {/* RATINGS */}
 
             <section className="interviewer-evaluation-form-section">
-
               <div className="interviewer-evaluation-form-title">
                 <Star size={19} />
 
                 <div>
                   <h3>Candidate Ratings</h3>
-
                   <p>
-                    Rate the candidate from 1 to 5
-                    based on the completed interview.
+                    Rate the candidate from 1 to 5 based on the
+                    completed interview.
                   </p>
                 </div>
               </div>
 
               <div className="interviewer-evaluation-rating-grid">
-
                 <RatingInput
                   label="Technical Skills"
                   field="technicalRating"
@@ -460,24 +405,20 @@ function InterviewerEvaluationForm() {
                   field="overallRating"
                   description="Overall interview performance."
                 />
-
               </div>
-
             </section>
 
             {/* STRENGTHS */}
 
             <section className="interviewer-evaluation-form-section">
-
               <div className="interviewer-evaluation-form-title">
                 <CheckCircle2 size={19} />
 
                 <div>
                   <h3>Candidate Strengths</h3>
-
                   <p>
-                    Mention the candidate's strongest
-                    areas observed during the interview.
+                    Mention the candidate's strongest areas observed
+                    during the interview.
                   </p>
                 </div>
               </div>
@@ -495,23 +436,17 @@ function InterviewerEvaluationForm() {
                   {errors.strengths}
                 </span>
               )}
-
             </section>
 
             {/* IMPROVEMENT */}
 
             <section className="interviewer-evaluation-form-section">
-
               <div className="interviewer-evaluation-form-title">
                 <ClipboardCheck size={19} />
 
                 <div>
                   <h3>Areas for Improvement</h3>
-
-                  <p>
-                    Mention areas where the candidate
-                    could improve.
-                  </p>
+                  <p>Mention areas where the candidate could improve.</p>
                 </div>
               </div>
 
@@ -528,23 +463,17 @@ function InterviewerEvaluationForm() {
                   {errors.improvementAreas}
                 </span>
               )}
-
             </section>
 
             {/* FEEDBACK */}
 
             <section className="interviewer-evaluation-form-section">
-
               <div className="interviewer-evaluation-form-title">
                 <User size={19} />
 
                 <div>
                   <h3>Detailed Interview Feedback</h3>
-
-                  <p>
-                    Provide your overall assessment
-                    from the interview.
-                  </p>
+                  <p>Provide your overall assessment from the interview.</p>
                 </div>
               </div>
 
@@ -561,42 +490,35 @@ function InterviewerEvaluationForm() {
                   {errors.feedback}
                 </span>
               )}
-
             </section>
 
             {/* RECOMMENDATION */}
 
             <section className="interviewer-evaluation-form-section">
-
               <div className="interviewer-evaluation-form-title">
                 <ClipboardCheck size={19} />
 
                 <div>
                   <h3>Recommendation</h3>
-
                   <p>
-                    Provide your interview recommendation.
-                    The final hiring decision remains with
-                    the Hiring Manager.
+                    Provide your interview recommendation. The final
+                    hiring decision remains with the Hiring Manager.
                   </p>
                 </div>
               </div>
 
               <div className="interviewer-recommendation-options">
-
                 {[
                   "Strongly Recommended",
                   "Recommended",
                   "Needs Further Review",
                   "Not Recommended",
                 ].map((recommendation) => (
-
                   <button
                     key={recommendation}
                     type="button"
                     className={
-                      formData.recommendation ===
-                      recommendation
+                      formData.recommendation === recommendation
                         ? "selected"
                         : ""
                     }
@@ -605,7 +527,6 @@ function InterviewerEvaluationForm() {
                         ...previous,
                         recommendation,
                       }));
-
                       setErrors((previous) => ({
                         ...previous,
                         recommendation: "",
@@ -615,9 +536,7 @@ function InterviewerEvaluationForm() {
                     <ClipboardCheck size={16} />
                     {recommendation}
                   </button>
-
                 ))}
-
               </div>
 
               {errors.recommendation && (
@@ -625,40 +544,35 @@ function InterviewerEvaluationForm() {
                   {errors.recommendation}
                 </span>
               )}
-
             </section>
+
+            {submitError && (
+              <span className="interviewer-evaluation-error">
+                {submitError}
+              </span>
+            )}
 
             {/* ACTIONS */}
 
             <div className="interviewer-evaluation-form-actions">
-
               <button
                 type="button"
                 className="back"
-                onClick={() =>
-                  navigate("/interviewer/evaluations")
-                }
+                onClick={() => navigate("/interviewer/evaluations")}
+                disabled={submitting}
               >
                 <ArrowLeft size={16} />
                 Back
               </button>
 
-              <button
-                type="submit"
-                className="submit"
-              >
+              <button type="submit" className="submit" disabled={submitting}>
                 <CheckCircle2 size={16} />
-                Submit Evaluation
+                {submitting ? "Submitting..." : "Submit Evaluation"}
               </button>
-
             </div>
-
           </form>
-
         </main>
-
       </div>
-
     </div>
   );
 }

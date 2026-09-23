@@ -99,13 +99,16 @@ function EmployeeProfile() {
     setSaving(true);
 
     try {
-      // The confirmed Employee schema has NO "phone" field — only
-      // "location" is real. Sending "phone" was the most likely reason
-      // the save was failing, so it's dropped from the request here.
-      // Phone stays editable in the UI as a local-only field until the
-      // backend adds real support for it (needs a new column + field on
-      // whatever entity/DTO backs PUT /profile/update).
+      // CONFIRMED from ProfileController.java: PUT /profile/update requires
+      // ALL FIVE of these as query params (userName, email, phone,
+      // department, location) — every one is mandatory, even the ones
+      // this form doesn't let the user edit. Pulling those from the
+      // already-loaded profile so they don't get wiped out.
       await updateEmployeeProfile({
+        userName: employee.name,
+        email: employee.email,
+        phone: editForm.phone,
+        department: employee.department,
         location: editForm.location,
       });
 

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -18,142 +19,66 @@ import {
 import InterviewerSidebar from "./InterviewerSidebar";
 import InterviewerNavbar from "./InterviewerNavbar";
 
+import { getCandidateById } from "../../services/interviewerService";
+
 import "./InterviewerDashboard.css";
+
+/*
+  NOT YET CONFIRMED with backend — verify GET /candidates/{id} field
+  names against a real response and adjust the right-hand side below.
+  matchScore in particular may come from a separate AI-matching
+  endpoint rather than living on the Candidate object itself.
+*/
+function mapCandidate(raw) {
+  return {
+    id: raw.id ?? raw.candidateId,
+    name: raw.name,
+    email: raw.email,
+    phone: raw.phone ?? raw.phoneNumber ?? "",
+    location: raw.location ?? "",
+    job: raw.job ?? raw.jobTitle ?? "",
+    experience: raw.experience ?? "",
+    education: raw.education ?? "",
+    matchScore: raw.matchScore ?? null,
+    interviewStatus: raw.interviewStatus ?? "",
+    resume: raw.resume ?? raw.resumeName ?? "",
+    resumeId: raw.resumeId ?? null,
+    summary: raw.summary ?? "",
+    skills: raw.skills ?? [],
+  };
+}
 
 function InterviewerCandidateDetails() {
   const navigate = useNavigate();
   const { candidateId } = useParams();
 
-  // Temporary frontend data
-  // Backend integration will replace this later.
-  const candidates = [
-    {
-      id: 1,
-      name: "Ananya Sharma",
-      email: "ananya@gmail.com",
-      phone: "+91 98765 43210",
-      location: "Hyderabad",
-      job: "Java Backend Developer",
-      experience: "3 Years",
-      education: "B.Tech - Computer Science",
-      matchScore: 92,
-      interviewStatus: "Scheduled",
-      resume: "Ananya_Sharma_Resume.pdf",
-      summary:
-        "Backend developer with experience in Java, Spring Boot, REST APIs and PostgreSQL. Strong understanding of object-oriented programming and backend application development.",
-      skills: [
-        "Java",
-        "Spring Boot",
-        "REST API",
-        "PostgreSQL",
-        "Docker",
-        "Git",
-      ],
-    },
+  const [candidate, setCandidate] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-    {
-      id: 2,
-      name: "Rahul Verma",
-      email: "rahul@gmail.com",
-      phone: "+91 98765 12345",
-      location: "Bangalore",
-      job: "React Frontend Developer",
-      experience: "2 Years",
-      education: "B.Tech - Information Technology",
-      matchScore: 87,
-      interviewStatus: "Scheduled",
-      resume: "Rahul_Verma_Resume.pdf",
-      summary:
-        "Frontend developer with experience in React, JavaScript, HTML and CSS. Experienced in building responsive and reusable user interface components.",
-      skills: [
-        "React",
-        "JavaScript",
-        "HTML",
-        "CSS",
-        "Bootstrap",
-        "Git",
-      ],
-    },
+  useEffect(() => {
+    getCandidateById(candidateId)
+      .then((data) => setCandidate(data ? mapCandidate(data) : null))
+      .catch(() => setCandidate(null))
+      .finally(() => setLoading(false));
+  }, [candidateId]);
 
-    {
-      id: 3,
-      name: "Sneha Reddy",
-      email: "sneha@gmail.com",
-      phone: "+91 98765 67890",
-      location: "Hyderabad",
-      job: "QA Engineer",
-      experience: "4 Years",
-      education: "B.Tech - Computer Science",
-      matchScore: 83,
-      interviewStatus: "Completed",
-      resume: "Sneha_Reddy_Resume.pdf",
-      summary:
-        "QA engineer with experience in manual testing, API testing and automation. Strong knowledge of Selenium, Postman and software testing processes.",
-      skills: [
-        "Selenium",
-        "Postman",
-        "Java",
-        "API Testing",
-        "Manual Testing",
-        "Automation Testing",
-      ],
-    },
+  if (loading) {
+    return (
+      <div className="interviewer-layout">
+        <InterviewerSidebar />
 
-    {
-      id: 4,
-      name: "Arjun Kumar",
-      email: "arjun@gmail.com",
-      phone: "+91 98765 24680",
-      location: "Bangalore",
-      job: "DevOps Engineer",
-      experience: "3 Years",
-      education: "B.Tech - Computer Science",
-      matchScore: 89,
-      interviewStatus: "Scheduled",
-      resume: "Arjun_Kumar_Resume.pdf",
-      summary:
-        "DevOps engineer with experience in CI/CD, Docker, cloud deployment and Linux environments. Familiar with automation and infrastructure management.",
-      skills: [
-        "Docker",
-        "AWS",
-        "Jenkins",
-        "Linux",
-        "Git",
-        "CI/CD",
-      ],
-    },
+        <div className="interviewer-main">
+          <InterviewerNavbar />
 
-    {
-      id: 5,
-      name: "Meghana Rao",
-      email: "meghana@gmail.com",
-      phone: "+91 98765 13579",
-      location: "Hyderabad",
-      job: "Full Stack Developer",
-      experience: "3 Years",
-      education: "B.Tech - Computer Science",
-      matchScore: 90,
-      interviewStatus: "Completed",
-      resume: "Meghana_Rao_Resume.pdf",
-      summary:
-        "Full stack developer experienced in Java, Spring Boot, React and PostgreSQL with knowledge of REST API development and frontend integration.",
-      skills: [
-        "Java",
-        "Spring Boot",
-        "React",
-        "JavaScript",
-        "PostgreSQL",
-        "REST API",
-      ],
-    },
-  ];
+          <main className="interviewer-dashboard-content">
+            <p>Loading candidate...</p>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
-  const candidate = candidates.find(
-    (item) => item.id === Number(candidateId)
-  );
-
-  // Prevent displaying the wrong candidate
-  // when an invalid ID is opened.
+  // Prevent displaying the wrong candidate when an invalid ID is opened.
   if (!candidate) {
     return (
       <div className="interviewer-layout">
@@ -163,30 +88,21 @@ function InterviewerCandidateDetails() {
           <InterviewerNavbar />
 
           <main className="interviewer-dashboard-content">
-
             <section className="interviewer-details-not-found">
-
               <User size={42} />
 
               <h2>Candidate not found</h2>
 
-              <p>
-                The requested candidate could not
-                be found.
-              </p>
+              <p>The requested candidate could not be found.</p>
 
               <button
                 type="button"
-                onClick={() =>
-                  navigate("/interviewer/interviews")
-                }
+                onClick={() => navigate("/interviewer/interviews")}
               >
                 <ArrowLeft size={16} />
                 Back to Interviews
               </button>
-
             </section>
-
           </main>
         </div>
       </div>
@@ -201,49 +117,39 @@ function InterviewerCandidateDetails() {
     .toUpperCase();
 
   const handleDownloadResume = () => {
-    // Frontend only for now.
-    // Later backend will provide the actual resume URL/file.
+    // NOT YET CONFIRMED: swap this for a real download once backend
+    // confirms the resumeId field name and the /resumes/{id}/view
+    // response shape (direct file bytes vs. a URL to open).
     alert(
-      `Resume download will be connected later: ${candidate.resume}`
+      candidate.resumeId
+        ? `Resume download will be connected later (resumeId: ${candidate.resumeId})`
+        : "This candidate has no resume on file yet."
     );
   };
 
   return (
     <div className="interviewer-layout">
-
       <InterviewerSidebar />
 
       <div className="interviewer-main">
-
         <InterviewerNavbar />
 
         <main className="interviewer-dashboard-content">
-
           {/* HEADER */}
 
           <div className="interviewer-dashboard-header">
-
-            <p className="interviewer-label">
-              CANDIDATE PROFILE
-            </p>
+            <p className="interviewer-label">CANDIDATE PROFILE</p>
 
             <h1>Candidate Details</h1>
 
-            <p>
-              Review candidate information before
-              conducting the interview.
-            </p>
-
+            <p>Review candidate information before conducting the interview.</p>
           </div>
 
           <div className="interviewer-candidate-page-layout">
-
             {/* LEFT SIDE */}
 
             <section className="interviewer-candidate-profile-card">
-
               <div className="interviewer-candidate-profile-top">
-
                 <div className="interviewer-candidate-profile-avatar">
                   {initials}
                 </div>
@@ -252,299 +158,200 @@ function InterviewerCandidateDetails() {
 
                 <p>{candidate.job}</p>
 
-                <span
-                  className={`interviewer-candidate-interview-status ${candidate.interviewStatus.toLowerCase()}`}
-                >
-                  {candidate.interviewStatus}
-                </span>
-
+                {candidate.interviewStatus && (
+                  <span
+                    className={`interviewer-candidate-interview-status ${candidate.interviewStatus.toLowerCase()}`}
+                  >
+                    {candidate.interviewStatus}
+                  </span>
+                )}
               </div>
 
               {/* AI MATCH */}
 
-              <div className="interviewer-candidate-match">
+              {candidate.matchScore !== null && (
+                <div className="interviewer-candidate-match">
+                  <div className="interviewer-candidate-match-top">
+                    <span>
+                      <Star size={15} />
+                      AI Match Score
+                    </span>
 
-                <div className="interviewer-candidate-match-top">
+                    <strong>{candidate.matchScore}%</strong>
+                  </div>
 
-                  <span>
-                    <Star size={15} />
-                    AI Match Score
-                  </span>
-
-                  <strong>
-                    {candidate.matchScore}%
-                  </strong>
-
+                  <div className="interviewer-candidate-match-bar">
+                    <div
+                      className="interviewer-candidate-match-progress"
+                      style={{ width: `${candidate.matchScore}%` }}
+                    />
+                  </div>
                 </div>
-
-                <div className="interviewer-candidate-match-bar">
-
-                  <div
-                    className="interviewer-candidate-match-progress"
-                    style={{
-                      width: `${candidate.matchScore}%`,
-                    }}
-                  />
-
-                </div>
-
-              </div>
+              )}
 
               {/* CONTACT */}
 
               <div className="interviewer-candidate-contact">
-
                 <div>
                   <Mail size={17} />
-
-                  <span>
-                    {candidate.email}
-                  </span>
+                  <span>{candidate.email}</span>
                 </div>
 
                 <div>
                   <Phone size={17} />
-
-                  <span>
-                    {candidate.phone}
-                  </span>
+                  <span>{candidate.phone}</span>
                 </div>
 
                 <div>
                   <MapPin size={17} />
-
-                  <span>
-                    {candidate.location}
-                  </span>
+                  <span>{candidate.location}</span>
                 </div>
 
                 <div>
                   <BriefcaseBusiness size={17} />
-
-                  <span>
-                    {candidate.experience}
-                  </span>
+                  <span>{candidate.experience}</span>
                 </div>
 
                 <div>
                   <GraduationCap size={17} />
-
-                  <span>
-                    {candidate.education}
-                  </span>
+                  <span>{candidate.education}</span>
                 </div>
-
               </div>
-
             </section>
 
             {/* RIGHT SIDE */}
 
             <section className="interviewer-candidate-content-card">
-
               {/* APPLIED POSITION */}
 
               <div className="interviewer-candidate-section">
-
                 <div className="interviewer-candidate-section-title">
-
                   <BriefcaseBusiness size={18} />
 
                   <div>
                     <h3>Applied Position</h3>
-
-                    <p>
-                      Position associated with this
-                      interview.
-                    </p>
+                    <p>Position associated with this interview.</p>
                   </div>
-
                 </div>
 
                 <div className="interviewer-candidate-position">
-
                   <BriefcaseBusiness size={20} />
 
                   <div>
                     <span>Job Position</span>
-
-                    <strong>
-                      {candidate.job}
-                    </strong>
+                    <strong>{candidate.job}</strong>
                   </div>
-
                 </div>
-
               </div>
 
               {/* SUMMARY */}
 
               <div className="interviewer-candidate-section">
-
                 <div className="interviewer-candidate-section-title">
-
                   <User size={18} />
 
                   <div>
-                    <h3>
-                      Professional Summary
-                    </h3>
-
-                    <p>
-                      Candidate profile overview.
-                    </p>
+                    <h3>Professional Summary</h3>
+                    <p>Candidate profile overview.</p>
                   </div>
-
                 </div>
 
                 <div className="interviewer-candidate-summary-text">
-                  {candidate.summary}
+                  {candidate.summary || "No summary provided."}
                 </div>
-
               </div>
 
               {/* SKILLS */}
 
               <div className="interviewer-candidate-section">
-
                 <div className="interviewer-candidate-section-title">
-
                   <CheckCircle2 size={18} />
 
                   <div>
                     <h3>Candidate Skills</h3>
-
-                    <p>
-                      Skills listed in the candidate
-                      profile.
-                    </p>
+                    <p>Skills listed in the candidate profile.</p>
                   </div>
-
                 </div>
 
                 <div className="interviewer-candidate-skills">
-
-                  {candidate.skills.map((skill) => (
-
-                    <span key={skill}>
-                      <CheckCircle2 size={14} />
-                      {skill}
-                    </span>
-
-                  ))}
-
+                  {candidate.skills.length > 0 ? (
+                    candidate.skills.map((skill) => (
+                      <span key={skill}>
+                        <CheckCircle2 size={14} />
+                        {skill}
+                      </span>
+                    ))
+                  ) : (
+                    <span>No skills listed.</span>
+                  )}
                 </div>
-
               </div>
 
               {/* RESUME */}
 
               <div className="interviewer-candidate-section">
-
                 <div className="interviewer-candidate-section-title">
-
                   <FileText size={18} />
 
                   <div>
                     <h3>Candidate Resume</h3>
-
-                    <p>
-                      Resume uploaded by the
-                      candidate.
-                    </p>
+                    <p>Resume uploaded by the candidate.</p>
                   </div>
-
                 </div>
 
                 <div className="interviewer-candidate-resume">
-
                   <div className="interviewer-candidate-resume-icon">
                     <FileText size={23} />
                   </div>
 
                   <div className="interviewer-candidate-resume-info">
-
-                    <strong>
-                      {candidate.resume}
-                    </strong>
-
-                    <span>
-                      Candidate uploaded resume
-                    </span>
-
+                    <strong>{candidate.resume || "No resume uploaded"}</strong>
+                    <span>Candidate uploaded resume</span>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleDownloadResume}
-                  >
+                  <button type="button" onClick={handleDownloadResume}>
                     <Download size={16} />
                     Download
                   </button>
-
                 </div>
-
               </div>
 
               {/* INTERVIEW */}
 
-              <div className="interviewer-candidate-section">
+              {candidate.interviewStatus && (
+                <div className="interviewer-candidate-section">
+                  <div className="interviewer-candidate-section-title">
+                    <CalendarDays size={18} />
 
-                <div className="interviewer-candidate-section-title">
-
-                  <CalendarDays size={18} />
-
-                  <div>
-                    <h3>Interview Status</h3>
-
-                    <p>
-                      Current interview stage for
-                      this candidate.
-                    </p>
+                    <div>
+                      <h3>Interview Status</h3>
+                      <p>Current interview stage for this candidate.</p>
+                    </div>
                   </div>
 
-                </div>
+                  <div className="interviewer-candidate-status-box">
+                    <CalendarDays size={19} />
 
-                <div className="interviewer-candidate-status-box">
-
-                  <CalendarDays size={19} />
-
-                  <div>
-                    <span>Current Status</span>
-
-                    <strong>
-                      {candidate.interviewStatus}
-                    </strong>
+                    <div>
+                      <span>Current Status</span>
+                      <strong>{candidate.interviewStatus}</strong>
+                    </div>
                   </div>
-
                 </div>
-
-              </div>
+              )}
 
               {/* ONLY BACK ACTION */}
 
               <div className="interviewer-candidate-actions">
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigate(-1)
-                  }
-                >
+                <button type="button" onClick={() => navigate(-1)}>
                   <ArrowLeft size={16} />
                   Back
                 </button>
-
               </div>
-
             </section>
-
           </div>
-
         </main>
-
       </div>
-
     </div>
   );
 }

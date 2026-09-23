@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   User,
@@ -15,43 +15,73 @@ import {
 import InterviewerSidebar from "./InterviewerSidebar";
 import InterviewerNavbar from "./InterviewerNavbar";
 
+import {
+  getMyProfile,
+  updateMyProfile,
+} from "../../services/interviewerService";
+
 import "./InterviewerDashboard.css";
 
+// Distinguishes the three different ways an axios call can fail, so the
+// UI can tell the user something more useful than a generic message:
+//   1. err.response exists    -> server responded with an error status
+//      (e.g. 403, 500) — a real backend/auth problem.
+//   2. err.request exists,
+//      but no err.response    -> the request was sent but NO response
+//      ever came back — almost always CORS being blocked, the server
+//      being down/unreachable, or the endpoint not existing at all.
+//   3. neither                -> something broke building the request
+//      itself (rare — a code bug, not a network/server issue).
+function describeAxiosError(err) {
+  if (err?.response) {
+    const status = err.response.status;
+    const backendMessage = err.response.data?.message;
+
+    return `HTTP ${status}${backendMessage ? `: ${backendMessage}` : ""}`;
+  }
+
+  if (err?.request) {
+    return "no response from server — likely CORS blocked, the server is unreachable, or the endpoint doesn't exist";
+  }
+
+  return err?.message || "unknown error";
+}
+
+const FALLBACK_PROFILE = {
+  name: "Interviewer Test",
+  email: "interviewer2@gmail.com",
+  phone: "+91 98765 43210",
+  department: "IT",
+  role: "INTERVIEWER",
+  designation: "Technical Interviewer",
+};
+
 function InterviewerProfile() {
-  const loggedInUser = JSON.parse(
-    localStorage.getItem("loggedInUser")
-  );
+  const [profile, setProfile] = useState(FALLBACK_PROFILE);
+  const [formData, setFormData] = useState(FALLBACK_PROFILE);
+  const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Temporary data until backend profile integration
-  const initialProfile = {
-    name:
-      loggedInUser?.userName ||
-      "Interviewer Test",
+  useEffect(() => {
+    getMyProfile()
+      .then((data) => {
+        const mapped = data || FALLBACK_PROFILE;
+        setProfile(mapped);
+        setFormData(mapped);
+      })
+      .catch((err) => {
+        console.error("Failed to load interviewer profile:", err);
 
-    email:
-      loggedInUser?.email ||
-      "interviewer2@gmail.com",
-
-    phone: "+91 98765 43210",
-
-    department:
-      loggedInUser?.department ||
-      "IT",
-
-    role: "INTERVIEWER",
-
-    designation:
-      "Technical Interviewer",
-  };
-
-  const [profile, setProfile] =
-    useState(initialProfile);
-
-  const [formData, setFormData] =
-    useState(initialProfile);
-
-  const [isEditing, setIsEditing] =
-    useState(false);
+        setError(
+          `Couldn't load your profile (${describeAxiosError(
+            err
+          )}) — showing cached data.`
+        );
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   const initials = profile.name
     .split(" ")
@@ -81,317 +111,268 @@ function InterviewerProfile() {
   };
 
   const handleSave = () => {
-    setProfile(formData);
-    setIsEditing(false);
+    setSaving(true);
+    setError(null);
 
-    // Temporary frontend update.
-    // Backend API will replace this later.
-    const existingUser =
-      JSON.parse(
-        localStorage.getItem("loggedInUser")
-      ) || {};
+    updateMyProfile(formData)
+      .then((data) => {
+        const mapped = data || formData;
+        setProfile(mapped);
+        setIsEditing(false);
 
-    localStorage.setItem(
-      "loggedInUser",
-      JSON.stringify({
-        ...existingUser,
-        userName: formData.name,
-        email: formData.email,
-        department: formData.department,
+        // Keep the navbar/localStorage-derived name in sync.
+        const existingUser =
+          JSON.parse(localStorage.getItem("loggedInUser")) || {};
+
+        localStorage.setItem(
+          "loggedInUser",
+          JSON.stringify({
+            ...existingUser,
+            userName: mapped.name,
+            email: mapped.email,
+            department: mapped.department,
+          })
+        );
       })
-    );
+      .catch((err) => {
+        console.error("Failed to update interviewer profile:", err);
+
+        setError(
+          `Couldn't save your changes (${describeAxiosError(
+            err
+          )}). Please try again.`
+        );
+      })
+      .finally(() => setSaving(false));
   };
 
   return (
     <div className="interviewer-layout">
-
       <InterviewerSidebar />
 
       <div className="interviewer-main">
-
         <InterviewerNavbar />
 
         <main className="interviewer-dashboard-content">
-
           {/* HEADER */}
 
           <div className="interviewer-dashboard-header">
-
-            <p className="interviewer-label">
-              ACCOUNT
-            </p>
+            <p className="interviewer-label">ACCOUNT</p>
 
             <h1>My Profile</h1>
 
-            <p>
-              View and manage your interviewer
-              account information.
-            </p>
-
+            <p>View and manage your interviewer account information.</p>
           </div>
 
-          <div className="interviewer-profile-layout">
+          {loading ? (
+            <p>Loading profile...</p>
+          ) : (
+            <div className="interviewer-profile-layout">
+              {/* LEFT PROFILE CARD */}
 
-            {/* LEFT PROFILE CARD */}
-
-            <section className="interviewer-profile-card">
-
-              <div className="interviewer-profile-avatar">
-                {initials || "IN"}
-              </div>
-
-              <h2>{profile.name}</h2>
-
-              <p>
-                {profile.designation}
-              </p>
-
-              <span className="interviewer-profile-role">
-                <ShieldCheck size={14} />
-                INTERVIEWER
-              </span>
-
-              <div className="interviewer-profile-divider" />
-
-              <div className="interviewer-profile-quick-info">
-
-                <div>
-                  <Mail size={16} />
-
-                  <span>
-                    {profile.email}
-                  </span>
+              <section className="interviewer-profile-card">
+                <div className="interviewer-profile-avatar">
+                  {initials || "IN"}
                 </div>
 
-                <div>
-                  <Building2 size={16} />
+                <h2>{profile.name}</h2>
 
-                  <span>
-                    {profile.department}
-                  </span>
-                </div>
+                <p>{profile.designation}</p>
 
-                <div>
-                  <BriefcaseBusiness size={16} />
+                <span className="interviewer-profile-role">
+                  <ShieldCheck size={14} />
+                  INTERVIEWER
+                </span>
 
-                  <span>
-                    {profile.designation}
-                  </span>
-                </div>
+                <div className="interviewer-profile-divider" />
 
-              </div>
-
-            </section>
-
-            {/* RIGHT */}
-
-            <section className="interviewer-profile-details-card">
-
-              <div className="interviewer-profile-details-header">
-
-                <div>
-                  <h2>
-                    Personal Information
-                  </h2>
-
-                  <p>
-                    Manage your account and
-                    professional information.
-                  </p>
-                </div>
-
-                {!isEditing ? (
-
-                  <button
-                    type="button"
-                    className="interviewer-profile-edit-button"
-                    onClick={handleEdit}
-                  >
-                    <Edit3 size={16} />
-                    Edit Profile
-                  </button>
-
-                ) : (
-
-                  <div className="interviewer-profile-edit-actions">
-
-                    <button
-                      type="button"
-                      className="cancel"
-                      onClick={handleCancel}
-                    >
-                      <X size={16} />
-                      Cancel
-                    </button>
-
-                    <button
-                      type="button"
-                      className="save"
-                      onClick={handleSave}
-                    >
-                      <Save size={16} />
-                      Save Changes
-                    </button>
-
+                <div className="interviewer-profile-quick-info">
+                  <div>
+                    <Mail size={16} />
+                    <span>{profile.email}</span>
                   </div>
 
+                  <div>
+                    <Building2 size={16} />
+                    <span>{profile.department}</span>
+                  </div>
+
+                  <div>
+                    <BriefcaseBusiness size={16} />
+                    <span>{profile.designation}</span>
+                  </div>
+                </div>
+              </section>
+
+              {/* RIGHT */}
+
+              <section className="interviewer-profile-details-card">
+                <div className="interviewer-profile-details-header">
+                  <div>
+                    <h2>Personal Information</h2>
+
+                    <p>
+                      Manage your account and professional information.
+                    </p>
+                  </div>
+
+                  {!isEditing ? (
+                    <button
+                      type="button"
+                      className="interviewer-profile-edit-button"
+                      onClick={handleEdit}
+                    >
+                      <Edit3 size={16} />
+                      Edit Profile
+                    </button>
+                  ) : (
+                    <div className="interviewer-profile-edit-actions">
+                      <button
+                        type="button"
+                        className="cancel"
+                        onClick={handleCancel}
+                        disabled={saving}
+                      >
+                        <X size={16} />
+                        Cancel
+                      </button>
+
+                      <button
+                        type="button"
+                        className="save"
+                        onClick={handleSave}
+                        disabled={saving}
+                      >
+                        <Save size={16} />
+                        {saving ? "Saving..." : "Save Changes"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {error && (
+                  <p className="interviewer-evaluation-error">{error}</p>
                 )}
 
-              </div>
+                <div className="interviewer-profile-form">
+                  {/* NAME */}
 
-              <div className="interviewer-profile-form">
+                  <div className="interviewer-profile-field">
+                    <label>
+                      <User size={15} />
+                      Full Name
+                    </label>
 
-                {/* NAME */}
-
-                <div className="interviewer-profile-field">
-
-                  <label>
-                    <User size={15} />
-                    Full Name
-                  </label>
-
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                    />
-                  ) : (
-                    <div>
-                      {profile.name}
-                    </div>
-                  )}
-
-                </div>
-
-                {/* EMAIL */}
-
-                <div className="interviewer-profile-field">
-
-                  <label>
-                    <Mail size={15} />
-                    Email Address
-                  </label>
-
-                  {isEditing ? (
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                    />
-                  ) : (
-                    <div>
-                      {profile.email}
-                    </div>
-                  )}
-
-                </div>
-
-                {/* PHONE */}
-
-                <div className="interviewer-profile-field">
-
-                  <label>
-                    <Phone size={15} />
-                    Phone Number
-                  </label>
-
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                    />
-                  ) : (
-                    <div>
-                      {profile.phone}
-                    </div>
-                  )}
-
-                </div>
-
-                {/* DEPARTMENT */}
-
-                <div className="interviewer-profile-field">
-
-                  <label>
-                    <Building2 size={15} />
-                    Department
-                  </label>
-
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      name="department"
-                      value={
-                        formData.department
-                      }
-                      onChange={handleChange}
-                    />
-                  ) : (
-                    <div>
-                      {profile.department}
-                    </div>
-                  )}
-
-                </div>
-
-                {/* DESIGNATION */}
-
-                <div className="interviewer-profile-field">
-
-                  <label>
-                    <BriefcaseBusiness
-                      size={15}
-                    />
-                    Designation
-                  </label>
-
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      name="designation"
-                      value={
-                        formData.designation
-                      }
-                      onChange={handleChange}
-                    />
-                  ) : (
-                    <div>
-                      {profile.designation}
-                    </div>
-                  )}
-
-                </div>
-
-                {/* ROLE */}
-
-                <div className="interviewer-profile-field">
-
-                  <label>
-                    <ShieldCheck size={15} />
-                    Account Role
-                  </label>
-
-                  <div className="interviewer-profile-readonly">
-                    INTERVIEWER
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                      />
+                    ) : (
+                      <div>{profile.name}</div>
+                    )}
                   </div>
 
+                  {/* EMAIL */}
+
+                  <div className="interviewer-profile-field">
+                    <label>
+                      <Mail size={15} />
+                      Email Address
+                    </label>
+
+                    {isEditing ? (
+                      <input
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                      />
+                    ) : (
+                      <div>{profile.email}</div>
+                    )}
+                  </div>
+
+                  {/* PHONE */}
+
+                  <div className="interviewer-profile-field">
+                    <label>
+                      <Phone size={15} />
+                      Phone Number
+                    </label>
+
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleChange}
+                      />
+                    ) : (
+                      <div>{profile.phone}</div>
+                    )}
+                  </div>
+
+                  {/* DEPARTMENT */}
+
+                  <div className="interviewer-profile-field">
+                    <label>
+                      <Building2 size={15} />
+                      Department
+                    </label>
+
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        name="department"
+                        value={formData.department}
+                        onChange={handleChange}
+                      />
+                    ) : (
+                      <div>{profile.department}</div>
+                    )}
+                  </div>
+
+                  {/* DESIGNATION */}
+
+                  <div className="interviewer-profile-field">
+                    <label>
+                      <BriefcaseBusiness size={15} />
+                      Designation
+                    </label>
+
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        name="designation"
+                        value={formData.designation}
+                        onChange={handleChange}
+                      />
+                    ) : (
+                      <div>{profile.designation}</div>
+                    )}
+                  </div>
+
+                  {/* ROLE */}
+
+                  <div className="interviewer-profile-field">
+                    <label>
+                      <ShieldCheck size={15} />
+                      Account Role
+                    </label>
+
+                    <div className="interviewer-profile-readonly">
+                      INTERVIEWER
+                    </div>
+                  </div>
                 </div>
-
-              </div>
-
-            </section>
-
-          </div>
-
+              </section>
+            </div>
+          )}
         </main>
-
       </div>
-
     </div>
   );
 }

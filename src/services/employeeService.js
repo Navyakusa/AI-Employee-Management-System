@@ -16,8 +16,13 @@ import axiosInstance from "./axiosInstance";
 
 // ================= PROFILE =================
 export const getEmployeeProfile = () => axiosInstance.get("/profile/get");
-export const updateEmployeeProfile = (data) =>
-  axiosInstance.put("/profile/update", data);
+// CONFIRMED from ProfileController.java source: this endpoint uses
+// @RequestParam for all 5 fields (userName, email, phone, department,
+// location) — NOT @RequestBody. All 5 are required with no defaults, so
+// every call must include all of them, even the ones the user isn't
+// editing (pull those from the already-loaded profile).
+export const updateEmployeeProfile = (params) =>
+  axiosInstance.put("/profile/update", null, { params });
 
 // ================= NOTIFICATIONS =================
 export const getMyNotifications = () => axiosInstance.get("/notifications/my");

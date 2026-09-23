@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   Bell,
@@ -13,83 +13,125 @@ import {
 import InterviewerSidebar from "./InterviewerSidebar";
 import InterviewerNavbar from "./InterviewerNavbar";
 
+import {
+  getMyNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from "../../services/interviewerService";
+
 import "./InterviewerDashboard.css";
 
 function InterviewerNotifications() {
-  // Temporary frontend data
-  // Backend integration will replace this later.
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: "INTERVIEW_ASSIGNED",
-      title: "New Interview Assigned",
-      message:
-        "You have been assigned to interview Ananya Sharma for the Java Backend Developer position.",
-      time: "10 minutes ago",
-      read: false,
-    },
-    {
-      id: 2,
-      type: "INTERVIEW_RESCHEDULED",
-      title: "Interview Rescheduled",
-      message:
-        "Rahul Verma's interview has been rescheduled to 20 Sep 2026 at 2:30 PM.",
-      time: "1 hour ago",
-      read: false,
-    },
-    {
-      id: 3,
-      type: "EVALUATION_PENDING",
-      title: "Evaluation Pending",
-      message:
-        "Please submit your interview evaluation for Sneha Reddy.",
-      time: "3 hours ago",
-      read: false,
-    },
-    {
-      id: 4,
-      type: "INTERVIEW_CANCELLED",
-      title: "Interview Cancelled",
-      message:
-        "The interview scheduled with Arjun Kumar has been cancelled.",
-      time: "Yesterday",
-      read: true,
-    },
-    {
-      id: 5,
-      type: "EVALUATION_SUBMITTED",
-      title: "Evaluation Submitted",
-      message:
-        "Your evaluation for Meghana Rao was submitted successfully.",
-      time: "Yesterday",
-      read: true,
-    },
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const loadNotifications = () => {
+    setLoading(true);
+    setError(null);
+
+    getMyNotifications()
+      .then((data) => {
+        setNotifications(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        setError("Unable to load notifications right now.");
+      })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadNotifications();
+  }, []);
 
   const unreadCount = notifications.filter(
     (notification) => !notification.read
   ).length;
 
+  const [persistWarning, setPersistWarning] = useState(null);
+
   const handleMarkAsRead = (notificationId) => {
+    // Optimistic update for a snappy UI.
     setNotifications((previous) =>
       previous.map((notification) =>
         notification.id === notificationId
-          ? {
-              ...notification,
-              read: true,
-            }
+          ? { ...notification, read: true }
           : notification
       )
     );
+
+    markNotificationRead(notificationId)
+      .then(() => {
+        // The PUT call resolving doesn't guarantee the backend actually
+        // persisted it — re-fetch from the server to confirm the real
+        // state instead of trusting the optimistic update blindly.
+        return getMyNotifications();
+      })
+      .then((freshData) => {
+        const fresh = Array.isArray(freshData) ? freshData : [];
+        setNotifications(fresh);
+
+        const stillUnread = fresh.find(
+          (n) => n.id === notificationId && !n.read
+        );
+
+        if (stillUnread) {
+          setPersistWarning(
+            "The server accepted the request but this notification is still showing as unread — this looks like a backend issue, not something wrong on your end."
+          );
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to mark notification as read:", err);
+
+        // Roll back the optimistic update on an actual request failure.
+        setNotifications((previous) =>
+          previous.map((notification) =>
+            notification.id === notificationId
+              ? { ...notification, read: false }
+              : notification
+          )
+        );
+
+        const status = err?.response?.status;
+        setPersistWarning(
+          `Couldn't mark as read${status ? ` (HTTP ${status})` : ""}.`
+        );
+      });
   };
 
   const handleMarkAllAsRead = () => {
+    const previousState = notifications;
+
     setNotifications((previous) =>
-      previous.map((notification) => ({
-        ...notification,
-        read: true,
-      }))
+      previous.map((notification) => ({ ...notification, read: true }))
     );
+
+    markAllNotificationsRead()
+      .then(() => getMyNotifications())
+      .then((freshData) => {
+        const fresh = Array.isArray(freshData) ? freshData : [];
+        setNotifications(fresh);
+
+        const stillUnreadCount = fresh.filter((n) => !n.read).length;
+
+        if (stillUnreadCount > 0) {
+          setPersistWarning(
+            `The server accepted "mark all as read" but ${stillUnreadCount} notification${
+              stillUnreadCount === 1 ? " is" : "s are"
+            } still unread after re-checking — this looks like a backend issue, not something wrong on your end.`
+          );
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to mark all notifications as read:", err);
+        setNotifications(previousState);
+
+        const status = err?.response?.status;
+        setPersistWarning(
+          `Couldn't mark all as read${status ? ` (HTTP ${status})` : ""}.`
+        );
+      });
   };
 
   const getNotificationIcon = (type) => {
@@ -136,76 +178,61 @@ function InterviewerNotifications() {
 
   return (
     <div className="interviewer-layout">
-
       <InterviewerSidebar />
 
       <div className="interviewer-main">
-
         <InterviewerNavbar />
 
         <main className="interviewer-dashboard-content">
-
           {/* HEADER */}
 
           <div className="interviewer-dashboard-header">
-
-            <p className="interviewer-label">
-              NOTIFICATIONS
-            </p>
+            <p className="interviewer-label">NOTIFICATIONS</p>
 
             <h1>Notifications</h1>
 
             <p>
-              Stay updated with interview assignments,
-              schedule changes and evaluation reminders.
+              Stay updated with interview assignments, schedule changes
+              and evaluation reminders.
             </p>
-
           </div>
 
           {/* SUMMARY */}
 
           <section className="interviewer-notification-summary">
-
             <div className="interviewer-notification-summary-card">
-
               <div className="interviewer-notification-summary-icon">
                 <Bell size={21} />
               </div>
 
               <div>
                 <span>Total Notifications</span>
-
-                <strong>
-                  {notifications.length}
-                </strong>
+                <strong>{notifications.length}</strong>
               </div>
-
             </div>
 
             <div className="interviewer-notification-summary-card">
-
               <div className="interviewer-notification-summary-icon unread">
                 <Clock3 size={21} />
               </div>
 
               <div>
                 <span>Unread</span>
-
-                <strong>
-                  {unreadCount}
-                </strong>
+                <strong>{unreadCount}</strong>
               </div>
-
             </div>
-
           </section>
 
           {/* NOTIFICATION CARD */}
 
           <section className="interviewer-notifications-card">
+            {persistWarning && (
+              <p className="interviewer-evaluation-error">
+                {persistWarning}
+              </p>
+            )}
 
             <div className="interviewer-notifications-toolbar">
-
               <div>
                 <h2>Recent Notifications</h2>
 
@@ -228,106 +255,77 @@ function InterviewerNotifications() {
                   Mark all as read
                 </button>
               )}
-
             </div>
 
             {/* LIST */}
 
             <div className="interviewer-notifications-list">
+              {loading && <p>Loading notifications...</p>}
 
-              {notifications.length > 0 ? (
+              {!loading && error && (
+                <div className="interviewer-notifications-empty">
+                  <Bell size={38} />
+                  <h3>Something went wrong</h3>
+                  <p>{error}</p>
+                </div>
+              )}
 
+              {!loading && !error && notifications.length > 0 &&
                 notifications.map((notification) => (
-
                   <div
                     key={notification.id}
                     className={`interviewer-notification-item ${
-                      notification.read
-                        ? "read"
-                        : "unread"
+                      notification.read ? "read" : "unread"
                     }`}
                   >
-
                     <div
                       className={`interviewer-notification-icon ${getNotificationClass(
                         notification.type
                       )}`}
                     >
-                      {getNotificationIcon(
-                        notification.type
-                      )}
+                      {getNotificationIcon(notification.type)}
                     </div>
 
                     <div className="interviewer-notification-content">
-
                       <div className="interviewer-notification-title-row">
-
-                        <h3>
-                          {notification.title}
-                        </h3>
+                        <h3>{notification.title}</h3>
 
                         {!notification.read && (
                           <span className="interviewer-notification-unread-dot" />
                         )}
-
                       </div>
 
-                      <p>
-                        {notification.message}
-                      </p>
+                      <p>{notification.message}</p>
 
                       <span className="interviewer-notification-time">
                         {notification.time}
                       </span>
-
                     </div>
 
                     {!notification.read && (
-
                       <button
                         type="button"
                         className="interviewer-notification-read-button"
-                        onClick={() =>
-                          handleMarkAsRead(
-                            notification.id
-                          )
-                        }
+                        onClick={() => handleMarkAsRead(notification.id)}
                       >
                         <CheckCheck size={15} />
                         Mark as read
                       </button>
-
                     )}
-
                   </div>
+                ))}
 
-                ))
-
-              ) : (
-
+              {!loading && !error && notifications.length === 0 && (
                 <div className="interviewer-notifications-empty">
-
                   <Bell size={38} />
-
                   <h3>No notifications</h3>
-
-                  <p>
-                    You don't have any notifications
-                    right now.
-                  </p>
-
+                  <p>You don't have any notifications right now.</p>
                 </div>
-
               )}
-
             </div>
-
           </section>
-
         </main>
-
       </div>
-
     </div>
   );
 }

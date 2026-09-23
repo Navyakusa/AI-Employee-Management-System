@@ -129,11 +129,7 @@ export const getCandidateDashboard = async () => {
       // A failure here just falls back to the backend summary.
       getMyApplicationsWithJobs(jobsPromise).catch(() => null),
       getMyInterviewsWithJobs(jobsPromise).catch(() => null),
-      profilePromise
-        .then((preloadedProfile) =>
-          getMyOffers({ preloadedProfile: preloadedProfile ?? undefined })
-        )
-        .catch(() => null),
+      getMyOffers().catch(() => null),
     ]);
 
   return mapDashboard(summary || {}, jobs, profile, {
@@ -163,41 +159,11 @@ export const uploadResume = async (candidateId, file) => {
 
 /* ---------------- OFFERS ---------------- */
 
-// GET /offers returns EVERY candidate's offers, and there is no
-// "my offers" endpoint yet. Until the backend adds GET /offers/my,
-// the list is narrowed to this candidate's own record id here.
-//
-// >>> When GET /offers/my exists: set this to true. <<<
-//     (Then the extra profile call and the filter below are unused.)
-export const USE_MY_OFFERS_ENDPOINT = false;
-
-export const getMyOffers = async ({
-  useMyEndpoint = USE_MY_OFFERS_ENDPOINT,
-  preloadedProfile, // optional - the dashboard passes the profile it has
-} = {}) => {
-  let offers;
-
-  if (useMyEndpoint) {
-    offers = unwrap(await axiosInstance.get("/offers/my")) || [];
-  } else {
-    const [allOffers, profile] = await Promise.all([
-      axiosInstance.get("/offers").then(unwrap),
-      preloadedProfile ?? getMyProfile(),
-    ]);
-
-    // the id of the candidate's own record (same one resume upload uses)
-    const candidateId = Number(profile?.id) || 0;
-
-    if (!candidateId) {
-      throw new Error(
-        "We could not match your account to a candidate record, so your offers cannot be shown yet."
-      );
-    }
-
-    offers = (allOffers || []).filter(
-      (offer) => Number(offer.candidateId) === candidateId
-    );
-  }
+// The backend now has a "my offers" endpoint that returns only the
+// logged-in candidate's own offers, so GET /offers (which returned
+// EVERY candidate's offers) is no longer used here.
+export const getMyOffers = async () => {
+  const offers = unwrap(await axiosInstance.get("/offers/my")) || [];
 
   return offers
     .filter(isOfferVisibleToCandidate)
