@@ -102,4 +102,43 @@ public class EmailNotificationService {
 
         mailSender.send(message);
     }
+
+    /**
+     * Sends password reset email.
+     */
+    public void sendPasswordResetEmail(
+            String userEmail,
+            String userName,
+            String resetToken
+    ) {
+
+        SimpleMailMessage message = new SimpleMailMessage();
+
+        message.setFrom(fromEmail);
+        message.setTo(userEmail);
+
+        message.setSubject(
+                "Password Reset - TalentAI"
+        );
+
+        message.setText(
+                "Dear " + userName + ",\n\n" +
+
+                        "We received a request to reset your TalentAI account password.\n\n" +
+
+                        "Use the following reset token to create a new password:\n\n" +
+
+                        resetToken + "\n\n" +
+
+                        "This reset token is valid for 30 minutes.\n\n" +
+
+                        "If you did not request a password reset, " +
+                        "please ignore this email.\n\n" +
+
+                        "Regards,\n" +
+                        "TalentAI Recruitment Team"
+        );
+
+        mailSender.send(message);
+    }
 }

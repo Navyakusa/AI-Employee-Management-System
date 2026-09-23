@@ -2,16 +2,24 @@ package com.ems.service;
 
 import com.ems.common.ApiResponse;
 import com.ems.dto.AuthResponseDto;
+import com.ems.dto.ForgotPasswordRequestDto;
 import com.ems.dto.LoginDto;
+import com.ems.dto.ResetPasswordRequestDto;
 import com.ems.dto.SignupDto;
+import com.ems.entity.PasswordResetToken;
 import com.ems.entity.User;
 import com.ems.exception.InvalidCredentialsException;
+import com.ems.repository.PasswordResetTokenRepository;
 import com.ems.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -25,6 +33,16 @@ public class AuthService {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private PasswordResetTokenRepository passwordResetTokenRepository;
+
+    @Autowired
+    private EmailNotificationService emailNotificationService;
+
+
+    // =========================================================
+    // LOGIN
+    // =========================================================
 
     public ResponseEntity<ApiResponse<AuthResponseDto>> login(
             LoginDto loginDto) {
@@ -46,6 +64,7 @@ public class AuthService {
                     );
 
             if (!passwordMatches) {
+
                 throw new InvalidCredentialsException(
                         "Invalid email or password"
                 );
@@ -53,6 +72,7 @@ public class AuthService {
 
             // Check whether account is active
             if (Boolean.FALSE.equals(user.getActive())) {
+
                 throw new InvalidCredentialsException(
                         "Your account is inactive"
                 );
@@ -60,7 +80,9 @@ public class AuthService {
 
             // Check selected role with database role
             if (loginDto.getRole() == null ||
-                    !user.getRole().equalsIgnoreCase(loginDto.getRole())) {
+                    !user.getRole().equalsIgnoreCase(
+                            loginDto.getRole()
+                    )) {
 
                 throw new InvalidCredentialsException(
                         "You are not authorized to login as "
@@ -111,6 +133,11 @@ public class AuthService {
         }
     }
 
+
+    // =========================================================
+    // SIGNUP
+    // =========================================================
+
     public ResponseEntity<ApiResponse<User>> signup(
             SignupDto signupDto) {
 
@@ -139,11 +166,24 @@ public class AuthService {
             }
 
             User user = new User();
+
             System.out.println("===== SIGNUP REQUEST =====");
-            System.out.println("Name       : " + signupDto.getUserName());
-            System.out.println("Email      : " + signupDto.getEmail());
-            System.out.println("Role       : " + signupDto.getRole());
-            System.out.println("Department : " + signupDto.getDepartment());
+            System.out.println(
+                    "Name       : "
+                            + signupDto.getUserName()
+            );
+            System.out.println(
+                    "Email      : "
+                            + signupDto.getEmail()
+            );
+            System.out.println(
+                    "Role       : "
+                            + signupDto.getRole()
+            );
+            System.out.println(
+                    "Department : "
+                            + signupDto.getDepartment()
+            );
             System.out.println("==========================");
 
             user.setUserName(
@@ -192,7 +232,8 @@ public class AuthService {
             ApiResponse<User> response =
                     new ApiResponse<>(
                             false,
-                            "Registration failed: " + e.getMessage(),
+                            "Registration failed: "
+                                    + e.getMessage(),
                             null
                     );
 
@@ -200,6 +241,228 @@ public class AuthService {
                     response,
                     HttpStatus.INTERNAL_SERVER_ERROR
             );
+        }
+    }
+
+
+    // =========================================================
+    // FORGOT PASSWORD
+    // =========================================================
+
+    @Transactional
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(
+            ForgotPasswordRequestDto request) {
+
+        try {
+
+            String email =
+                    request.getEmail()
+                            .trim()
+                            .toLowerCase();
+
+            User user =
+                    userRepository
+                            .findByEmailIgnoreCase(email)
+                            .orElse(null);
+
+            /*
+             * Do not reveal whether an email exists.
+             * This prevents user-account enumeration.
+             */
+            if (user == null) {
+
+                return ResponseEntity.ok(
+                        new ApiResponse<>(
+                                true,
+                                "If the email is registered, " +
+                                        "password reset instructions " +
+                                        "have been sent",
+                                null
+                        )
+                );
+            }
+
+            // Delete old reset tokens for this user
+            passwordResetTokenRepository
+                    .deleteByUserId(user.getUserId());
+
+            // Generate secure random token
+            String resetToken =
+                    UUID.randomUUID().toString();
+
+            PasswordResetToken passwordResetToken =
+                    new PasswordResetToken();
+
+            passwordResetToken.setToken(
+                    resetToken
+            );
+
+            passwordResetToken.setUserId(
+                    user.getUserId()
+            );
+
+            passwordResetToken.setExpiryDate(
+                    LocalDateTime.now().plusMinutes(30)
+            );
+
+            passwordResetToken.setUsed(false);
+
+            passwordResetTokenRepository.save(
+                    passwordResetToken
+            );
+
+            // Send reset email
+            emailNotificationService.sendPasswordResetEmail(
+                    user.getEmail(),
+                    user.getUserName(),
+                    resetToken
+            );
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "If the email is registered, " +
+                                    "password reset instructions " +
+                                    "have been sent",
+                            null
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to process password reset request",
+                                    null
+                            )
+                    );
+        }
+    }
+
+
+    // =========================================================
+    // RESET PASSWORD
+    // =========================================================
+
+    @Transactional
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            ResetPasswordRequestDto request) {
+
+        try {
+
+            PasswordResetToken resetToken =
+                    passwordResetTokenRepository
+                            .findByToken(
+                                    request.getToken()
+                            )
+                            .orElse(null);
+
+            // Token does not exist
+            if (resetToken == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.BAD_REQUEST)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Invalid password reset token",
+                                        null
+                                )
+                        );
+            }
+
+            // Token already used
+            if (resetToken.isUsed()) {
+
+                return ResponseEntity
+                        .status(HttpStatus.BAD_REQUEST)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Password reset token has already been used",
+                                        null
+                                )
+                        );
+            }
+
+            // Token expired
+            if (resetToken.getExpiryDate()
+                    .isBefore(LocalDateTime.now())) {
+
+                return ResponseEntity
+                        .status(HttpStatus.BAD_REQUEST)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Password reset token has expired",
+                                        null
+                                )
+                        );
+            }
+
+            // Find user
+            User user =
+                    userRepository
+                            .findById(
+                                    resetToken.getUserId()
+                            )
+                            .orElse(null);
+
+            if (user == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.BAD_REQUEST)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "User account not found",
+                                        null
+                                )
+                        );
+            }
+
+            // Encode new password
+            user.setPassword(
+                    passwordEncoder.encode(
+                            request.getNewPassword()
+                    )
+            );
+
+            userRepository.save(user);
+
+            // Mark token as used
+            resetToken.setUsed(true);
+
+            passwordResetTokenRepository.save(
+                    resetToken
+            );
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Password reset successfully",
+                            null
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to reset password",
+                                    null
+                            )
+                    );
         }
     }
 }

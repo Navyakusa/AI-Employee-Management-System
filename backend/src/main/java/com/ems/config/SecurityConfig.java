@@ -34,7 +34,8 @@ public class SecurityConfig {
         @Bean
         public CorsConfigurationSource corsConfigurationSource() {
 
-                CorsConfiguration configuration = new CorsConfiguration();
+                CorsConfiguration configuration =
+                        new CorsConfiguration();
 
                 configuration.setAllowedOrigins(
                         List.of("http://localhost:5173")
@@ -90,7 +91,8 @@ public class SecurityConfig {
                         // CORS
                         // =====================================================
 
-                        .cors(cors -> {})
+                        .cors(cors -> {
+                        })
 
                         // =====================================================
                         // SESSION MANAGEMENT
@@ -155,7 +157,7 @@ public class SecurityConfig {
                                 ).hasRole("CANDIDATE")
 
                                 // =================================================
-                                // EMPLOYEE / RECRUITER PROFILE
+                                // EMPLOYEE / RECRUITER / INTERVIEWER PROFILE
                                 // =================================================
 
                                 .requestMatchers(
@@ -164,7 +166,8 @@ public class SecurityConfig {
                                 ).hasAnyRole(
                                         "EMPLOYEE",
                                         "HIRING_MANAGER",
-                                        "RECRUITER"
+                                        "RECRUITER",
+                                        "INTERVIEWER"
                                 )
 
                                 .requestMatchers(
@@ -173,7 +176,8 @@ public class SecurityConfig {
                                 ).hasAnyRole(
                                         "EMPLOYEE",
                                         "HIRING_MANAGER",
-                                        "RECRUITER"
+                                        "RECRUITER",
+                                        "INTERVIEWER"
                                 )
 
                                 // =================================================

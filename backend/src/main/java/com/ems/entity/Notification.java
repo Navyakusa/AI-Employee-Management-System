@@ -27,7 +27,9 @@ public class Notification {
     @Column(nullable = false)
     private String type;
 
+    @Column(name = "read_status")
     private Boolean readStatus;
 
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
 }

@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,12 +20,22 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
-    // =========================
-// GET UNREAD COUNT
-// =========================
+
+    public NotificationService(
+            NotificationRepository notificationRepository,
+            UserRepository userRepository
+    ) {
+        this.notificationRepository = notificationRepository;
+        this.userRepository = userRepository;
+    }
+
+    // =========================================================
+    // GET UNREAD COUNT
+    // =========================================================
 
     public ResponseEntity<ApiResponse<Long>> getUnreadCount(
-            Authentication authentication) {
+            Authentication authentication
+    ) {
 
         try {
 
@@ -64,13 +75,14 @@ public class NotificationService {
         }
     }
 
+    // =========================================================
+    // MARK ALL AS READ
+    // =========================================================
 
-// =========================
-// MARK ALL AS READ
-// =========================
-
+    @Transactional
     public ResponseEntity<ApiResponse<Void>> markAllAsRead(
-            Authentication authentication) {
+            Authentication authentication
+    ) {
 
         try {
 
@@ -82,20 +94,10 @@ public class NotificationService {
                             new RuntimeException("User not found")
                     );
 
-            List<Notification> unreadNotifications =
-                    notificationRepository
-                            .findByUserIdAndReadStatusFalse(
-                                    user.getUserId()
-                            );
-
-            unreadNotifications.forEach(
-                    notification ->
-                            notification.setReadStatus(true)
-            );
-
-            notificationRepository.saveAll(
-                    unreadNotifications
-            );
+            int updatedCount =
+                    notificationRepository.markAllAsRead(
+                            user.getUserId()
+                    );
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
@@ -119,23 +121,15 @@ public class NotificationService {
         }
     }
 
-    public NotificationService(
-            NotificationRepository notificationRepository,
-            UserRepository userRepository) {
-
-        this.notificationRepository = notificationRepository;
-        this.userRepository = userRepository;
-    }
-
-
-    // =========================
+    // =========================================================
     // CREATE NOTIFICATION
-    // =========================
+    // =========================================================
 
     public Notification createNotification(
             Long userId,
             String message,
-            String type) {
+            String type
+    ) {
 
         Notification notification = Notification.builder()
                 .userId(userId)
@@ -148,13 +142,14 @@ public class NotificationService {
         return notificationRepository.save(notification);
     }
 
-
-    // =========================
+    // =========================================================
     // GET MY NOTIFICATIONS
-    // =========================
+    // =========================================================
 
-    public ResponseEntity<ApiResponse<List<Notification>>> getMyNotifications(
-            Authentication authentication) {
+    public ResponseEntity<ApiResponse<List<Notification>>>
+    getMyNotifications(
+            Authentication authentication
+    ) {
 
         try {
 
@@ -200,14 +195,15 @@ public class NotificationService {
         }
     }
 
+    // =========================================================
+    // MARK ONE NOTIFICATION AS READ
+    // =========================================================
 
-    // =========================
-    // MARK NOTIFICATION AS READ
-    // =========================
-
+    @Transactional
     public ResponseEntity<ApiResponse<Notification>> markAsRead(
             Long notificationId,
-            Authentication authentication) {
+            Authentication authentication
+    ) {
 
         try {
 
@@ -228,7 +224,11 @@ public class NotificationService {
                                     )
                             );
 
-            // User can mark only their own notification
+            // =================================================
+            // SECURITY CHECK
+            // User can only modify their own notification
+            // =================================================
+
             if (!notification.getUserId()
                     .equals(user.getUserId())) {
 
@@ -245,16 +245,39 @@ public class NotificationService {
                 );
             }
 
-            notification.setReadStatus(true);
+            // =================================================
+            // EXPLICIT DATABASE UPDATE
+            // =================================================
 
-            Notification updatedNotification =
-                    notificationRepository.save(notification);
+            int updatedCount =
+                    notificationRepository.markAsRead(
+                            notificationId,
+                            user.getUserId()
+                    );
+
+            if (updatedCount == 0) {
+
+                ApiResponse<Notification> response =
+                        new ApiResponse<>(
+                                false,
+                                "Notification could not be marked as read",
+                                null
+                        );
+
+                return new ResponseEntity<>(
+                        response,
+                        HttpStatus.BAD_REQUEST
+                );
+            }
+
+            // Keep returned object consistent with database
+            notification.setReadStatus(true);
 
             ApiResponse<Notification> response =
                     new ApiResponse<>(
                             true,
                             "Notification marked as read",
-                            updatedNotification
+                            notification
                     );
 
             return new ResponseEntity<>(
@@ -277,8 +300,15 @@ public class NotificationService {
             );
         }
     }
+
+    // =========================================================
+    // NOTIFICATION STATS
+    // =========================================================
+
     public ResponseEntity<ApiResponse<NotificationStatsDto>>
-    getNotificationStats(Authentication authentication) {
+    getNotificationStats(
+            Authentication authentication
+    ) {
 
         try {
 
@@ -329,6 +359,11 @@ public class NotificationService {
                     );
         }
     }
+
+    // =========================================================
+    // DELETE NOTIFICATION
+    // =========================================================
+
     public ResponseEntity<ApiResponse<Void>>
     deleteNotification(
             Long notificationId,
@@ -369,8 +404,7 @@ public class NotificationService {
                         );
             }
 
-            notificationRepository
-                    .delete(notification);
+            notificationRepository.delete(notification);
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
