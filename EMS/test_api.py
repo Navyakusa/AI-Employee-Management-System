@@ -274,4 +274,67 @@ check(
     expect_status=400,
 )
 
+print("=" * 70)
+print("11. FILE UPLOAD -- same URLs as above, sent as multipart/form-data instead of JSON")
+print("=" * 70)
+
+import io
+import json as _json
+from reportlab.pdfgen import canvas as _canvas
+import docx as _docx
+
+def _make_test_pdf_bytes():
+    buf = io.BytesIO()
+    c = _canvas.Canvas(buf)
+    for i, line in enumerate([
+        "Test Candidate", "Backend Developer", "",
+        "SKILLS", "Python, Django, PostgreSQL, Docker, Git",
+    ]):
+        c.drawString(72, 750 - i * 20, line)
+    c.save()
+    return buf.getvalue()
+
+def _make_test_docx_bytes():
+    buf = io.BytesIO()
+    d = _docx.Document()
+    d.add_paragraph("Test Candidate")
+    d.add_paragraph("Backend Developer")
+    d.add_paragraph("SKILLS")
+    d.add_paragraph("Python, Django, PostgreSQL, Docker, Git")
+    d.save(buf)
+    return buf.getvalue()
+
+pdf_bytes = _make_test_pdf_bytes()
+docx_bytes = _make_test_docx_bytes()
+SAMPLE_JOB_JSON = _json.dumps(SAMPLE_JOB)
+
+check("POST /parse-resume (file upload, PDF)", client.post(
+    "/parse-resume", files={"file": ("resume.pdf", pdf_bytes, "application/pdf")}
+))
+check("POST /parse-resume (file upload, DOCX)", client.post(
+    "/parse-resume", files={"file": ("resume.docx", docx_bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
+))
+check("POST /screen-resume (file upload)", client.post(
+    "/screen-resume", files={"file": ("resume.pdf", pdf_bytes, "application/pdf")}, data={"job": SAMPLE_JOB_JSON}
+))
+check("POST /match-score (file upload)", client.post(
+    "/match-score", files={"file": ("resume.pdf", pdf_bytes, "application/pdf")}, data={"job": SAMPLE_JOB_JSON}
+))
+check("POST /skill-gap (file upload)", client.post(
+    "/skill-gap", files={"file": ("resume.pdf", pdf_bytes, "application/pdf")}, data={"job": SAMPLE_JOB_JSON}
+))
+check("POST /generate-interview-questions (file upload)", client.post(
+    "/generate-interview-questions", files={"file": ("resume.pdf", pdf_bytes, "application/pdf")}, data={"job": SAMPLE_JOB_JSON}
+))
+check(
+    "POST /parse-resume (file upload, unsupported .txt, should fail)",
+    client.post("/parse-resume", files={"file": ("resume.txt", b"plain text", "text/plain")}),
+    expect_status=422,
+)
+check(
+    "POST /screen-resume (file upload, invalid job JSON, should fail)",
+    client.post("/screen-resume", files={"file": ("resume.pdf", pdf_bytes, "application/pdf")}, data={"job": "not json"}),
+    expect_status=400,
+)
+
 print("All endpoint tests completed.")

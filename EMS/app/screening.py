@@ -38,24 +38,22 @@ def extract_resume_profile(resume: dict) -> dict:
 
 def extract_resume_profile_from_text(raw_text: str) -> dict:
     """The 'resume' side of screening, from raw resume text -- bridges Module 5
-    (NER parsing) into Module 6 (screening) for real, unstructured resume uploads."""
-    from app.resume_parsing import nlp, extract_individual_skills
+    (NER parsing) into Module 6 (screening) for real, unstructured resume uploads.
+    Reuses parse_resume() directly rather than duplicating its extraction logic,
+    so any future fix to skill extraction only needs to happen in one place."""
+    from app.resume_parsing import parse_resume
 
-    doc = nlp(raw_text)
-    labels = {"Skills": [], "Designation": [], "Companies worked at": [], "Degree": [], "Years of Experience": []}
-    for ent in doc.ents:
-        if ent.label_ in labels:
-            labels[ent.label_].append(ent.text.strip())
+    profile = parse_resume(raw_text)
 
     return {
         "resume_id": None,
-        "role": labels["Designation"][0] if labels["Designation"] else None,
+        "role": profile["designation"][0] if profile["designation"] else None,
         "seniority": None,  # not in this NER model's label set -- correctly left unavailable, not guessed
-        "years_experience": labels["Years of Experience"],
+        "years_experience": profile["years_of_experience"],
         "industry": None,   # same as above
-        "education": labels["Degree"],
-        "skills": [normalize_skill(s) for s in extract_individual_skills(labels["Skills"])],
-        "companies_worked_at": labels["Companies worked at"],
+        "education": profile["degree"],
+        "skills": [normalize_skill(s) for s in profile["skills_cleaned"]],
+        "companies_worked_at": profile["companies_worked_at"],
     }
 
 

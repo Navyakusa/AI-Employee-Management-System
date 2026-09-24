@@ -31,8 +31,10 @@ real request is fast.
 """
 import time
 import logging
+import json
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from pydantic import ValidationError
 
 from app.schemas import (
     JobInput, ResumeInput, MatchScoreRequest, MatchScoreResponse,
@@ -61,6 +63,7 @@ from app.interview import generate_interview_questions
 from app.attrition import predict_attrition_risk
 from app.salary import predict_salary_range
 from app.decision import recommend_candidate_decision
+from app.file_extraction import extract_resume_text
 
 logger.info(f"All models loaded in {time.time() - _t0:.2f}s")
 # ---------------------------------------------------------------------------
@@ -70,7 +73,7 @@ app = FastAPI(
     description="AI/ML endpoints for resume parsing, candidate matching, skill gap analysis, "
                  "candidate ranking, interview question generation, attrition prediction, "
                  "and salary prediction.",
-    version="1.0.1",
+    version="1.1.0",
 )
 
 
@@ -81,57 +84,216 @@ def health_check():
 
 
 # ---------------------------------------------------------------------------
+# Shared helpers for the endpoints below that accept EITHER a JSON body
+# (application/json, unchanged from before -- this is what the backend's
+# existing integration sends) OR an uploaded resume file (multipart/form-data
+# with a 'file' part, for manual testing without typing resume_text). Both
+# content types are accepted on the SAME path, so no separate "-file" routes
+# and no change needed on the backend's side at all.
+#
+# FastAPI/Swagger doesn't have a high-level shortcut for "either JSON or
+# multipart on one route", so this is done manually: the endpoint takes the
+# raw Request, checks the Content-Type header, and branches. openapi_extra
+# declares both content types so Swagger's "Try it out" shows a dropdown to
+# pick JSON (a text box) or multipart (an actual file picker).
+# ---------------------------------------------------------------------------
+
+def _is_multipart(request: Request) -> bool:
+    return request.headers.get("content-type", "").lower().startswith("multipart/form-data")
+
+
+async def _load_json_body(request: Request, model_cls):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Request body is not valid JSON.")
+    try:
+        return model_cls(**body)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+
+async def _read_uploaded_file_text(request: Request) -> str:
+    form = await request.form()
+    file = form.get("file")
+    if file is None:
+        raise HTTPException(status_code=400, detail="Missing 'file' in multipart form data.")
+    file_bytes = await file.read()
+    return extract_resume_text(file.filename, file_bytes)
+
+
+async def _read_job_form_field(request: Request) -> JobInput:
+    form = await request.form()
+    job_str = form.get("job")
+    if job_str is None:
+        raise HTTPException(status_code=400, detail="Missing 'job' field in multipart form data (a JSON string).")
+    try:
+        job_dict = json.loads(job_str)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"'job' field is not valid JSON: {e}")
+    try:
+        return JobInput(**job_dict)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=f"'job' field failed validation: {e}")
+
+
+async def _read_optional_form_field(request: Request, field_name: str, default=None):
+    form = await request.form()
+    value = form.get(field_name)
+    return value if value not in (None, "") else default
+
+
+_SAMPLE_JOB_EXAMPLE = {
+    "job_id": "J_000123", "job_title": "Backend Engineer", "seniority": "Senior", "industry": "FinTech",
+    "must_have_skills": "python, django, postgresql", "nice_to_have_skills": "docker, aws",
+    "description": "We are hiring a Backend Engineer to build scalable APIs.",
+    "responsibilities": "Design and maintain REST APIs.", "requirements": "5+ years of Python experience.",
+}
+_SAMPLE_RESUME_EXAMPLE = {
+    "resume_id": "R_004512", "role": "Backend Developer", "seniority": "Senior", "industry": "FinTech",
+    "years_experience": 6, "education": "B.Tech", "skills": "python, django, postgresql, docker, git",
+    "summary": "Backend developer with 6 years building scalable APIs.", "experience_bullets": "",
+}
+
+
+# ---------------------------------------------------------------------------
 # Module 5 -- Resume Parsing
 # ---------------------------------------------------------------------------
 
-@app.post("/parse-resume", response_model=ResumeParseResponse, tags=["resume-parsing"])
-def parse_resume_endpoint(payload: ResumeParseRequest):
-    profile = parse_resume(payload.resume_text)
-    return profile
+@app.post(
+    "/parse-resume", response_model=ResumeParseResponse, tags=["resume-parsing"],
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {"type": "object", "properties": {"resume_text": {"type": "string"}}, "required": ["resume_text"]},
+                    "example": {"resume_text": "Priya Sharma\nSenior Backend Engineer\n\nSKILLS\nPython, Django, PostgreSQL"},
+                },
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"file": {"type": "string", "format": "binary", "description": "Resume file: .pdf or .docx"}},
+                        "required": ["file"],
+                    }
+                },
+            },
+        }
+    },
+)
+async def parse_resume_endpoint(request: Request):
+    if _is_multipart(request):
+        resume_text = await _read_uploaded_file_text(request)
+    else:
+        payload = await _load_json_body(request, ResumeParseRequest)
+        resume_text = payload.resume_text
+
+    return parse_resume(resume_text)
 
 
 # ---------------------------------------------------------------------------
 # Module 6 -- AI Resume Screening (standalone from Module 7 matching)
 # ---------------------------------------------------------------------------
 
-@app.post("/screen-resume", response_model=ScreeningResponse, response_model_exclude_none=True, tags=["screening"])
-def screen_resume_endpoint(payload: ScreeningRequest):
-    if (payload.resume is None) == (payload.resume_text is None):
-        raise HTTPException(status_code=400, detail="Provide exactly one of 'resume' or 'resume_text'.")
-
-    job_req = extract_job_requirements(payload.job.dict())
-    job_text = f"{payload.job.description} {payload.job.responsibilities} {payload.job.requirements}"
-
-    if payload.resume is not None:
-        resume_profile = extract_resume_profile(payload.resume.dict())
-        resume_text = f"{payload.resume.summary} {payload.resume.experience_bullets}"
+@app.post(
+    "/screen-resume", response_model=ScreeningResponse, response_model_exclude_none=True, tags=["screening"],
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {"type": "object"},
+                    "example": {"job": _SAMPLE_JOB_EXAMPLE, "resume": _SAMPLE_RESUME_EXAMPLE},
+                },
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "file": {"type": "string", "format": "binary", "description": "Resume file: .pdf or .docx"},
+                            "job": {"type": "string", "description": "Job details as a JSON string", "example": json.dumps(_SAMPLE_JOB_EXAMPLE)},
+                        },
+                        "required": ["file", "job"],
+                    }
+                },
+            },
+        }
+    },
+)
+async def screen_resume_endpoint(request: Request):
+    if _is_multipart(request):
+        job_obj = await _read_job_form_field(request)
+        resume_text = await _read_uploaded_file_text(request)
+        resume_profile = extract_resume_profile_from_text(resume_text)
+        resume_text_for_similarity = None
     else:
-        resume_profile = extract_resume_profile_from_text(payload.resume_text)
-        resume_text = None  # raw-text path has no separate summary/bullets fields to combine
+        payload = await _load_json_body(request, ScreeningRequest)
+        if (payload.resume is None) == (payload.resume_text is None):
+            raise HTTPException(status_code=400, detail="Provide exactly one of 'resume' or 'resume_text'.")
+        job_obj = payload.job
+        if payload.resume is not None:
+            resume_profile = extract_resume_profile(payload.resume.dict())
+            resume_text_for_similarity = f"{payload.resume.summary} {payload.resume.experience_bullets}"
+        else:
+            resume_profile = extract_resume_profile_from_text(payload.resume_text)
+            resume_text_for_similarity = None
 
-    report = screen_resume_against_job(resume_profile, job_req, resume_text=resume_text, job_text=job_text)
-    return report
+    job_req = extract_job_requirements(job_obj.dict())
+    job_text = f"{job_obj.description} {job_obj.responsibilities} {job_obj.requirements}"
+    return screen_resume_against_job(resume_profile, job_req, resume_text=resume_text_for_similarity, job_text=job_text)
 
 
 # ---------------------------------------------------------------------------
 # Modules 6/7 -- Candidate Matching
 # ---------------------------------------------------------------------------
 
-@app.post("/match-score", response_model=MatchScoreResponse, response_model_exclude_none=True, tags=["matching"])
-def match_score_endpoint(payload: MatchScoreRequest, explain: bool = False):
-    if (payload.resume is None) == (payload.resume_text is None):
-        raise HTTPException(status_code=400, detail="Provide exactly one of 'resume' or 'resume_text'.")
-
-    if payload.resume is not None:
-        resume_dict = payload.resume.dict()
+@app.post(
+    "/match-score", response_model=MatchScoreResponse, response_model_exclude_none=True, tags=["matching"],
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {"type": "object"},
+                    "example": {"job": _SAMPLE_JOB_EXAMPLE, "resume": _SAMPLE_RESUME_EXAMPLE},
+                },
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "file": {"type": "string", "format": "binary", "description": "Resume file: .pdf or .docx"},
+                            "job": {"type": "string", "description": "Job details as a JSON string", "example": json.dumps(_SAMPLE_JOB_EXAMPLE)},
+                            "resume_seniority": {"type": "string", "description": "Optional -- can't be reliably extracted from resume text"},
+                            "resume_industry": {"type": "string", "description": "Optional -- can't be reliably extracted from resume text"},
+                        },
+                        "required": ["file", "job"],
+                    }
+                },
+            },
+        }
+    },
+)
+async def match_score_endpoint(request: Request, explain: bool = False):
+    if _is_multipart(request):
+        job_obj = await _read_job_form_field(request)
+        resume_text = await _read_uploaded_file_text(request)
+        resume_seniority = await _read_optional_form_field(request, "resume_seniority")
+        resume_industry = await _read_optional_form_field(request, "resume_industry")
+        resume_dict = build_resume_dict_from_text(resume_text, seniority=resume_seniority, industry=resume_industry)
     else:
-        resume_dict = build_resume_dict_from_text(
-            payload.resume_text, seniority=payload.resume_seniority, industry=payload.resume_industry
-        )
+        payload = await _load_json_body(request, MatchScoreRequest)
+        if (payload.resume is None) == (payload.resume_text is None):
+            raise HTTPException(status_code=400, detail="Provide exactly one of 'resume' or 'resume_text'.")
+        job_obj = payload.job
+        if payload.resume is not None:
+            resume_dict = payload.resume.dict()
+        else:
+            resume_dict = build_resume_dict_from_text(
+                payload.resume_text, seniority=payload.resume_seniority, industry=payload.resume_industry
+            )
 
-    result = score_candidate(payload.job.dict(), resume_dict, explain=explain)
+    result = score_candidate(job_obj.dict(), resume_dict, explain=explain)
     return {
-        "job_id": payload.job.job_id,
+        "job_id": job_obj.job_id,
         "resume_id": resume_dict["resume_id"],
         "result": result["result"],
         "match_probability_pct": result["match_probability_pct"],
@@ -144,17 +306,46 @@ def match_score_endpoint(payload: MatchScoreRequest, explain: bool = False):
 # Module 17 -- Skill Gap Analysis
 # ---------------------------------------------------------------------------
 
-@app.post("/skill-gap", response_model=SkillGapResponse, tags=["skill-gap"])
-def skill_gap_endpoint(payload: SkillGapRequest):
-    if (payload.resume is None) == (payload.resume_text is None):
-        raise HTTPException(status_code=400, detail="Provide exactly one of 'resume' or 'resume_text'.")
-
-    if payload.resume is not None:
-        resume_dict = payload.resume.dict()
+@app.post(
+    "/skill-gap", response_model=SkillGapResponse, tags=["skill-gap"],
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {"type": "object"},
+                    "example": {"job": _SAMPLE_JOB_EXAMPLE, "resume": _SAMPLE_RESUME_EXAMPLE},
+                },
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "file": {"type": "string", "format": "binary", "description": "Resume file: .pdf or .docx"},
+                            "job": {"type": "string", "description": "Job details as a JSON string", "example": json.dumps(_SAMPLE_JOB_EXAMPLE)},
+                        },
+                        "required": ["file", "job"],
+                    }
+                },
+            },
+        }
+    },
+)
+async def skill_gap_endpoint(request: Request):
+    if _is_multipart(request):
+        job_obj = await _read_job_form_field(request)
+        resume_text = await _read_uploaded_file_text(request)
+        resume_dict = build_resume_dict_from_text(resume_text)
     else:
-        resume_dict = build_resume_dict_from_text(payload.resume_text)
+        payload = await _load_json_body(request, SkillGapRequest)
+        if (payload.resume is None) == (payload.resume_text is None):
+            raise HTTPException(status_code=400, detail="Provide exactly one of 'resume' or 'resume_text'.")
+        job_obj = payload.job
+        if payload.resume is not None:
+            resume_dict = payload.resume.dict()
+        else:
+            resume_dict = build_resume_dict_from_text(payload.resume_text)
 
-    return skill_gap_analysis(payload.job.dict(), resume_dict)
+    return skill_gap_analysis(job_obj.dict(), resume_dict)
 
 
 # ---------------------------------------------------------------------------
@@ -178,15 +369,50 @@ def rank_candidates_endpoint(payload: RankCandidatesRequest):
 # Module 19 -- Interview Question Generation
 # ---------------------------------------------------------------------------
 
-@app.post("/generate-interview-questions", response_model=InterviewQuestionsResponse, response_model_exclude_none=True, tags=["interview-questions"])
-def generate_interview_questions_endpoint(payload: InterviewQuestionsRequest):
-    result = generate_interview_questions(
-        payload.job.dict(), payload.resume.dict(),
-        num_questions=payload.num_questions, provider=payload.provider,
-    )
+@app.post(
+    "/generate-interview-questions", response_model=InterviewQuestionsResponse, response_model_exclude_none=True, tags=["interview-questions"],
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {"type": "object"},
+                    "example": {"job": _SAMPLE_JOB_EXAMPLE, "resume": _SAMPLE_RESUME_EXAMPLE, "num_questions": 5, "provider": "anthropic"},
+                },
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "file": {"type": "string", "format": "binary", "description": "Resume file: .pdf or .docx"},
+                            "job": {"type": "string", "description": "Job details as a JSON string", "example": json.dumps(_SAMPLE_JOB_EXAMPLE)},
+                            "num_questions": {"type": "integer", "default": 5},
+                            "provider": {"type": "string", "default": "anthropic"},
+                        },
+                        "required": ["file", "job"],
+                    }
+                },
+            },
+        }
+    },
+)
+async def generate_interview_questions_endpoint(request: Request):
+    if _is_multipart(request):
+        job_obj = await _read_job_form_field(request)
+        resume_text = await _read_uploaded_file_text(request)
+        resume_dict = build_resume_dict_from_text(resume_text)
+        num_questions = int(await _read_optional_form_field(request, "num_questions", default=5))
+        provider = await _read_optional_form_field(request, "provider", default="anthropic")
+    else:
+        payload = await _load_json_body(request, InterviewQuestionsRequest)
+        job_obj = payload.job
+        resume_dict = payload.resume.dict()
+        num_questions = payload.num_questions
+        provider = payload.provider
+
+    result = generate_interview_questions(job_obj.dict(), resume_dict, num_questions=num_questions, provider=provider)
     return {
-        "job_id": payload.job.job_id,
-        "resume_id": payload.resume.resume_id,
+        "job_id": job_obj.job_id,
+        "resume_id": resume_dict["resume_id"],
         "source": result["source"],
         "questions": result["questions"],
     }

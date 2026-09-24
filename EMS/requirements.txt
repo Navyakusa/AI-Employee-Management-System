@@ -9,6 +9,12 @@ spacy>=3.7
 anthropic>=0.34
 openai>=1.40
 python-multipart
+pypdf
+python-docx
+
+# Test-only dependency (used by test_api.py to generate a sample PDF in-memory
+# for testing -- NOT required to run the actual service):
+reportlab
 
 # NOTE: pandas, scikit-learn, and xgboost are pinned to the EXACT versions the
 # models in app/models/ were trained with. Pickled sklearn/xgboost models are

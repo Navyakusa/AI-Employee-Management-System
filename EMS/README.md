@@ -94,6 +94,35 @@ Example -- new style (raw text instead):
 doesn't include these fields, so they can't be reliably extracted from raw text. Pass them
 if you know them; otherwise they're treated as unknown rather than guessed.
 
+## File upload -- same URLs, no separate endpoints
+
+`/parse-resume`, `/screen-resume`, `/match-score`, `/skill-gap`, and `/generate-interview-questions`
+each accept **either** a JSON body (exactly as documented below -- this is what the backend's
+existing integration sends, completely unchanged) **or** an uploaded resume file
+(`multipart/form-data`), at the **same URL**. There are no separate `-file` endpoints.
+
+**In Swagger UI (`/docs`):** open any of these endpoints and click "Try it out" -- a dropdown
+appears letting you choose the request format:
+- **`application/json`** -- the usual JSON body, a text box to paste it into
+- **`multipart/form-data`** -- an actual file picker ("Choose File") to upload a `.pdf` or `.docx`
+  directly, plus a `job` field where you paste the job details as a JSON string (since a file
+  upload and a nested JSON object can't travel in the same multipart field)
+
+Example multipart fields for `/screen-resume`:
+```
+file: <choose a .pdf or .docx from your computer>
+job: {"job_id": "J_1", "job_title": "Backend Developer", "seniority": "Mid", "industry": "IT", "must_have_skills": "python, django", "nice_to_have_skills": "docker", "description": "", "responsibilities": "", "requirements": ""}
+```
+
+**Supported file types:** `.pdf` and `.docx`. Legacy `.doc` (old binary Word format) returns a
+clear error asking for `.docx` or `.pdf` instead. A scanned/image-only PDF with no selectable text
+layer also returns a clear error rather than silently producing empty results.
+
+**Why this doesn't affect the backend integration at all:** the JSON path is handled by the exact
+same validation and logic as before -- nothing about it changed. The endpoint inspects the
+incoming request's `Content-Type` header and only takes the file-upload path when it sees
+`multipart/form-data`; any `application/json` request is processed exactly as it always was.
+
 ## Endpoints
 
 | Endpoint | Module | Description |

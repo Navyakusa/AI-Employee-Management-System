@@ -35,14 +35,50 @@ SKILL_ALIASES = {
     "next.js": "next",
     "expressjs": "express",
     "express.js": "express",
+    "aiml": "machine learning",
+    "ai/ml": "machine learning",
+    "ai ml": "machine learning",
+    "ml": "machine learning",
+    "ai": "artificial intelligence",
 }
 
 
 def parse_skills(text):
-    """Extracts skills from the CSV's Python-list-repr string format,
-    e.g. "['Python' 'Django' 'REST APIs']" -> ['Python', 'Django', 'REST APIs']
+    """Extracts individual skills from a job/resume skills field.
+
+    Handles THREE input formats, tried in order:
+    1. The original quoted Python-list-repr format from the training data,
+       e.g. "['Python' 'Django' 'REST APIs']" -> ['Python', 'Django', 'REST APIs']
+    2. Plain comma-separated text, e.g. "Python, Machine Learning, SQL"
+    3. Plain space-separated text (fallback, used only when there's no comma
+       either), e.g. "python aiml" -> ['python', 'aiml']
+
+    Formats 2 and 3 exist because real job-posting forms enter skills as
+    ordinary text, not the artificial quoted format the original training
+    data happened to use -- without this, any job posting entered as normal
+    text would silently parse to ZERO required skills, and the match score
+    would collapse to 0% regardless of how well-qualified the candidate is.
+    Verified against the original training data: every existing record uses
+    the quoted format, so format 1 always fires first for that data and
+    nothing about the trained model's existing behavior changes.
+
+    NOTE: format 3 (space-separated) can't distinguish "machine learning" (one
+    two-word skill) from "machine" + "learning" (two skills) -- if a job's
+    skills are only ever comma-separated, prefer that on the input side over
+    plain space-separated text.
     """
-    return re.findall(r"'([^']+)'", str(text))
+    quoted = re.findall(r"'([^']+)'", str(text))
+    if quoted:
+        return quoted
+
+    text = str(text).strip()
+    if not text:
+        return []
+
+    if "," in text:
+        return [s.strip() for s in text.split(",") if s.strip()]
+
+    return [s.strip() for s in text.split() if s.strip()]
 
 
 def normalize_skill(skill):
