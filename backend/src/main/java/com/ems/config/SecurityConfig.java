@@ -195,7 +195,7 @@ public class SecurityConfig {
                                 .requestMatchers(
                                         HttpMethod.GET,
                                         "/api/jobs/**"
-                                ).authenticated()
+                                ).permitAll()
 
                                 .requestMatchers(
                                         HttpMethod.POST,
@@ -537,6 +537,34 @@ public class SecurityConfig {
                                         "HR",
                                         "HIRING_MANAGER",
                                         "RECRUITER",
+                                        "SUPER_ADMIN"
+                                )
+
+                                // =================================================
+                                // CONTACT MESSAGES
+                                // =================================================
+
+                                // Anyone can submit the contact form
+                                .requestMatchers(
+                                        HttpMethod.POST,
+                                        "/api/contact/messages"
+                                ).permitAll()
+
+                                // HR and SUPER_ADMIN can view all messages
+                                .requestMatchers(
+                                        HttpMethod.GET,
+                                        "/api/contact/messages/**"
+                                ).hasAnyRole(
+                                        "HR",
+                                        "SUPER_ADMIN"
+                                )
+
+                                // HR and SUPER_ADMIN can mark messages as read
+                                .requestMatchers(
+                                        HttpMethod.PUT,
+                                        "/api/contact/messages/**"
+                                ).hasAnyRole(
+                                        "HR",
                                         "SUPER_ADMIN"
                                 )
 
