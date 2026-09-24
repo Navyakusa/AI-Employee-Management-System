@@ -30,12 +30,31 @@ def extract_individual_skills(raw_skill_blocks: list) -> list:
     skills, ready to feed into matching/skill-gap."""
     individual_skills = set()
 
+    # Two SEPARATE prefix patterns, deliberately not merged into one:
+    #
+    # 1. COLON-based labels ("Frontend: React", "Soft Skills: Leadership") -- a
+    #    colon essentially never appears inside a real skill name, so this is
+    #    safe to strip for ANY label word, not just a curated list.
+    colon_label_pattern = re.compile(r"^[A-Za-z /&]+:\s*")
+    #
+    # 2. HYPHEN-based labels ("Languages-Java") -- a hyphen DOES commonly appear
+    #    inside real skill names ("CI-CD", "Node-RED", "Objective-C"), so this
+    #    one is deliberately restricted to a curated list of known resume
+    #    section words to avoid stripping the first half of a real skill name.
+    CATEGORY_LABELS = (
+        r"languages?|frameworks?|tools?|databases?|technologies|technology|"
+        r"libraries|library|skills?|platforms?|proficiencies|proficient in|"
+        r"frontend|backend|front[- ]end|back[- ]end"
+    )
+    hyphen_label_pattern = re.compile(rf"^(?:{CATEGORY_LABELS})\s*-\s*", re.IGNORECASE)
+
     for block in raw_skill_blocks:
         pieces = re.split(r"[,;\n•]", block)
         for piece in pieces:
             piece = piece.strip()
             piece = re.sub(r"^[-*]\s*", "", piece)                    # strip "- " / "* " bullet markers
-            piece = re.sub(r"^[A-Za-z /&]+:\s*", "", piece)          # strip "Languages:" etc.
+            piece = colon_label_pattern.sub("", piece)                 # strip "Frontend:" / "Languages:" etc. (any label)
+            piece = hyphen_label_pattern.sub("", piece)                # strip "Languages-" etc. (curated list only)
             piece = re.sub(r"\s*\([^)]*\)\s*$", "", piece)            # strip "(2 years)" etc.
             piece = piece.strip(" .")
             if piece and len(piece) < 40:

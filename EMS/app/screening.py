@@ -54,7 +54,7 @@ def extract_resume_profile_from_text(raw_text: str) -> dict:
         "years_experience": labels["Years of Experience"],
         "industry": None,   # same as above
         "education": labels["Degree"],
-        "skills": extract_individual_skills(labels["Skills"]),
+        "skills": [normalize_skill(s) for s in extract_individual_skills(labels["Skills"])],
         "companies_worked_at": labels["Companies worked at"],
     }
 
