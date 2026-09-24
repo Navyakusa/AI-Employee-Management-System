@@ -6,27 +6,34 @@ import com.ems.entity.Notification;
 import com.ems.entity.User;
 import com.ems.repository.NotificationRepository;
 import com.ems.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
+@Slf4j
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final EmailNotificationService emailNotificationService;
 
     public NotificationService(
             NotificationRepository notificationRepository,
-            UserRepository userRepository
+            UserRepository userRepository, EmailNotificationService emailNotificationService
     ) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
+        this.emailNotificationService = emailNotificationService;
     }
 
     // =========================================================
@@ -139,7 +146,63 @@ public class NotificationService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        return notificationRepository.save(notification);
+        Notification savedNotification =
+                notificationRepository.save(notification);
+
+        // Send email only after the surrounding transaction commits.
+        // This avoids sending emails for rolled-back operations.
+
+        Runnable emailTask = () -> {
+
+            try {
+
+                boolean sent =
+                        emailNotificationService.sendEmail(
+                                userId,
+                                type,
+                                Map.of()
+                        );
+
+                if (sent) {
+
+                    log.info(
+                            "Email submitted for notification ID: {}",
+                            savedNotification.getNotificationId()
+                    );
+                }
+
+            } catch (Exception e) {
+
+                log.error(
+                        "Email notification failed for notification ID: {}",
+                        savedNotification.getNotificationId(),
+                        e
+                );
+            }
+        };
+
+        if (TransactionSynchronizationManager
+                .isActualTransactionActive()
+                && TransactionSynchronizationManager
+                .isSynchronizationActive()) {
+
+            TransactionSynchronizationManager
+                    .registerSynchronization(
+                            new TransactionSynchronization() {
+
+                                @Override
+                                public void afterCommit() {
+                                    emailTask.run();
+                                }
+                            }
+                    );
+
+        } else {
+
+            emailTask.run();
+        }
+
+        return savedNotification;
     }
 
     // =========================================================

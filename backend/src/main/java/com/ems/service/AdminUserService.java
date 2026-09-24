@@ -34,6 +34,7 @@ public class AdminUserService {
         this.notificationService = notificationService;
     }
 
+
     // ============================================================
     // GET USERS
     // ============================================================
@@ -46,7 +47,6 @@ public class AdminUserService {
 
         try {
 
-            // Get newest users first
             List<User> users =
                     userRepository.findAllUsersForRecentUsers();
 
@@ -76,7 +76,6 @@ public class AdminUserService {
                         return nameMatches || emailMatches;
                     })
 
-                    // Filter by role
                     .filter(user -> {
 
                         if (role == null || role.trim().isEmpty()) {
@@ -88,7 +87,6 @@ public class AdminUserService {
                                         .equalsIgnoreCase(role);
                     })
 
-                    // Filter by active/inactive status
                     .filter(user -> {
 
                         if (active == null) {
@@ -118,16 +116,13 @@ public class AdminUserService {
                     .body(
                             new ApiResponse<>(
                                     false,
-
-
                                     "Failed to fetch users",
-
-                                  null
-
+                                    null
                             )
                     );
         }
     }
+
 
     // ============================================================
     // GET USER BY ID
@@ -173,16 +168,13 @@ public class AdminUserService {
                     .body(
                             new ApiResponse<>(
                                     false,
-
-
                                     "Failed to fetch user",
-
-
                                     null
                             )
                     );
         }
     }
+
 
     // ============================================================
     // CREATE USER
@@ -210,7 +202,6 @@ public class AdminUserService {
                         );
             }
 
-            // Validate email
             if (
                     dto.getEmail() == null ||
                             dto.getEmail().trim().isEmpty()
@@ -245,11 +236,7 @@ public class AdminUserService {
 
             if (
                     userRepository
-
-
                             .findByEmailIgnoreCase(dto.getEmail())
-
-                        
                             .isPresent()
             ) {
 
@@ -306,8 +293,13 @@ public class AdminUserService {
                             savedUser.getEmail()
             );
 
-            // Notification
+            /*
+             * IMPORTANT:
+             * Notification goes to the newly created user,
+             * not to the logged-in admin.
+             */
             createNotificationSafely(
+                    savedUser.getUserId(),
                     "User " +
                             savedUser.getUserName() +
                             " (" +
@@ -342,6 +334,7 @@ public class AdminUserService {
                     );
         }
     }
+
 
     // ============================================================
     // UPDATE USER
@@ -469,7 +462,11 @@ public class AdminUserService {
                             updatedUser.getEmail()
             );
 
+            /*
+             * Notification goes to the updated user.
+             */
             createNotificationSafely(
+                    updatedUser.getUserId(),
                     "User " +
                             updatedUser.getUserName() +
                             " (" +
@@ -503,6 +500,7 @@ public class AdminUserService {
         }
     }
 
+
     // ============================================================
     // ACTIVATE / DEACTIVATE USER
     // ============================================================
@@ -531,6 +529,19 @@ public class AdminUserService {
                         );
             }
 
+            if (active == null) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Active status is required",
+                                        null
+                                )
+                        );
+            }
+
             user.setActive(active);
 
             User updatedUser =
@@ -545,9 +556,20 @@ public class AdminUserService {
                             updatedUser.getEmail()
             );
 
+            /*
+             * IMPORTANT FIX:
+             *
+             * Previously createNotificationSafely() used
+             * getCurrentUserId(), which returned the logged-in
+             * Super Admin ID.
+             *
+             * Now we explicitly pass the TARGET user's ID.
+             */
+
             if (active) {
 
                 createNotificationSafely(
+                        updatedUser.getUserId(),
                         "User " +
                                 updatedUser.getUserName() +
                                 " was activated",
@@ -557,6 +579,7 @@ public class AdminUserService {
             } else {
 
                 createNotificationSafely(
+                        updatedUser.getUserId(),
                         "User " +
                                 updatedUser.getUserName() +
                                 " was deactivated",
@@ -594,6 +617,7 @@ public class AdminUserService {
         }
     }
 
+
     // ============================================================
     // DELETE USER
     // ============================================================
@@ -628,21 +652,25 @@ public class AdminUserService {
             String deletedUserName =
                     user.getUserName();
 
+            /*
+             * Do not create USER_DELETED notification for the
+             * deleted user's ID after deletion.
+             *
+             * Notification.userId currently references an existing
+             * application user concept and EmailNotificationService
+             * also needs the User row to obtain the email address.
+             *
+             * Keep deletion as audit-only for now.
+             */
             userRepository.delete(user);
 
             createAuditLogSafely(
                     "DELETE",
                     "Deleted user: " +
-                            deletedUserEmail
-            );
-
-            createNotificationSafely(
-                    "User " +
-                            deletedUserName +
-                            " (" +
                             deletedUserEmail +
-                            ") was deleted",
-                    "USER_DELETED"
+                            " (" +
+                            deletedUserName +
+                            ")"
             );
 
             return ResponseEntity.ok(
@@ -670,25 +698,24 @@ public class AdminUserService {
         }
     }
 
+
     // ============================================================
     // CREATE NOTIFICATION SAFELY
     // ============================================================
 
     private void createNotificationSafely(
+            Long recipientUserId,
             String message,
             String type
     ) {
 
         try {
 
-            Long adminUserId =
-                    getCurrentUserId();
-
-            if (adminUserId == null) {
+            if (recipientUserId == null) {
 
                 System.out.println(
                         "Notification not created: "
-                                + "logged-in user not found"
+                                + "recipient user ID is null"
                 );
 
                 return;
@@ -696,7 +723,7 @@ public class AdminUserService {
 
             notificationService
                     .createNotification(
-                            adminUserId,
+                            recipientUserId,
                             message,
                             type
                     );
@@ -711,6 +738,7 @@ public class AdminUserService {
             e.printStackTrace();
         }
     }
+
 
     // ============================================================
     // GET CURRENT USER ID
@@ -748,6 +776,7 @@ public class AdminUserService {
         return user.getUserId();
     }
 
+
     // ============================================================
     // AUDIT LOG SAFELY
     // ============================================================
@@ -777,6 +806,7 @@ public class AdminUserService {
         }
     }
 
+
     // ============================================================
     // CURRENT USER
     // ============================================================
@@ -798,6 +828,7 @@ public class AdminUserService {
 
         return authentication.getName();
     }
+
 
     // ============================================================
     // ENTITY -> DTO

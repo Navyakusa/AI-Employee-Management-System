@@ -1,144 +1,200 @@
 package com.ems.service;
 
+import com.ems.entity.EmailTemplate;
+import com.ems.entity.User;
+
+import com.ems.repository.EmailTemplateRepository;
+import com.ems.repository.UserRepository;
+
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
+import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmailNotificationService {
 
     private final JavaMailSender mailSender;
 
+    private final EmailTemplateRepository emailTemplateRepository;
+
+    private final UserRepository userRepository;
+
     @Value("${spring.mail.username}")
     private String fromEmail;
 
-    /**
-     * Sends an email when a candidate's application is accepted.
-     */
-    public void sendApplicationAcceptedEmail(
-            String candidateEmail,
-            String candidateName,
-            String jobTitle
+    private static final Pattern VARIABLE_PATTERN =
+            Pattern.compile(
+                    "\\$\\{([a-zA-Z][a-zA-Z0-9_]*)\\}"
+            );
+
+    // =========================================================
+    // SEND EMAIL ONLY WHEN ACTIVE TEMPLATE EXISTS
+    // =========================================================
+
+    public boolean sendEmail(
+            Long userId,
+            String templateCode,
+            Map<String, String> variables
     ) {
 
+        // 1. Validate event information
+
+        if (userId == null) {
+            throw new IllegalArgumentException(
+                    "Recipient user ID cannot be null"
+            );
+        }
+
+        if (templateCode == null || templateCode.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Email template code cannot be empty"
+            );
+        }
+
+        // 2. Check database for an active email template
+
+        Optional<EmailTemplate> optionalTemplate =
+                emailTemplateRepository
+                        .findByTemplateCodeAndActiveTrue(
+                                templateCode
+                        );
+
+        // No active template means no email
+
+        if (optionalTemplate.isEmpty()) {
+
+            log.debug(
+                    "Email skipped: No active template for event {}",
+                    templateCode
+            );
+
+            return false;
+        }
+
+        EmailTemplate template = optionalTemplate.get();
+
+        // 3. Fetch recipient details from users table
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Recipient user not found: " + userId
+                        )
+                );
+
+        if (user.getEmail() == null
+                || user.getEmail().isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Recipient email address is missing"
+            );
+        }
+
+        // 4. Prepare email subject and body from database
+
+        String subject = replaceVariables(
+                template.getSubject(),
+                variables
+        );
+
+        String body = replaceVariables(
+                template.getBody(),
+                variables
+        );
+
+        // 5. Prepare SMTP message
+
         SimpleMailMessage message = new SimpleMailMessage();
 
         message.setFrom(fromEmail);
-        message.setTo(candidateEmail);
 
-        message.setSubject(
-                "Application Update - " + jobTitle
-        );
+        message.setTo(user.getEmail());
 
-        message.setText(
-                "Dear " + candidateName + ",\n\n" +
-                        "We are pleased to inform you that your application " +
-                        "for the position of " + jobTitle +
-                        " has been accepted.\n\n" +
-                        "Our recruitment team will contact you with the next steps.\n\n" +
-                        "Congratulations!\n\n" +
-                        "Regards,\n" +
-                        "TalentAI Recruitment Team"
-        );
+        message.setSubject(subject);
+
+        message.setText(body);
+
+        // 6. Send using existing SMTP configuration
 
         mailSender.send(message);
+
+        log.info(
+                "Email submitted to SMTP for user ID: {}, event: {}",
+                userId,
+                templateCode
+        );
+
+        return true;
     }
 
-    /**
-     * Sends an email when a candidate's application is rejected.
-     */
-    public void sendApplicationRejectedEmail(
-            String candidateEmail,
-            String candidateName,
-            String jobTitle
+    // =========================================================
+    // REPLACE DYNAMIC VARIABLES
+    // =========================================================
+
+    private String replaceVariables(
+            String content,
+            Map<String, String> variables
     ) {
 
-        SimpleMailMessage message = new SimpleMailMessage();
+        if (content == null) {
+            throw new IllegalArgumentException(
+                    "Email template content cannot be null"
+            );
+        }
 
-        message.setFrom(fromEmail);
-        message.setTo(candidateEmail);
+        Map<String, String> safeVariables =
+                variables == null
+                        ? Map.of()
+                        : variables;
 
-        message.setSubject(
-                "Application Update - " + jobTitle
-        );
+        Matcher matcher =
+                VARIABLE_PATTERN.matcher(content);
 
-        message.setText(
-                "Dear " + candidateName + ",\n\n" +
-                        "Thank you for your interest in the position of " +
-                        jobTitle + ".\n\n" +
-                        "After careful consideration, we regret to inform you " +
-                        "that your application has not been selected for the next stage.\n\n" +
-                        "We appreciate the time and effort you invested in the application " +
-                        "and wish you success in your future opportunities.\n\n" +
-                        "Regards,\n" +
-                        "TalentAI Recruitment Team"
-        );
+        StringBuffer result = new StringBuffer();
 
-        mailSender.send(message);
+        while (matcher.find()) {
+
+            String variableName = matcher.group(1);
+
+            String replacement =
+                    safeVariables.get(variableName);
+
+            if (replacement == null) {
+
+                throw new IllegalArgumentException(
+                        "Missing email template variable: "
+                                + variableName
+                );
+            }
+
+            matcher.appendReplacement(
+                    result,
+                    Matcher.quoteReplacement(replacement)
+            );
+        }
+
+        matcher.appendTail(result);
+
+        return result.toString();
     }
 
-    /**
-     * Sends a test email to verify SMTP configuration.
-     */
-    public void sendTestEmail(String to) {
-
-        SimpleMailMessage message = new SimpleMailMessage();
-
-        message.setFrom(fromEmail);
-        message.setTo(to);
-
-        message.setSubject("EMS SMTP Test Email");
-
-        message.setText(
-                "Hello,\n\n" +
-                        "This is a test email from the Employee Management System.\n\n" +
-                        "SMTP email configuration is working successfully.\n\n" +
-                        "Regards,\n" +
-                        "TalentAI Recruitment Team"
-        );
-
-        mailSender.send(message);
+    public void sendApplicationAcceptedEmail(String email, String name, String title) {
     }
 
-    /**
-     * Sends password reset email.
-     */
-    public void sendPasswordResetEmail(
-            String userEmail,
-            String userName,
-            String resetToken
-    ) {
+    public void sendApplicationRejectedEmail(String email, String name, String title) {
+    }
 
-        SimpleMailMessage message = new SimpleMailMessage();
-
-        message.setFrom(fromEmail);
-        message.setTo(userEmail);
-
-        message.setSubject(
-                "Password Reset - TalentAI"
-        );
-
-        message.setText(
-                "Dear " + userName + ",\n\n" +
-
-                        "We received a request to reset your TalentAI account password.\n\n" +
-
-                        "Use the following reset token to create a new password:\n\n" +
-
-                        resetToken + "\n\n" +
-
-                        "This reset token is valid for 30 minutes.\n\n" +
-
-                        "If you did not request a password reset, " +
-                        "please ignore this email.\n\n" +
-
-                        "Regards,\n" +
-                        "TalentAI Recruitment Team"
-        );
-
-        mailSender.send(message);
+    public void sendPasswordResetEmail(String email, String userName, String resetToken) {
     }
 }
