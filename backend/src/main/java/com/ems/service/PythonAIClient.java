@@ -15,7 +15,7 @@ import java.util.List;
 @Service
 public class PythonAIClient {
 
-    private static final String AI_BASE_URL = "http://127.0.0.1:8000";
+    private static final String AI_BASE_URL = "http://127.0.0.1:8100";
 
     private final HttpClient httpClient;
 
