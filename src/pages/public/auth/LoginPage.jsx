@@ -1,5 +1,8 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
 import apiClient from "../../../services/apiClient";
 
 function LoginPage() {
@@ -186,9 +189,36 @@ function LoginPage() {
           navigate("/employee/dashboard");
           break;
 
-        case "CANDIDATE":
-          navigate("/candidate/dashboard");
+        case "CANDIDATE": {
+          // =====================================
+          // CHECK PENDING JOB APPLICATION
+          // =====================================
+          const pendingApplication =
+            sessionStorage.getItem(
+              "pendingApplication"
+            );
+
+          // Candidate came from Apply Now
+          if (pendingApplication) {
+            sessionStorage.removeItem(
+              "pendingApplication"
+            );
+
+            navigate(
+              pendingApplication,
+              {
+                replace: true,
+              }
+            );
+          } else {
+            // Normal Candidate Login
+            navigate(
+              "/candidate/dashboard"
+            );
+          }
+
           break;
+        }
 
         default:
           setError(
@@ -220,7 +250,9 @@ function LoginPage() {
             Talent<span>AI</span>
           </h1>
 
-          <p>AI-Powered Recruitment Platform</p>
+          <p>
+            AI-Powered Recruitment Platform
+          </p>
         </div>
 
         <div className="login-left-content">
@@ -244,7 +276,9 @@ function LoginPage() {
               </div>
 
               <div>
-                <h4>Smart Recruitment</h4>
+                <h4>
+                  Smart Recruitment
+                </h4>
 
                 <p>
                   AI-powered candidate screening
@@ -260,7 +294,9 @@ function LoginPage() {
               </div>
 
               <div>
-                <h4>Employee Management</h4>
+                <h4>
+                  Employee Management
+                </h4>
 
                 <p>
                   Manage your workforce efficiently
@@ -276,7 +312,9 @@ function LoginPage() {
               </div>
 
               <div>
-                <h4>Role Based Access</h4>
+                <h4>
+                  Role Based Access
+                </h4>
 
                 <p>
                   Secure access for every user
@@ -298,7 +336,9 @@ function LoginPage() {
               👤
             </div>
 
-            <h2>Welcome Back</h2>
+            <h2>
+              Welcome Back
+            </h2>
 
             <p>
               Login to your TalentAI account
@@ -415,7 +455,9 @@ function LoginPage() {
               <label className="remember-me">
                 <input type="checkbox" />
 
-                <span>Remember me</span>
+                <span>
+                  Remember me
+                </span>
               </label>
 
               <Link
@@ -445,7 +487,9 @@ function LoginPage() {
                 ? "Logging in..."
                 : "Login"}
 
-              {!loading && <span>→</span>}
+              {!loading && (
+                <span>→</span>
+              )}
             </button>
           </form>
 

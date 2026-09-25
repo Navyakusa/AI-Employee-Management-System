@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -23,6 +24,7 @@ import {
   getMyProfile,
   updateMyProfile,
 } from "../../services/candidateService";
+
 import {
   fromApiProfile,
   getErrorMessage,
@@ -40,11 +42,11 @@ const NOTICE_PERIOD_OPTIONS = [
   "90 Days",
 ];
 
-// Profile may say "30 days"; the dropdown says "30 Days".
 const matchNoticePeriod = (value) =>
   NOTICE_PERIOD_OPTIONS.find(
     (option) =>
-      option.toLowerCase() === String(value ?? "").trim().toLowerCase()
+      option.toLowerCase() ===
+      String(value ?? "").trim().toLowerCase()
   ) || String(value ?? "").trim();
 
 function CandidateJobApplication() {
@@ -55,67 +57,10 @@ function CandidateJobApplication() {
   const [profile, setProfile] = useState(null);
   const [alreadyApplied, setAlreadyApplied] = useState(false);
 
-
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-
-  // Temporary job data.
-  // Backend integration will replace this later.
-  const jobs = [
-    {
-      id: 101,
-      title: "Java Backend Developer",
-      company: "TalentAI",
-      location: "Hyderabad",
-      type: "Full Time",
-    },
-    {
-      id: 102,
-      title: "Full Stack Developer",
-      company: "TalentAI",
-      location: "Bengaluru",
-      type: "Full Time",
-    },
-    {
-      id: 103,
-      title: "Software Engineer",
-      company: "TalentAI",
-      location: "Hyderabad",
-      type: "Full Time",
-    },
-    {
-      id: 104,
-      title: "React Developer",
-      company: "TalentAI",
-      location: "Pune",
-      type: "Full Time",
-    },
-    {
-      id: 105,
-      title: "Spring Boot Developer",
-      company: "TalentAI",
-      location: "Chennai",
-      type: "Full Time",
-    },
-    {
-      id: 106,
-      title: "Junior Java Developer",
-      company: "TalentAI",
-      location: "Hyderabad",
-      type: "Full Time",
-    },
-  ];
-
-  selectedJob = useMemo(
-    () =>
-      jobs.find(
-        (job) => String(job.id) === String(jobId)
-      ) || jobs[0],
-    [jobId]
-  );
-
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -131,11 +76,9 @@ function CandidateJobApplication() {
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
 
-  // The form exactly as first shown, to tell if the user changed anything.
   const initialFormRef = useRef(null);
 
-  // Load the job, the candidate's profile (to pre-fill the form) and
-  // the candidate's applications (to detect a duplicate).
+  // Load the selected job, Candidate profile, and applications.
   useEffect(() => {
     let cancelled = false;
 
@@ -147,7 +90,10 @@ function CandidateJobApplication() {
         const [jobData, profileData, applications] =
           await Promise.all([
             getJobById(jobId).catch((err) => {
-              if (err?.response?.status === 404) return null;
+              if (err?.response?.status === 404) {
+                return null;
+              }
+
               throw err;
             }),
             getMyProfile(),
@@ -272,9 +218,6 @@ function CandidateJobApplication() {
     setSubmitError("");
 
     try {
-      // The apply API only takes the job id and uses the candidate's
-      // profile as the application data. So the details typed here are
-      // saved to the profile first (only if something changed).
       const updatedProfile = {
         ...profile,
         fullName: formData.fullName,
@@ -286,6 +229,7 @@ function CandidateJobApplication() {
         noticePeriod: formData.noticePeriod,
       };
 
+      // Update the profile only when the form has changed.
       if (
         JSON.stringify(formData) !==
         JSON.stringify(initialFormRef.current)
@@ -387,9 +331,7 @@ function CandidateJobApplication() {
                 <button
                   type="button"
                   className="candidate-secondary-button"
-                  onClick={() =>
-                    navigate("/candidate/jobs")
-                  }
+                  onClick={() => navigate("/candidate/jobs")}
                 >
                   Browse More Jobs
                 </button>
@@ -703,9 +645,7 @@ function CandidateJobApplication() {
                   type="button"
                   className="candidate-secondary-button"
                   onClick={() =>
-                    navigate(
-                      `/candidate/jobs/${selectedJob.id}`
-                    )
+                    navigate(`/candidate/jobs/${selectedJob.id}`)
                   }
                 >
                   Cancel

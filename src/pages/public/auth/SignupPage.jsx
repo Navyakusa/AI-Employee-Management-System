@@ -1,10 +1,23 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import apiClient from "../../../services/apiClient";
 import "./SignupPage.css";
 
 function SignupPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // ==============================
+  // CHECK IF USER CAME FROM APPLY JOB
+  // ==============================
+  const applicationRedirect =
+    location.state?.applyingForJob
+      ? location.state?.from
+      : null;
 
   const [formData, setFormData] = useState({
     userName: "",
@@ -37,19 +50,30 @@ function SignupPage() {
     e.preventDefault();
 
     const userName = formData.userName.trim();
-    const email = formData.email.trim().toLowerCase();
+    const email = formData.email
+      .trim()
+      .toLowerCase();
+
     const password = formData.password;
-    const confirmPassword = formData.confirmPassword;
+    const confirmPassword =
+      formData.confirmPassword;
 
     // EMPTY FIELD CHECK
-    if (!userName || !email || !password || !confirmPassword) {
+    if (
+      !userName ||
+      !email ||
+      !password ||
+      !confirmPassword
+    ) {
       setError("Please fill in all fields.");
       return;
     }
 
     // PASSWORD LENGTH
     if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+      setError(
+        "Password must be at least 6 characters."
+      );
       return;
     }
 
@@ -66,39 +90,25 @@ function SignupPage() {
 
       // ==============================
       // CALL SPRING BOOT SIGNUP API
-
+      // PUBLIC SIGNUP = CANDIDATE
+      // ==============================
       const response = await apiClient.post(
-          "/auth/signup",
-          {
-            userName,
-            email,
-            password,
-            role: "CANDIDATE",
-            department: "candidate",
-          }
+        "/auth/signup",
+        {
+          userName,
+          email,
+          password,
+          role: "CANDIDATE",
+          department: "candidate",
+        }
       );
-
-      
-      response = await apiClient.post("/auth/signup", {
-        userName,
-        email,
-        password,
-
-        // Backend currently requires this field.
-        // It is NOT shown to the user.
-        department: "Engineering",
-
-        // Account created as Employee.
-        // Role is selected on the Login page.
-        role: "EMPLOYEE",
-      });
-
 
       const apiResponse = response.data;
 
       if (!apiResponse.success) {
         setError(
-          apiResponse.message || "Unable to create account."
+          apiResponse.message ||
+            "Unable to create account."
         );
         return;
       }
@@ -110,9 +120,19 @@ function SignupPage() {
         "Account created successfully!"
       );
 
-      // Go to login after successful registration
+      // ==============================
+      // GO TO LOGIN
+      // PRESERVE APPLY JOB REDIRECT
+      // ==============================
       setTimeout(() => {
-        navigate("/login");
+        navigate("/login", {
+          replace: true,
+          state: {
+            from: applicationRedirect,
+            applyingForJob:
+              Boolean(applicationRedirect),
+          },
+        });
       }, 1500);
 
     } catch (error) {
@@ -235,7 +255,14 @@ function SignupPage() {
         <p className="login-text">
           Already have an account?{" "}
 
-          <Link to="/login">
+          <Link
+            to="/login"
+            state={{
+              from: applicationRedirect,
+              applyingForJob:
+                Boolean(applicationRedirect),
+            }}
+          >
             Login
           </Link>
         </p>

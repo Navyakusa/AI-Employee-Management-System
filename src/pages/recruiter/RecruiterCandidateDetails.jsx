@@ -16,6 +16,7 @@ import {
   FileText,
   ExternalLink,
   AlertCircle,
+  Download,
 } from "lucide-react";
 
 import RecruiterSidebar from "./RecruiterSidebar";
@@ -97,8 +98,17 @@ function RecruiterCandidateDetails() {
   const { id } = useParams();
 
   const [candidate, setCandidate] = useState(null);
+  const [managementRecords, setManagementRecords] = useState([]);
+  const [resumes, setResumes] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [resumeError, setResumeError] = useState("");
+  const [downloading, setDownloading] = useState(false);
+
+  // ==========================================
+  // FETCH CANDIDATE DETAILS
+  // ==========================================
 
   useEffect(() => {
     let active = true;
@@ -109,19 +119,22 @@ function RecruiterCandidateDetails() {
         setError("");
         setCandidate(null);
 
-        // apiClient already has /api as its base URL.
-        // Final request: GET /api/candidates/{id}
         const response = await apiClient.get(
           `/candidates/${id}`
         );
 
         if (!active) return;
 
-        // The tested endpoint returns a candidate object directly.
         const result = response.data;
 
-        if (!result || typeof result !== "object" || Array.isArray(result)) {
-          throw new Error("Invalid candidate details response.");
+        if (
+          !result ||
+          typeof result !== "object" ||
+          Array.isArray(result)
+        ) {
+          throw new Error(
+            "Invalid candidate details response."
+          );
         }
 
         setCandidate(result);
@@ -131,9 +144,13 @@ function RecruiterCandidateDetails() {
         console.error("Candidate details error:", err);
 
         if (err.response?.status === 401) {
-          setError("Your session has expired. Please log in again.");
+          setError(
+            "Your session has expired. Please log in again."
+          );
         } else if (err.response?.status === 403) {
-          setError("You are not authorized to view this candidate.");
+          setError(
+            "You are not authorized to view this candidate."
+          );
         } else if (err.response?.status === 404) {
           setError("Candidate not found.");
         } else {
@@ -157,10 +174,238 @@ function RecruiterCandidateDetails() {
     };
   }, [id]);
 
-  const skills = (candidate?.skills || "")
+  // ==========================================
+  // FETCH RESUME MANAGEMENT DATA
+  // ==========================================
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchManagementRecords = async () => {
+      try {
+        setResumeError("");
+
+        const response = await apiClient.get(
+          "/resumes/management"
+        );
+
+        const records = response.data?.data;
+
+        if (!Array.isArray(records)) {
+          throw new Error(
+            "Invalid resume management response."
+          );
+        }
+
+        if (active) {
+          setManagementRecords(records);
+        }
+      } catch (err) {
+        console.error(
+          "Resume management fetch error:",
+          err
+        );
+
+        if (active) {
+          setResumeError(
+            "Unable to load this candidate's resume and application information."
+          );
+        }
+      }
+    };
+
+    fetchManagementRecords();
+
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  // ==========================================
+  // FETCH RESUME METADATA FOR DOWNLOAD
+  // ==========================================
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchResumes = async () => {
+      try {
+        const response = await apiClient.get(
+          "/resumes/all"
+        );
+
+        const records = response.data?.data;
+
+        if (!Array.isArray(records)) {
+          throw new Error(
+            "Invalid resume metadata response."
+          );
+        }
+
+        if (active) {
+          setResumes(records);
+        }
+      } catch (err) {
+        console.error(
+          "Resume metadata fetch error:",
+          err
+        );
+      }
+    };
+
+    fetchResumes();
+
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  // ==========================================
+  // MATCH CANDIDATE WITH THEIR RESUME
+  // ==========================================
+
+  const candidateManagementRecords =
+    managementRecords.filter(
+      (record) =>
+        Number(record.candidateId) === Number(id)
+    );
+
+  // Prefer the resume linked to an application.
+  const applicationRecords =
+    candidateManagementRecords.filter(
+      (record) =>
+        record.applicationId != null &&
+        record.jobId != null
+    );
+
+  const uniqueApplications = new Map();
+
+  applicationRecords.forEach((record) => {
+    const key = String(record.applicationId);
+    const previous = uniqueApplications.get(key);
+
+    if (
+      !previous ||
+      Number(record.resumeId) > Number(previous.resumeId)
+    ) {
+      uniqueApplications.set(key, record);
+    }
+  });
+
+  const linkedApplications = Array.from(
+    uniqueApplications.values()
+  );
+
+  // Only show a single job/status when there is exactly
+  // one identifiable application for this candidate.
+  const application =
+    linkedApplications.length === 1
+      ? linkedApplications[0]
+      : null;
+
+  // Choose the latest uploaded file available for this
+  // candidate. Do not use a resume belonging to another ID.
+  const availableResumeRecords =
+    candidateManagementRecords
+      .filter(
+        (record) =>
+          record.fileAvailable === true &&
+          record.resumeId != null
+      )
+      .sort(
+        (a, b) =>
+          Number(b.resumeId) - Number(a.resumeId)
+      );
+
+  const selectedResume =
+    application?.fileAvailable === true
+      ? application
+      : availableResumeRecords[0] || null;
+
+  const resumeMetadata = selectedResume
+    ? resumes.find(
+        (resume) =>
+          Number(resume.id) ===
+            Number(selectedResume.resumeId) &&
+          Number(resume.candidateId) === Number(id)
+      )
+    : null;
+
+  const candidateSkills =
+    candidate?.skills?.trim() ||
+    application?.skills ||
+    selectedResume?.skills ||
+    "";
+
+  const skills = candidateSkills
     .split(",")
     .map((skill) => skill.trim())
     .filter(Boolean);
+
+  const candidateExperience =
+    candidate?.experience ||
+    application?.experience ||
+    selectedResume?.experience ||
+    "";
+
+  const applicationStatus =
+    application?.status || null;
+
+  // ==========================================
+  // DOWNLOAD RESUME
+  // ==========================================
+
+  const handleDownloadResume = async () => {
+    if (!selectedResume) {
+      setResumeError(
+        "No downloadable resume is available for this candidate."
+      );
+      return;
+    }
+
+    setResumeError("");
+    setDownloading(true);
+
+    try {
+      const response = await apiClient.get(
+        `/resumes/${selectedResume.resumeId}/download`,
+        { responseType: "blob" }
+      );
+
+      const url = window.URL.createObjectURL(
+        response.data
+      );
+
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download =
+        resumeMetadata?.fileName ||
+        `candidate-${id}-resume.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.setTimeout(
+        () => window.URL.revokeObjectURL(url),
+        1000
+      );
+    } catch (err) {
+      console.error("Resume download failed:", err);
+
+      setResumeError(
+        err.response?.data?.message ||
+          "Unable to download the resume. Please check whether the file exists on the server."
+      );
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  // ==========================================
+  // EXISTING PAGE DESIGN
+  // ==========================================
 
   return (
     <div className="recruiter-candidate-details-page">
@@ -173,7 +418,9 @@ function RecruiterCandidateDetails() {
           <button
             type="button"
             className="recruiter-details-back"
-            onClick={() => navigate("/recruiter/candidates")}
+            onClick={() =>
+              navigate("/recruiter/candidates")
+            }
           >
             <ArrowLeft size={16} />
             Back to Candidates
@@ -182,7 +429,9 @@ function RecruiterCandidateDetails() {
           <div className="recruiter-details-page-heading">
             <span>RECRUITMENT WORKSPACE</span>
             <h1>Candidate Details</h1>
-            <p>Review candidate information and professional profile.</p>
+            <p>
+              Review candidate information and professional profile.
+            </p>
           </div>
 
           {loading && (
@@ -192,7 +441,10 @@ function RecruiterCandidateDetails() {
           )}
 
           {!loading && error && (
-            <div className="recruiter-details-error" role="alert">
+            <div
+              className="recruiter-details-error"
+              role="alert"
+            >
               <AlertCircle size={18} />
               {error}
             </div>
@@ -205,19 +457,27 @@ function RecruiterCandidateDetails() {
               <section className="recruiter-details-profile-card">
                 <div className="recruiter-details-profile-left">
                   <div className="recruiter-details-avatar">
-                    {candidate.name?.charAt(0)?.toUpperCase() || "C"}
+                    {candidate.name
+                      ?.charAt(0)
+                      ?.toUpperCase() || "C"}
                   </div>
 
                   <div className="recruiter-details-profile-info">
                     <div className="recruiter-details-name-row">
-                      <h2>{displayValue(candidate.name)}</h2>
+                      <h2>
+                        {displayValue(candidate.name)}
+                      </h2>
 
                       <span
                         className={`recruiter-details-status ${getStatusClass(
-                          candidate.status
+                          applicationStatus ||
+                            candidate.status
                         )}`}
                       >
-                        {formatStatus(candidate.status)}
+                        {formatStatus(
+                          applicationStatus ||
+                            candidate.status
+                        )}
                       </span>
                     </div>
 
@@ -296,13 +556,15 @@ function RecruiterCandidateDetails() {
                       <DetailItem
                         icon={BriefcaseBusiness}
                         label="Experience"
-                        value={candidate.experience}
+                        value={candidateExperience}
                       />
 
                       <DetailItem
                         icon={IndianRupee}
                         label="Expected Salary"
-                        value={formatSalary(candidate.expectedSalary)}
+                        value={formatSalary(
+                          candidate.expectedSalary
+                        )}
                       />
 
                       <DetailItem
@@ -323,8 +585,10 @@ function RecruiterCandidateDetails() {
 
                     {skills.length > 0 ? (
                       <div className="recruiter-details-skills">
-                        {skills.map((skill) => (
-                          <span key={skill}>{skill}</span>
+                        {skills.map((skill, index) => (
+                          <span key={`${skill}-${index}`}>
+                            {skill}
+                          </span>
                         ))}
                       </div>
                     ) : (
@@ -347,16 +611,32 @@ function RecruiterCandidateDetails() {
                     </div>
 
                     <div className="recruiter-details-info-grid recruiter-details-info-single">
+                      {application && (
+                        <DetailItem
+                          icon={BriefcaseBusiness}
+                          label="Applied Position"
+                          value={application.position}
+                        />
+                      )}
+
                       <DetailItem
                         icon={CalendarDays}
                         label="Application Date"
-                        value={formatDate(candidate.applicationDate)}
+                        value={formatDate(
+                          candidate.applicationDate
+                        )}
                       />
 
                       <DetailItem
                         icon={FileText}
                         label="Application Status"
-                        value={formatStatus(candidate.status)}
+                        value={
+                          applicationStatus
+                            ? formatStatus(applicationStatus)
+                            : linkedApplications.length > 1
+                              ? "Multiple applications"
+                              : "Not available"
+                        }
                       />
 
                       <DetailItem
@@ -375,27 +655,68 @@ function RecruiterCandidateDetails() {
                       <h3>Resume</h3>
                     </div>
 
-                    {candidate.resume ? (
-                      <div className="recruiter-details-resume">
-                        <div className="recruiter-details-resume-icon">
-                          <FileText size={23} />
+                    {selectedResume ? (
+                      <>
+                        <div className="recruiter-details-resume">
+                          <div className="recruiter-details-resume-icon">
+                            <FileText size={23} />
+                          </div>
+
+                          <div>
+                            <strong>
+                              {resumeMetadata?.fileName ||
+                                `Resume #${selectedResume.resumeId}`}
+                            </strong>
+                            <span>
+                              Uploaded resume
+                            </span>
+                          </div>
                         </div>
 
-                        <div>
-                          <strong>{candidate.resume}</strong>
-                          <span>Resume filename</span>
-                        </div>
-                      </div>
+                        <button
+                          type="button"
+                          onClick={handleDownloadResume}
+                          disabled={downloading}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            marginTop: "16px",
+                            padding: "10px 14px",
+                            background: "#4f65dc",
+                            color: "#ffffff",
+                            border: "none",
+                            borderRadius: "8px",
+                            cursor: downloading
+                              ? "not-allowed"
+                              : "pointer",
+                          }}
+                        >
+                          <Download size={16} />
+                          {downloading
+                            ? "Downloading..."
+                            : "Download Resume"}
+                        </button>
+                      </>
                     ) : (
                       <p className="recruiter-details-muted">
-                        No resume attached to this candidate record.
+                        No downloadable resume is available
+                        for this candidate.
                       </p>
                     )}
 
-                    <p className="recruiter-details-note">
-                      Resume download will be connected after
-                      confirming the backend download endpoint.
-                    </p>
+                    {resumeError && (
+                      <p
+                        role="alert"
+                        style={{
+                          marginTop: "12px",
+                          color: "#dc2626",
+                          fontSize: "13px",
+                        }}
+                      >
+                        {resumeError}
+                      </p>
+                    )}
                   </section>
 
                   {/* PROFESSIONAL LINKS */}

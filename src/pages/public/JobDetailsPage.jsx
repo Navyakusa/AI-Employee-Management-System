@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   MapPin,
   Briefcase,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 function JobDetailsPage() {
+  const navigate = useNavigate();
   const { jobId } = useParams();
 
   const jobs = [
@@ -92,6 +93,33 @@ function JobDetailsPage() {
 
   const job = jobs.find((item) => item.id === jobId);
 
+  // =========================================================
+  // APPLY NOW - CHECK CANDIDATE LOGIN
+  // =========================================================
+ const handleApplyNow = () => {
+  const token = localStorage.getItem("token");
+  const role = localStorage.getItem("role");
+
+  const isCandidate =
+    token &&
+    role?.toUpperCase() === "CANDIDATE";
+
+  // Already logged in as Candidate
+  if (isCandidate) {
+    navigate(`/apply/${job.id}`);
+    return;
+  }
+
+  // Remember which job the candidate wants to apply for
+  sessionStorage.setItem(
+    "pendingApplication",
+    `/apply/${job.id}`
+  );
+
+  // Go to normal login page
+  navigate("/login");
+};
+
   if (!job) {
     return (
       <section className="job-not-found">
@@ -152,13 +180,15 @@ function JobDetailsPage() {
               </div>
             </div>
 
-            <Link
-              to={`/apply/${job.id}`}
+            {/* APPLY NOW */}
+            <button
+              type="button"
               className="apply-now-button"
+              onClick={handleApplyNow}
             >
               Apply Now
               <ArrowRight size={18} />
-            </Link>
+            </button>
 
           </div>
         </div>
@@ -308,13 +338,16 @@ function JobDetailsPage() {
                 </div>
               </div>
 
-              <Link
-                to={`/apply/${job.id}`}
+              {/* APPLY FOR THIS JOB */}
+              <button
+                type="button"
                 className="sidebar-apply-button"
+                onClick={handleApplyNow}
               >
                 Apply for this Job
                 <ArrowRight size={18} />
-              </Link>
+              </button>
+
             </div>
 
           </aside>

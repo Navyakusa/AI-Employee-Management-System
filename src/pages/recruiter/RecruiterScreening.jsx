@@ -1,14 +1,22 @@
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import RecruiterSidebar from "./RecruiterSidebar";
 import RecruiterTopbar from "./RecruiterTopbar";
 import apiClient from "../../services/apiClient";
 import "./RecruiterScreening.css";
 
 function RecruiterScreening() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [screenings, setScreenings] = useState([]);
   const [candidates, setCandidates] = useState([]);
   const [jobs, setJobs] = useState({});
+
+  const [availableApplications, setAvailableApplications] = useState([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(false);
+  const [applicationsError, setApplicationsError] = useState("");
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
@@ -19,21 +27,26 @@ function RecruiterScreening() {
   const [showScreeningModal, setShowScreeningModal] = useState(false);
   const [candidateId, setCandidateId] = useState("");
   const [jobId, setJobId] = useState("");
+  const [selectedApplicationKey, setSelectedApplicationKey] = useState("");
+
   const [screeningLoading, setScreeningLoading] = useState(false);
   const [screeningError, setScreeningError] = useState("");
   const [screeningSuccess, setScreeningSuccess] = useState("");
 
-  // =========================================================
-  // FETCH CANDIDATE DETAILS
-  // =========================================================
+  // NEW: Selected record for the Analysis popup.
+  const [selectedAnalysis, setSelectedAnalysis] = useState(null);
+
+  const isValidId = (value) => {
+    const number = Number(value);
+    return Number.isInteger(number) && number > 0;
+  };
+
+  // GET /api/candidates/all
   const fetchCandidates = async () => {
     try {
       const response = await apiClient.get("/candidates/all");
-
       const result = response.data;
 
-      // Candidate API returns a direct array.
-      // Also support an ApiResponse-wrapped array.
       const candidateList = Array.isArray(result)
         ? result
         : Array.isArray(result?.data)
@@ -47,9 +60,7 @@ function RecruiterScreening() {
     }
   };
 
-  // =========================================================
-  // FETCH JOB DETAILS FOR SCREENING RECORDS
-  // =========================================================
+  // GET /api/jobs/{id}
   const fetchJobs = async (screeningRecords) => {
     const jobIds = [
       ...new Set(
@@ -68,7 +79,6 @@ function RecruiterScreening() {
       jobIds.map(async (id) => {
         try {
           const response = await apiClient.get(`/jobs/${id}`);
-
           const result = response.data;
 
           if (result?.success && result?.data) {
@@ -95,18 +105,13 @@ function RecruiterScreening() {
     setJobs(jobMap);
   };
 
-  // =========================================================
-  // FETCH AI SCREENING RESULTS
-  // =========================================================
+  // GET /api/ai-resume-screening/all
   const fetchScreenings = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const response = await apiClient.get(
-        "/ai-resume-screening/all"
-      );
-
+      const response = await apiClient.get("/ai-resume-screening/all");
       const result = response.data;
 
       if (!result?.success) {
@@ -121,7 +126,6 @@ function RecruiterScreening() {
 
       setScreenings(screeningRecords);
 
-      // Fetch related details without blocking screening results.
       await Promise.all([
         fetchCandidates(),
         fetchJobs(screeningRecords),
@@ -130,13 +134,9 @@ function RecruiterScreening() {
       console.error("AI screening fetch error:", err);
 
       if (err.response?.status === 401) {
-        setError(
-          "Your session has expired. Please login again."
-        );
+        setError("Your session has expired. Please login again.");
       } else if (err.response?.status === 403) {
-        setError(
-          "You are not authorized to view AI screening results."
-        );
+        setError("You are not authorized to view AI screening results.");
       } else {
         setError(
           err.response?.data?.message ||
@@ -151,13 +151,100 @@ function RecruiterScreening() {
     }
   };
 
+  // GET /api/resumes/management
+  const fetchAvailableApplications = async () => {
+    try {
+      setApplicationsLoading(true);
+      setApplicationsError("");
+
+      const response = await apiClient.get("/resumes/management");
+      const result = response.data;
+
+      if (!result?.success || !Array.isArray(result?.data)) {
+        throw new Error(
+          result?.message || "Unable to load candidate applications."
+        );
+      }
+
+      const applications = result.data
+        .filter(
+          (resume) =>
+            isValidId(resume.candidateId) &&
+            isValidId(resume.jobId)
+        )
+        .map((resume) => ({
+          applicationId: resume.applicationId ?? null,
+          candidateId: Number(resume.candidateId),
+          candidateName: resume.candidateName || "Unknown Candidate",
+          candidateEmail: resume.candidateEmail || "",
+          jobId: Number(resume.jobId),
+          jobTitle: resume.position || `Job #${resume.jobId}`,
+          resumeId: resume.resumeId ?? null,
+        }));
+
+      setAvailableApplications(applications);
+
+      if (result.data.length > 0 && applications.length === 0) {
+        setApplicationsError(
+          "The Resume Management API is not returning valid candidateId and jobId values. Ask the backend team to include both IDs for each application."
+        );
+      }
+    } catch (err) {
+      console.error("Application selection fetch error:", err);
+
+      setApplicationsError(
+        err.response?.data?.message ||
+          err.message ||
+          "Unable to load candidate applications."
+      );
+
+      setAvailableApplications([]);
+    } finally {
+      setApplicationsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchScreenings();
+    fetchAvailableApplications();
   }, []);
 
-  // =========================================================
-  // CREATE CANDIDATE LOOKUP MAP
-  // =========================================================
+  // Automatically select the application passed from Resume Management.
+  useEffect(() => {
+    const selected = location.state?.selectedApplication;
+
+    if (!selected) return;
+
+    if (
+      !isValidId(selected.candidateId) ||
+      !isValidId(selected.jobId)
+    ) {
+      setScreeningError(
+        "The selected application does not contain valid candidate and job IDs."
+      );
+      setShowScreeningModal(true);
+
+      navigate(location.pathname, {
+        replace: true,
+        state: null,
+      });
+
+      return;
+    }
+
+    setCandidateId(String(selected.candidateId));
+    setJobId(String(selected.jobId));
+    setSelectedApplicationKey("");
+    setScreeningError("");
+    setScreeningSuccess("");
+    setShowScreeningModal(true);
+
+    navigate(location.pathname, {
+      replace: true,
+      state: null,
+    });
+  }, [location.state, location.pathname, navigate]);
+
   const candidateMap = useMemo(() => {
     const map = {};
 
@@ -170,37 +257,30 @@ function RecruiterScreening() {
     return map;
   }, [candidates]);
 
-  // =========================================================
-  // GET CANDIDATE DETAILS
-  // =========================================================
   const getCandidateDetails = (screening) => {
     return candidateMap[String(screening.candidateId)] || null;
   };
 
-  // =========================================================
-  // GET JOB DETAILS
-  // =========================================================
   const getJobDetails = (screening) => {
     return jobs[String(screening.jobId)] || null;
   };
 
-  // =========================================================
-  // FORMAT SKILLS
-  // =========================================================
   const getSkills = (skills) => {
-    if (!skills || !skills.trim()) {
-      return [];
+    if (!skills) return [];
+
+    if (Array.isArray(skills)) {
+      return skills
+        .map(String)
+        .map((skill) => skill.trim())
+        .filter(Boolean);
     }
 
-    return skills
+    return String(skills)
       .split(",")
       .map((skill) => skill.trim())
       .filter(Boolean);
   };
 
-  // =========================================================
-  // FORMAT EXPERIENCE
-  // =========================================================
   const getExperience = (screening) => {
     if (
       screening.yearsOfExperience !== null &&
@@ -214,13 +294,8 @@ function RecruiterScreening() {
     return "—";
   };
 
-  // =========================================================
-  // FORMAT SCREENING RESULT
-  // =========================================================
   const formatResult = (result) => {
-    if (!result) {
-      return "Not Available";
-    }
+    if (!result) return "Not Available";
 
     return result
       .replaceAll("_", " ")
@@ -228,13 +303,8 @@ function RecruiterScreening() {
       .replace(/\b\w/g, (letter) => letter.toUpperCase());
   };
 
-  // =========================================================
-  // FORMAT SCREENED DATE
-  // =========================================================
   const formatScreenedDate = (date) => {
-    if (!date) {
-      return "—";
-    }
+    if (!date) return "—";
 
     const parsedDate = new Date(date);
 
@@ -249,9 +319,6 @@ function RecruiterScreening() {
     });
   };
 
-  // =========================================================
-  // SEARCH + FILTER
-  // =========================================================
   const filteredCandidates = useMemo(() => {
     const text = search.trim().toLowerCase();
 
@@ -289,11 +356,14 @@ function RecruiterScreening() {
 
       return matchesSearch && matchesFilter;
     });
-  }, [screenings, search, filter, candidateMap, jobs]);
+  }, [
+    screenings,
+    search,
+    filter,
+    candidateMap,
+    jobs,
+  ]);
 
-  // =========================================================
-  // SUMMARY COUNTS
-  // =========================================================
   const totalScreened = screenings.length;
 
   const highMatch = screenings.filter(
@@ -313,9 +383,6 @@ function RecruiterScreening() {
       screening.screeningResult === "NEEDS_REVIEW"
   ).length;
 
-  // =========================================================
-  // SCORE COLOR
-  // =========================================================
   const getScoreClass = (score) => {
     const value = Number(score || 0);
 
@@ -325,27 +392,16 @@ function RecruiterScreening() {
     return "score-low";
   };
 
-  // =========================================================
-  // RESULT CSS CLASS
-  // =========================================================
   const getResultClass = (result) => {
-    if (!result) {
-      return "not-available";
-    }
+    if (!result) return "not-available";
 
     const value = result.toLowerCase();
 
-    if (
-      value === "qualified" ||
-      value === "recommended"
-    ) {
+    if (value === "qualified" || value === "recommended") {
       return "recommended";
     }
 
-    if (
-      value === "review" ||
-      value === "needs_review"
-    ) {
+    if (value === "review" || value === "needs_review") {
       return "review";
     }
 
@@ -363,102 +419,76 @@ function RecruiterScreening() {
     return "not-available";
   };
 
-  // =========================================================
-  // VIEW ANALYSIS
-  // =========================================================
+  // UPDATED: Open a React modal instead of a browser alert.
   const handleViewAnalysis = (screening) => {
-    const score = Number(
-      screening.screeningScore || 0
-    ).toFixed(2);
-
-    const candidate = getCandidateDetails(screening);
-    const job = getJobDetails(screening);
-
-    alert(
-      `AI Screening Analysis\n\n` +
-        `Candidate: ${
-          candidate?.name || `Candidate #${screening.candidateId}`
-        }\n` +
-        `Candidate ID: ${screening.candidateId}\n` +
-        `Job: ${job?.title || `Job #${screening.jobId}`}\n` +
-        `Job ID: ${screening.jobId}\n` +
-        `Match Score: ${score}%\n` +
-        `Result: ${formatResult(
-          screening.screeningResult
-        )}\n\n` +
-        `Recommendation:\n${
-          screening.recommendation || "Not Available"
-        }`
-    );
+    setSelectedAnalysis(screening);
   };
 
-  // =========================================================
-  // OPEN RUN AI SCREENING MODAL
-  // =========================================================
+  const handleCloseAnalysis = () => {
+    setSelectedAnalysis(null);
+  };
+
+  // Open Run Screening modal without asking for manual IDs.
   const handleRunScreening = () => {
     setCandidateId("");
     setJobId("");
+    setSelectedApplicationKey("");
     setScreeningError("");
     setScreeningSuccess("");
     setShowScreeningModal(true);
+
+    fetchAvailableApplications();
   };
 
-  // =========================================================
-  // CLOSE RUN AI SCREENING MODAL
-  // =========================================================
   const handleCloseScreeningModal = () => {
-    if (screeningLoading) {
-      return;
-    }
+    if (screeningLoading) return;
 
     setShowScreeningModal(false);
     setCandidateId("");
     setJobId("");
+    setSelectedApplicationKey("");
     setScreeningError("");
     setScreeningSuccess("");
   };
 
-  // =========================================================
-  // SUBMIT AI SCREENING
-  // =========================================================
+  const handleApplicationSelection = (value) => {
+    setSelectedApplicationKey(value);
+    setScreeningError("");
+
+    if (value === "") {
+      setCandidateId("");
+      setJobId("");
+      return;
+    }
+
+    const selected = availableApplications[Number(value)];
+
+    if (!selected) {
+      setCandidateId("");
+      setJobId("");
+      return;
+    }
+
+    setCandidateId(String(selected.candidateId));
+    setJobId(String(selected.jobId));
+  };
+
+  // POST /api/ai-resume-screening/screen
   const handleSubmitScreening = async (e) => {
     e.preventDefault();
 
     setScreeningError("");
     setScreeningSuccess("");
 
-    if (!candidateId.trim()) {
-      setScreeningError("Candidate ID is required.");
-      return;
-    }
-
-    if (!jobId.trim()) {
-      setScreeningError("Job ID is required.");
+    if (!isValidId(candidateId) || !isValidId(jobId)) {
+      setScreeningError(
+        "Please select a candidate and job application."
+      );
       return;
     }
 
     const candidateIdNumber = Number(candidateId);
     const jobIdNumber = Number(jobId);
-
-    if (
-      !Number.isInteger(candidateIdNumber) ||
-      candidateIdNumber <= 0
-    ) {
-      setScreeningError(
-        "Please enter a valid Candidate ID."
-      );
-      return;
-    }
-
-    if (
-      !Number.isInteger(jobIdNumber) ||
-      jobIdNumber <= 0
-    ) {
-      setScreeningError(
-        "Please enter a valid Job ID."
-      );
-      return;
-    }
 
     try {
       setScreeningLoading(true);
@@ -484,13 +514,13 @@ function RecruiterScreening() {
           "AI resume screening completed successfully."
       );
 
-      // Refresh the table with the newly created screening.
       await fetchScreenings();
 
       setTimeout(() => {
         setShowScreeningModal(false);
         setCandidateId("");
         setJobId("");
+        setSelectedApplicationKey("");
         setScreeningSuccess("");
       }, 1200);
     } catch (err) {
@@ -516,16 +546,40 @@ function RecruiterScreening() {
     }
   };
 
+  // Resolve selected candidate/job for the Run Screening modal.
+  const selectedApplication =
+    selectedApplicationKey !== ""
+      ? availableApplications[
+          Number(selectedApplicationKey)
+        ] || null
+      : availableApplications.find(
+          (application) =>
+            String(application.candidateId) ===
+              String(candidateId) &&
+            String(application.jobId) ===
+              String(jobId)
+        ) || null;
+
+  const selectedCandidateName =
+    selectedApplication?.candidateName ||
+    candidateMap[String(candidateId)]?.name ||
+    (candidateId ? `Candidate #${candidateId}` : "");
+
+  const selectedJobTitle =
+    selectedApplication?.jobTitle ||
+    jobs[String(jobId)]?.title ||
+    (jobId ? `Job #${jobId}` : "");
+
   return (
     <div className="recruiter-screening-page">
       <RecruiterSidebar />
       <RecruiterTopbar />
 
       <main className="recruiter-screening-main">
+        {/* HEADER */}
         <div className="screening-header">
           <div>
             <h1>AI Screening</h1>
-
             <p>
               Review AI-powered candidate screening and
               matching results
@@ -556,10 +610,10 @@ function RecruiterScreening() {
           </div>
         )}
 
+        {/* SUMMARY */}
         <section className="screening-summary">
           <div className="screening-card">
             <div className="screening-icon">👥</div>
-
             <div>
               <span>Total Screened</span>
               <strong>{totalScreened}</strong>
@@ -568,7 +622,6 @@ function RecruiterScreening() {
 
           <div className="screening-card">
             <div className="screening-icon">★</div>
-
             <div>
               <span>High Match</span>
               <strong>{highMatch}</strong>
@@ -577,7 +630,6 @@ function RecruiterScreening() {
 
           <div className="screening-card">
             <div className="screening-icon">✓</div>
-
             <div>
               <span>Recommended</span>
               <strong>{recommended}</strong>
@@ -586,7 +638,6 @@ function RecruiterScreening() {
 
           <div className="screening-card">
             <div className="screening-icon">◷</div>
-
             <div>
               <span>Needs Review</span>
               <strong>{needsReview}</strong>
@@ -594,12 +645,11 @@ function RecruiterScreening() {
           </div>
         </section>
 
+        {/* INFO */}
         <section className="screening-info">
           <div className="ai-info-icon">✦</div>
-
           <div>
             <h3>AI Candidate Screening</h3>
-
             <p>
               AI screening compares candidate information
               with job requirements and provides a match
@@ -608,51 +658,30 @@ function RecruiterScreening() {
           </div>
         </section>
 
+        {/* TABLE */}
         <section className="screening-table-card">
           <div className="screening-toolbar">
             <div className="screening-search">
               <span>⌕</span>
-
               <input
                 type="text"
                 placeholder="Search candidates or skills..."
                 value={search}
-                onChange={(e) =>
-                  setSearch(e.target.value)
-                }
+                onChange={(e) => setSearch(e.target.value)}
               />
             </div>
 
             <select
               value={filter}
-              onChange={(e) =>
-                setFilter(e.target.value)
-              }
+              onChange={(e) => setFilter(e.target.value)}
               className="screening-filter"
             >
-              <option value="All">
-                All Results
-              </option>
-
-              <option value="QUALIFIED">
-                Qualified
-              </option>
-
-              <option value="RECOMMENDED">
-                Recommended
-              </option>
-
-              <option value="REVIEW">
-                Review
-              </option>
-
-              <option value="NEEDS_REVIEW">
-                Needs Review
-              </option>
-
-              <option value="NOT_QUALIFIED">
-                Not Qualified
-              </option>
+              <option value="All">All Results</option>
+              <option value="QUALIFIED">Qualified</option>
+              <option value="RECOMMENDED">Recommended</option>
+              <option value="REVIEW">Review</option>
+              <option value="NEEDS_REVIEW">Needs Review</option>
+              <option value="NOT_QUALIFIED">Not Qualified</option>
             </select>
           </div>
 
@@ -680,164 +709,152 @@ function RecruiterScreening() {
                     >
                       <div>
                         <span>✦</span>
-                        <h3>
-                          Loading screening results...
-                        </h3>
+                        <h3>Loading screening results...</h3>
                       </div>
                     </td>
                   </tr>
                 ) : filteredCandidates.length > 0 ? (
-                  filteredCandidates.map(
-                    (screening) => {
-                      const skills = getSkills(
-                        screening.skills
-                      );
+                  filteredCandidates.map((screening) => {
+                    const skills = getSkills(screening.skills);
 
-                      const score = Number(
-                        screening.screeningScore || 0
-                      );
+                    const score = Number(
+                      screening.screeningScore || 0
+                    );
 
-                      const candidate = getCandidateDetails(
-                        screening
-                      );
+                    const candidate =
+                      getCandidateDetails(screening);
 
-                      const job = getJobDetails(screening);
+                    const job = getJobDetails(screening);
 
-                      const candidateName =
-                        candidate?.name ||
-                        `Candidate #${screening.candidateId}`;
+                    const candidateName =
+                      candidate?.name ||
+                      `Candidate #${screening.candidateId}`;
 
-                      const candidateEmail =
-                        candidate?.email || null;
+                    const candidateEmail =
+                      candidate?.email || null;
 
-                      const jobTitle =
-                        job?.title ||
-                        `Job #${screening.jobId}`;
+                    const jobTitle =
+                      job?.title ||
+                      `Job #${screening.jobId}`;
 
-                      const jobDepartment =
-                        job?.department || null;
+                    const jobDepartment =
+                      job?.department || null;
 
-                      return (
-                        <tr key={screening.id}>
-                          <td>
-                            <div className="screening-candidate">
-                              <div className="screening-avatar">
-                                {candidate?.name
-                                  ? candidate.name
-                                      .charAt(0)
-                                      .toUpperCase()
-                                  : "C"}
-                              </div>
-
-                              <div>
-                                <strong>
-                                  {candidateName}
-                                </strong>
-
-                                {candidateEmail && (
-                                  <small>
-                                    {candidateEmail}
-                                  </small>
-                                )}
-
-                                <small>
-                                  Screening ID:{" "}
-                                  {screening.id}
-                                </small>
-                              </div>
+                    return (
+                      <tr key={screening.id}>
+                        <td>
+                          <div className="screening-candidate">
+                            <div className="screening-avatar">
+                              {candidate?.name
+                                ? candidate.name
+                                    .charAt(0)
+                                    .toUpperCase()
+                                : "C"}
                             </div>
-                          </td>
 
-                          <td>
-                            <span className="screening-position">
-                              {jobTitle}
-                            </span>
-
-                            {jobDepartment && (
-                              <small
-                                style={{
-                                  display: "block",
-                                  marginTop: "4px",
-                                  color: "#667085",
-                                }}
-                              >
-                                {jobDepartment}
-                              </small>
-                            )}
-                          </td>
-
-                          <td>
-                            {getExperience(screening)}
-                          </td>
-
-                          <td>
-                            <div className="screening-skills">
-                              {skills.length > 0 ? (
-                                skills.map(
-                                  (skill, index) => (
-                                    <span
-                                      key={`${screening.id}-${skill}-${index}`}
-                                    >
-                                      {skill}
-                                    </span>
-                                  )
-                                )
-                              ) : (
-                                <span>—</span>
-                              )}
-                            </div>
-                          </td>
-
-                          <td>
-                            <div
-                              className={`ai-score ${getScoreClass(
-                                score
-                              )}`}
-                            >
+                            <div>
                               <strong>
-                                {score.toFixed(2)}%
+                                {candidateName}
                               </strong>
 
-                              <span>Match</span>
-                            </div>
-                          </td>
-
-                          <td>
-                            <span
-                              className={`screening-result ${getResultClass(
-                                screening.screeningResult
-                              )}`}
-                            >
-                              {formatResult(
-                                screening.screeningResult
+                              {candidateEmail && (
+                                <small>
+                                  {candidateEmail}
+                                </small>
                               )}
-                            </span>
-                          </td>
 
-                          <td>
-                            {formatScreenedDate(
-                              screening.screenedAt
-                            )}
-                          </td>
-
-                          <td>
-                            <div className="screening-actions">
-                              <button
-                                className="analysis-btn"
-                                onClick={() =>
-                                  handleViewAnalysis(
-                                    screening
-                                  )
-                                }
-                              >
-                                Analysis
-                              </button>
+                              <small>
+                                Screening ID:{" "}
+                                {screening.id}
+                              </small>
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    }
-                  )
+                          </div>
+                        </td>
+
+                        <td>
+                          <span className="screening-position">
+                            {jobTitle}
+                          </span>
+
+                          {jobDepartment && (
+                            <small
+                              style={{
+                                display: "block",
+                                marginTop: "4px",
+                                color: "#667085",
+                              }}
+                            >
+                              {jobDepartment}
+                            </small>
+                          )}
+                        </td>
+
+                        <td>
+                          {getExperience(screening)}
+                        </td>
+
+                        <td>
+                          <div className="screening-skills">
+                            {skills.length > 0 ? (
+                              skills.map((skill, index) => (
+                                <span
+                                  key={`${screening.id}-${skill}-${index}`}
+                                >
+                                  {skill}
+                                </span>
+                              ))
+                            ) : (
+                              <span>—</span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td>
+                          <div
+                            className={`ai-score ${getScoreClass(
+                              score
+                            )}`}
+                          >
+                            <strong>
+                              {score.toFixed(2)}%
+                            </strong>
+                            <span>Match</span>
+                          </div>
+                        </td>
+
+                        <td>
+                          <span
+                            className={`screening-result ${getResultClass(
+                              screening.screeningResult
+                            )}`}
+                          >
+                            {formatResult(
+                              screening.screeningResult
+                            )}
+                          </span>
+                        </td>
+
+                        <td>
+                          {formatScreenedDate(
+                            screening.screenedAt
+                          )}
+                        </td>
+
+                        <td>
+                          <div className="screening-actions">
+                            <button
+                              className="analysis-btn"
+                              onClick={() =>
+                                handleViewAnalysis(screening)
+                              }
+                            >
+                              Analysis
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td
@@ -846,14 +863,9 @@ function RecruiterScreening() {
                     >
                       <div>
                         <span>✦</span>
-
-                        <h3>
-                          No screening results found
-                        </h3>
-
+                        <h3>No screening results found</h3>
                         <p>
-                          Try changing your search or
-                          filter.
+                          Try changing your search or filter.
                         </p>
                       </div>
                     </td>
@@ -874,6 +886,204 @@ function RecruiterScreening() {
         </section>
       </main>
 
+      {/* NEW: AI SCREENING ANALYSIS MODAL */}
+      {selectedAnalysis && (
+        <div
+          className="screening-modal-overlay"
+          onClick={handleCloseAnalysis}
+        >
+          <div
+            className="screening-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="screening-analysis-title"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "calc(100% - 32px)",
+              maxWidth: "650px",
+              maxHeight: "85vh",
+              overflowY: "auto",
+            }}
+          >
+            <div className="screening-modal-header">
+              <div>
+                <h2 id="screening-analysis-title">
+                  AI Screening Analysis
+                </h2>
+                <p>
+                  Candidate screening details and recommendation
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="screening-modal-close"
+                onClick={handleCloseAnalysis}
+                aria-label="Close analysis"
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ padding: "20px 24px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: "16px",
+                  marginBottom: "20px",
+                }}
+              >
+                <div>
+                  <small style={{ color: "#667085" }}>
+                    Candidate
+                  </small>
+                  <p style={{ margin: "6px 0 0", fontWeight: 600 }}>
+                    {getCandidateDetails(selectedAnalysis)?.name ||
+                      `Candidate #${selectedAnalysis.candidateId}`}
+                  </p>
+                  <small style={{ color: "#667085" }}>
+                    Candidate ID: {selectedAnalysis.candidateId}
+                  </small>
+                </div>
+
+                <div>
+                  <small style={{ color: "#667085" }}>
+                    Applied Job
+                  </small>
+                  <p style={{ margin: "6px 0 0", fontWeight: 600 }}>
+                    {getJobDetails(selectedAnalysis)?.title ||
+                      `Job #${selectedAnalysis.jobId}`}
+                  </p>
+                  <small style={{ color: "#667085" }}>
+                    Job ID: {selectedAnalysis.jobId}
+                  </small>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: "20px",
+                  background: "#f8f7ff",
+                  border: "1px solid #e9e5ff",
+                  borderRadius: "12px",
+                  textAlign: "center",
+                  marginBottom: "20px",
+                }}
+              >
+                <p
+                  style={{
+                    margin: "0 0 8px",
+                    color: "#667085",
+                  }}
+                >
+                  AI Match Score
+                </p>
+
+                <h2
+                  style={{
+                    margin: "0 0 12px",
+                    fontSize: "34px",
+                    color: "#6941c6",
+                  }}
+                >
+                  {Number(
+                    selectedAnalysis.screeningScore ?? 0
+                  ).toFixed(2)}
+                  %
+                </h2>
+
+                <span
+                  className={`screening-result ${getResultClass(
+                    selectedAnalysis.screeningResult
+                  )}`}
+                >
+                  {formatResult(
+                    selectedAnalysis.screeningResult
+                  )}
+                </span>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <h3
+                  style={{
+                    fontSize: "16px",
+                    margin: "0 0 8px",
+                  }}
+                >
+                  Recommendation
+                </h3>
+
+                <p
+                  style={{
+                    color: "#475467",
+                    lineHeight: 1.6,
+                    margin: 0,
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  {selectedAnalysis.recommendation ||
+                    "No recommendation available."}
+                </p>
+              </div>
+
+              <div style={{ marginBottom: "20px" }}>
+                <h3
+                  style={{
+                    fontSize: "16px",
+                    margin: "0 0 10px",
+                  }}
+                >
+                  Extracted Skills
+                </h3>
+
+                <div
+                  className="screening-skills"
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "6px",
+                  }}
+                >
+                  {getSkills(selectedAnalysis.skills).length > 0 ? (
+                    getSkills(selectedAnalysis.skills).map(
+                      (skill, index) => (
+                        <span key={`${skill}-${index}`}>
+                          {skill}
+                        </span>
+                      )
+                    )
+                  ) : (
+                    <p style={{ color: "#667085" }}>
+                      No skills available.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  paddingTop: "12px",
+                  borderTop: "1px solid #eaecf0",
+                }}
+              >
+                <button
+                  type="button"
+                  className="screening-cancel-btn"
+                  onClick={handleCloseAnalysis}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EXISTING RUN AI SCREENING MODAL */}
       {showScreeningModal && (
         <div
           className="screening-modal-overlay"
@@ -886,10 +1096,9 @@ function RecruiterScreening() {
             <div className="screening-modal-header">
               <div>
                 <h2>Run AI Screening</h2>
-
                 <p>
-                  Enter the candidate and job IDs to run
-                  AI-powered resume screening.
+                  Select a candidate and the job they
+                  applied for.
                 </p>
               </div>
 
@@ -905,44 +1114,78 @@ function RecruiterScreening() {
 
             <form onSubmit={handleSubmitScreening}>
               <div className="screening-form-group">
-                <label htmlFor="candidateId">
-                  Candidate ID
+                <label htmlFor="screeningApplication">
+                  Candidate / Job Application
                   <span>*</span>
                 </label>
 
-                <input
-                  id="candidateId"
-                  type="number"
-                  min="1"
-                  step="1"
-                  placeholder="Enter candidate ID"
-                  value={candidateId}
+                <select
+                  id="screeningApplication"
+                  value={selectedApplicationKey}
                   onChange={(e) =>
-                    setCandidateId(e.target.value)
+                    handleApplicationSelection(e.target.value)
                   }
-                  disabled={screeningLoading}
-                />
+                  disabled={
+                    screeningLoading ||
+                    applicationsLoading
+                  }
+                >
+                  <option value="">
+                    {applicationsLoading
+                      ? "Loading applications..."
+                      : candidateId && jobId
+                        ? `${selectedCandidateName} — ${selectedJobTitle}`
+                        : "Select candidate and job"}
+                  </option>
+
+                  {availableApplications.map(
+                    (application, index) => (
+                      <option
+                        key={
+                          application.applicationId ??
+                          `${application.candidateId}-${application.jobId}-${index}`
+                        }
+                        value={String(index)}
+                      >
+                        {application.candidateName}
+                        {" — "}
+                        {application.jobTitle}
+                        {application.candidateEmail
+                          ? ` (${application.candidateEmail})`
+                          : ""}
+                      </option>
+                    )
+                  )}
+                </select>
               </div>
 
-              <div className="screening-form-group">
-                <label htmlFor="jobId">
-                  Job ID
-                  <span>*</span>
-                </label>
+              {applicationsError && (
+                <div className="screening-modal-error">
+                  {applicationsError}
+                </div>
+              )}
 
-                <input
-                  id="jobId"
-                  type="number"
-                  min="1"
-                  step="1"
-                  placeholder="Enter job ID"
-                  value={jobId}
-                  onChange={(e) =>
-                    setJobId(e.target.value)
-                  }
-                  disabled={screeningLoading}
-                />
-              </div>
+              {candidateId && jobId && (
+                <>
+                  <div className="screening-form-group">
+                    <label>Selected Candidate</label>
+                    <input
+                      type="text"
+                      value={selectedCandidateName}
+                      readOnly
+                    />
+                  </div>
+
+                  <div className="screening-form-group">
+                    <label>Selected Job</label>
+                    <input
+                      type="text"
+                      value={selectedJobTitle}
+                      readOnly
+                    />
+                  </div>
+                </>
+              )}
 
               {screeningError && (
                 <div className="screening-modal-error">
@@ -969,7 +1212,11 @@ function RecruiterScreening() {
                 <button
                   type="submit"
                   className="screening-submit-btn"
-                  disabled={screeningLoading}
+                  disabled={
+                    screeningLoading ||
+                    !isValidId(candidateId) ||
+                    !isValidId(jobId)
+                  }
                 >
                   {screeningLoading
                     ? "Running AI Screening..."

@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -23,6 +24,7 @@ import "./CandidateDashboard.css";
 
 function CandidateApplications() {
   const navigate = useNavigate();
+
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -45,44 +47,7 @@ function CandidateApplications() {
   useEffect(() => {
     loadApplications();
   }, []);
-  applications = [
-    {
-      id: 1,
-      jobTitle: "Java Backend Developer",
-      company: "TalentAI",
-      location: "Hyderabad",
-      appliedDate: "10 Sep 2026",
-      status: "Interview",
-      type: "Full Time",
-    },
-    {
-      id: 2,
-      jobTitle: "Full Stack Developer",
-      company: "TalentAI",
-      location: "Bengaluru",
-      appliedDate: "08 Sep 2026",
-      status: "Shortlisted",
-      type: "Full Time",
-    },
-    {
-      id: 3,
-      jobTitle: "Software Engineer",
-      company: "TalentAI",
-      location: "Hyderabad",
-      appliedDate: "05 Sep 2026",
-      status: "AI Screened",
-      type: "Full Time",
-    },
-    {
-      id: 4,
-      jobTitle: "React Developer",
-      company: "TalentAI",
-      location: "Pune",
-      appliedDate: "02 Sep 2026",
-      status: "Applied",
-      type: "Full Time",
-    },
-  ];
+
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
 

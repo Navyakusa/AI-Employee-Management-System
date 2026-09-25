@@ -20,35 +20,32 @@ function RecruiterCandidates() {
   const navigate = useNavigate();
 
   const [candidates, setCandidates] = useState([]);
+  const [managementRecords, setManagementRecords] = useState([]);
+  const [resumes, setResumes] = useState([]);
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [resumes, setResumes] = useState([]);
   const [resumeError, setResumeError] = useState("");
   const [downloadingId, setDownloadingId] = useState(null);
 
   // ==========================================
-  // FETCH CANDIDATES FROM BACKEND
+  // FETCH CANDIDATES AND APPLICATION DETAILS
   // ==========================================
 
   useEffect(() => {
+    let active = true;
+
     const fetchCandidates = async () => {
       try {
         setLoading(true);
         setError("");
 
-        const response = await apiClient.get(
-          "/candidates/all"
-        );
+        const response = await apiClient.get("/candidates/all");
 
-        console.log(
-          "Recruiter candidates response:",
-          response.data
-        );
-
-        // This endpoint returns a direct JSON array.
+        // Existing candidates endpoint returns a direct array.
         const result = response.data;
 
         if (!Array.isArray(result)) {
@@ -57,12 +54,13 @@ function RecruiterCandidates() {
           );
         }
 
-        setCandidates(result);
+        if (active) {
+          setCandidates(result);
+        }
       } catch (err) {
-        console.error(
-          "Error fetching recruiter candidates:",
-          err
-        );
+        console.error("Error fetching recruiter candidates:", err);
+
+        if (!active) return;
 
         if (err.response?.status === 401) {
           setError(
@@ -80,45 +78,249 @@ function RecruiterCandidates() {
           );
         }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
     fetchCandidates();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // Fetch resume metadata independently so candidate list still works if it fails.
+  // Fetch application information separately.
+  // The candidate list still works if this request fails.
   useEffect(() => {
     let active = true;
+
+    const fetchManagementRecords = async () => {
+      try {
+        const response = await apiClient.get(
+          "/resumes/management"
+        );
+
+        const result = response.data?.data;
+
+        if (!Array.isArray(result)) {
+          throw new Error(
+            "Invalid resume management response received from backend."
+          );
+        }
+
+        if (active) {
+          setManagementRecords(result);
+        }
+      } catch (err) {
+        console.error(
+          "Error fetching resume management records:",
+          err
+        );
+
+        if (active) {
+          setResumeError(
+            "Unable to load job application details. Some candidate information may be unavailable."
+          );
+        }
+      }
+    };
+
+    fetchManagementRecords();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Keep the original resume API for downloading files.
+  useEffect(() => {
+    let active = true;
+
     const fetchResumes = async () => {
       try {
         const response = await apiClient.get("/resumes/all");
+
         if (!Array.isArray(response.data?.data)) {
-          throw new Error("Invalid resume response received from backend.");
+          throw new Error(
+            "Invalid resume response received from backend."
+          );
         }
-        if (active) setResumes(response.data.data);
+
+        if (active) {
+          setResumes(response.data.data);
+        }
       } catch (err) {
         console.error("Error fetching resumes:", err);
-        if (active) setResumeError("Unable to load resume information.");
+
+        if (active) {
+          setResumeError(
+            "Unable to load resume information."
+          );
+        }
       }
     };
+
     fetchResumes();
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // Only select a resume automatically when the candidate has one record,
-  // or when their candidate record names exactly one matching file.
+  // ==========================================
+  // MATCH CANDIDATE WITH APPLICATION
+  // ==========================================
+
+  const getCandidateManagementRecord = (candidate) => {
+    const candidateId = Number(candidate.id);
+
+    if (!Number.isInteger(candidateId) || candidateId <= 0) {
+      return null;
+    }
+
+    const matches = managementRecords.filter(
+      (record) => Number(record.candidateId) === candidateId
+    );
+
+    if (matches.length === 0) {
+      return null;
+    }
+
+    // Only records linked to a real application can provide
+    // the applied job and application status reliably.
+    const applicationRecords = matches.filter(
+      (record) =>
+        record.applicationId != null &&
+        record.jobId != null
+    );
+
+    if (applicationRecords.length === 0) {
+      return null;
+    }
+
+    // A candidate may have uploaded multiple resumes for
+    // the same application. Keep the latest available record.
+    const latestByApplication = new Map();
+
+    applicationRecords.forEach((record) => {
+      const applicationId = Number(record.applicationId);
+      const previous = latestByApplication.get(applicationId);
+
+      if (
+        !previous ||
+        Number(record.resumeId) > Number(previous.resumeId)
+      ) {
+        latestByApplication.set(applicationId, record);
+      }
+    });
+
+    const uniqueApplications = Array.from(
+      latestByApplication.values()
+    );
+
+    // Do not silently choose one job if the candidate has
+    // applied to multiple different jobs.
+    if (uniqueApplications.length !== 1) {
+      return null;
+    }
+
+    return uniqueApplications[0];
+  };
+
+  // ==========================================
+  // MERGE CANDIDATE + APPLICATION DATA
+  // ==========================================
+
+  const enrichedCandidates = useMemo(() => {
+    return candidates.map((candidate) => {
+      const managementRecord =
+        getCandidateManagementRecord(candidate);
+
+      return {
+        ...candidate,
+
+        // Preserve the original candidate ID for navigation.
+        id: candidate.id,
+
+        position:
+          managementRecord?.position ||
+          candidate.position ||
+          "",
+
+        experience:
+          candidate.experience ||
+          managementRecord?.experience ||
+          "",
+
+        skills:
+          candidate.skills ||
+          managementRecord?.skills ||
+          "",
+
+        // Application status is different from profile status.
+        applicationStatus:
+          managementRecord?.status || "",
+
+        applicationId:
+          managementRecord?.applicationId ?? null,
+
+        jobId:
+          managementRecord?.jobId ?? null,
+      };
+    });
+  }, [candidates, managementRecords]);
+
+  // ==========================================
+  // RESUME SELECTION FOR DOWNLOAD
+  // ==========================================
+
   const getCandidateResume = (candidate) => {
     const matches = resumes.filter(
-      (resume) => Number(resume.candidateId) === Number(candidate.id)
+      (resume) =>
+        Number(resume.candidateId) === Number(candidate.id)
     );
-    if (matches.length === 1) return matches[0];
-    if (matches.length > 1 && candidate.resume) {
+
+    if (matches.length === 0) {
+      return null;
+    }
+
+    if (matches.length === 1) {
+      return matches[0];
+    }
+
+    // If the candidate record identifies a specific file,
+    // prefer that file rather than selecting another resume.
+    if (candidate.resume) {
       const named = matches.filter(
         (resume) => resume.fileName === candidate.resume
       );
-      if (named.length === 1) return named[0];
+
+      if (named.length === 1) {
+        return named[0];
+      }
     }
+
+    // Otherwise, use the resume explicitly linked to the
+    // candidate's one identifiable job application.
+    const managementRecord =
+      getCandidateManagementRecord(candidate);
+
+    if (managementRecord?.resumeId != null) {
+      const linkedResume = matches.find(
+        (resume) =>
+          Number(resume.id) ===
+          Number(managementRecord.resumeId)
+      );
+
+      if (linkedResume) {
+        return linkedResume;
+      }
+    }
+
+    // Do not download an arbitrary resume when multiple
+    // different records are available.
     return null;
   };
 
@@ -128,15 +330,15 @@ function RecruiterCandidates() {
 
   const totalCandidates = candidates.length;
 
-  const shortlistedCount = candidates.filter(
+  const shortlistedCount = enrichedCandidates.filter(
     (candidate) =>
-      candidate.status?.toUpperCase() ===
+      candidate.applicationStatus.toUpperCase() ===
       "SHORTLISTED"
   ).length;
 
-  const interviewCount = candidates.filter(
+  const interviewCount = enrichedCandidates.filter(
     (candidate) =>
-      candidate.status?.toUpperCase() ===
+      candidate.applicationStatus.toUpperCase() ===
       "INTERVIEW"
   ).length;
 
@@ -147,7 +349,7 @@ function RecruiterCandidates() {
   const filteredCandidates = useMemo(() => {
     const searchText = search.trim().toLowerCase();
 
-    return candidates.filter((candidate) => {
+    return enrichedCandidates.filter((candidate) => {
       const matchesSearch =
         (candidate.name || "")
           .toLowerCase()
@@ -157,23 +359,26 @@ function RecruiterCandidates() {
           .includes(searchText) ||
         (candidate.skills || "")
           .toLowerCase()
+          .includes(searchText) ||
+        (candidate.position || "")
+          .toLowerCase()
           .includes(searchText);
 
       const matchesStatus =
         statusFilter === "All" ||
-        candidate.status?.toUpperCase() ===
+        candidate.applicationStatus.toUpperCase() ===
           statusFilter;
 
       return matchesSearch && matchesStatus;
     });
-  }, [candidates, search, statusFilter]);
+  }, [enrichedCandidates, search, statusFilter]);
 
   // ==========================================
   // STATUS DISPLAY
   // ==========================================
 
   const formatStatus = (status) => {
-    if (!status) return "Unknown";
+    if (!status) return "—";
 
     return status
       .replace(/_/g, " ")
@@ -197,9 +402,7 @@ function RecruiterCandidates() {
   // ==========================================
 
   const handleViewCandidate = (candidate) => {
-    navigate(
-      `/recruiter/candidates/${candidate.id}`
-    );
+    navigate(`/recruiter/candidates/${candidate.id}`);
   };
 
   // ==========================================
@@ -208,37 +411,60 @@ function RecruiterCandidates() {
 
   const handleDownloadResume = async (candidate) => {
     setResumeError("");
+
     const resume = getCandidateResume(candidate);
+
     if (!resume) {
       setResumeError(
-        `No unambiguous resume is available for ${candidate.name || "this candidate"}.`
+        `No unambiguous resume is available for ${
+          candidate.name || "this candidate"
+        }.`
       );
       return;
     }
 
     setDownloadingId(candidate.id);
+
     try {
       const response = await apiClient.get(
         `/resumes/${resume.id}/download`,
         { responseType: "blob" }
       );
-      const url = window.URL.createObjectURL(response.data);
+
+      const url = window.URL.createObjectURL(
+        response.data
+      );
+
       const link = document.createElement("a");
+
       link.href = url;
-      link.download = resume.fileName || "candidate-resume.pdf";
+      link.download =
+        resume.fileName || "candidate-resume.pdf";
+
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+
+      window.setTimeout(
+        () => window.URL.revokeObjectURL(url),
+        1000
+      );
     } catch (err) {
       console.error("Resume download failed:", err);
+
       setResumeError(
-        `Unable to download the resume for ${candidate.name || "this candidate"}. The file may be missing from the server.`
+        `Unable to download the resume for ${
+          candidate.name || "this candidate"
+        }. The file may be missing from the server.`
       );
     } finally {
       setDownloadingId(null);
     }
   };
+
+  // ==========================================
+  // UI - EXISTING DESIGN PRESERVED
+  // ==========================================
 
   return (
     <div className="recruiter-candidates-page">
@@ -284,7 +510,18 @@ function RecruiterCandidates() {
         )}
 
         {resumeError && (
-          <div role="alert" style={{ padding: "12px 16px", marginBottom: "18px", background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "13px" }}>
+          <div
+            role="alert"
+            style={{
+              padding: "12px 16px",
+              marginBottom: "18px",
+              background: "#fef2f2",
+              color: "#dc2626",
+              border: "1px solid #fecaca",
+              borderRadius: "8px",
+              fontSize: "13px",
+            }}
+          >
             {resumeError}
           </div>
         )}
@@ -474,7 +711,7 @@ function RecruiterCandidates() {
 
                         <td>
                           <span className="position-text">
-                            —
+                            {candidate.position || "—"}
                           </span>
                         </td>
 
@@ -492,11 +729,15 @@ function RecruiterCandidates() {
                               .split(",")
                               .map((skill) => skill.trim())
                               .filter(Boolean)
-                              .map((skill) => (
-                                <span key={skill}>
+                              .map((skill, index) => (
+                                <span
+                                  key={`${skill}-${index}`}
+                                >
                                   {skill}
                                 </span>
                               ))}
+
+                            {!candidate.skills && "—"}
                           </div>
                         </td>
 
@@ -505,11 +746,11 @@ function RecruiterCandidates() {
                         <td>
                           <span
                             className={`candidate-status ${getStatusClass(
-                              candidate.status
+                              candidate.applicationStatus
                             )}`}
                           >
                             {formatStatus(
-                              candidate.status
+                              candidate.applicationStatus
                             )}
                           </span>
                         </td>
@@ -539,7 +780,10 @@ function RecruiterCandidates() {
                                     ? "Download Resume"
                                     : "No unambiguous resume record available"
                               }
-                              disabled={downloadingId !== null || !getCandidateResume(candidate)}
+                              disabled={
+                                downloadingId !== null ||
+                                !getCandidateResume(candidate)
+                              }
                               onClick={() =>
                                 handleDownloadResume(
                                   candidate

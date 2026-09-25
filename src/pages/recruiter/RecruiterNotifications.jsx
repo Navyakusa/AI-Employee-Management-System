@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Bell,
   CheckCircle,
@@ -11,48 +11,167 @@ import {
 
 import RecruiterSidebar from "./RecruiterSidebar";
 import RecruiterTopbar from "./RecruiterTopbar";
+import apiClient from "../../services/apiClient";
 
 import "./RecruiterNotifications.css";
 
+// =========================================================
+// NOTIFICATION HELPERS
+// =========================================================
+
+const getNotificationType = (type) => {
+  const value = String(type || "").toLowerCase();
+
+  if (value.includes("interview")) return "interview";
+  if (value.includes("resume")) return "resume";
+  if (value.includes("screen")) return "screening";
+  if (
+    value.includes("candidate") ||
+    value.includes("application") ||
+    value.includes("shortlist")
+  ) {
+    return "candidate";
+  }
+
+  return "general";
+};
+
+const getNotificationTitle = (type) => {
+  const value = String(type || "").replaceAll("_", " ").trim();
+
+  if (!value) return "Notification";
+
+  return value
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
+
+const formatNotificationTime = (value) => {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
+const getApiErrorMessage = (error, fallback) => {
+  if (error.response?.status === 401) {
+    return "Your session has expired. Please log in again.";
+  }
+
+  if (error.response?.status === 403) {
+    return "You are not authorized to perform this action.";
+  }
+
+  return error.response?.data?.message || error.message || fallback;
+};
+
+// =========================================================
+// RECRUITER NOTIFICATIONS
+// =========================================================
+
 function RecruiterNotifications() {
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: "candidate",
-      title: "Candidate shortlisted",
-      message:
-        "Rahul Verma has been shortlisted for the Java Backend Developer position.",
-      time: "10 minutes ago",
-      unread: true,
-    },
-    {
-      id: 2,
-      type: "interview",
-      title: "Interview scheduled",
-      message:
-        "Ananya Sharma has an interview scheduled for today at 11:00 AM.",
-      time: "1 hour ago",
-      unread: true,
-    },
-    {
-      id: 3,
-      type: "resume",
-      title: "New resume received",
-      message:
-        "A new candidate resume has been added to the recruitment system.",
-      time: "3 hours ago",
-      unread: false,
-    },
-    {
-      id: 4,
-      type: "screening",
-      title: "AI screening completed",
-      message:
-        "AI screening has been completed for the latest candidate applications.",
-      time: "Yesterday",
-      unread: false,
-    },
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
+
+  const [processingIds, setProcessingIds] = useState([]);
+  const [markingAll, setMarkingAll] = useState(false);
+
+  // =========================================================
+  // FETCH NOTIFICATIONS
+  // =========================================================
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await apiClient.get("/notifications/my");
+      const result = response.data;
+
+      if (!result?.success) {
+        throw new Error(
+          result?.message || "Failed to fetch notifications."
+        );
+      }
+
+      const items = Array.isArray(result.data) ? result.data : [];
+
+      setNotifications(items);
+
+      // The list is the source of truth for the displayed count.
+      setUnreadCount(
+        items.filter((notification) => notification.readStatus === false)
+          .length
+      );
+    } catch (err) {
+      console.error("Fetch notifications error:", err);
+
+      setNotifications([]);
+      setUnreadCount(0);
+      setError(
+        getApiErrorMessage(err, "Failed to load notifications.")
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =========================================================
+  // FETCH UNREAD COUNT
+  // =========================================================
+
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await apiClient.get(
+        "/notifications/unread-count"
+      );
+
+      const result = response.data;
+
+      if (!result?.success) {
+        return;
+      }
+
+      // The unread-count response format has not been verified yet.
+      // Support a numeric value or a named count field.
+      const data = result.data;
+
+      const count =
+        typeof data === "number"
+          ? data
+          : data?.unreadCount ?? data?.count;
+
+      if (typeof count === "number" && Number.isFinite(count)) {
+        setUnreadCount(count);
+      }
+    } catch (err) {
+      // Keep the count calculated from the notification list.
+      console.error("Fetch unread count error:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    fetchUnreadCount();
+  }, []);
+
+  // =========================================================
+  // ICON
+  // =========================================================
 
   const getIcon = (type) => {
     switch (type) {
@@ -73,43 +192,146 @@ function RecruiterNotifications() {
     }
   };
 
-  const markAsRead = (id) => {
-    setNotifications((current) =>
-      current.map((notification) =>
-        notification.id === id
-          ? {
-              ...notification,
-              unread: false,
-            }
-          : notification
-      )
-    );
+  // =========================================================
+  // MARK ONE NOTIFICATION AS READ
+  // =========================================================
+
+  const markAsRead = async (notificationId) => {
+    if (processingIds.includes(notificationId)) return;
+
+    try {
+      setActionError("");
+      setProcessingIds((current) => [...current, notificationId]);
+
+      const response = await apiClient.put(
+        `/notifications/${notificationId}/read`
+      );
+
+      if (!response.data?.success) {
+        throw new Error(
+          response.data?.message ||
+            "Failed to mark notification as read."
+        );
+      }
+
+      setNotifications((current) =>
+        current.map((notification) =>
+          notification.notificationId === notificationId
+            ? { ...notification, readStatus: true }
+            : notification
+        )
+      );
+
+      await fetchUnreadCount();
+    } catch (err) {
+      console.error("Mark notification as read error:", err);
+
+      setActionError(
+        getApiErrorMessage(
+          err,
+          "Failed to mark notification as read."
+        )
+      );
+    } finally {
+      setProcessingIds((current) =>
+        current.filter((id) => id !== notificationId)
+      );
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications((current) =>
-      current.map((notification) => ({
-        ...notification,
-        unread: false,
-      }))
-    );
+  // =========================================================
+  // MARK ALL NOTIFICATIONS AS READ
+  // =========================================================
+
+  const markAllAsRead = async () => {
+    if (markingAll) return;
+
+    try {
+      setActionError("");
+      setMarkingAll(true);
+
+      const response = await apiClient.put(
+        "/notifications/read-all"
+      );
+
+      if (!response.data?.success) {
+        throw new Error(
+          response.data?.message ||
+            "Failed to mark all notifications as read."
+        );
+      }
+
+      setNotifications((current) =>
+        current.map((notification) => ({
+          ...notification,
+          readStatus: true,
+        }))
+      );
+
+      setUnreadCount(0);
+      await fetchUnreadCount();
+    } catch (err) {
+      console.error("Mark all notifications as read error:", err);
+
+      setActionError(
+        getApiErrorMessage(
+          err,
+          "Failed to mark all notifications as read."
+        )
+      );
+    } finally {
+      setMarkingAll(false);
+    }
   };
 
-  const deleteNotification = (id) => {
-    setNotifications((current) =>
-      current.filter(
-        (notification) => notification.id !== id
-      )
-    );
+  // =========================================================
+  // DELETE NOTIFICATION
+  // =========================================================
+
+  const deleteNotification = async (notificationId) => {
+    if (processingIds.includes(notificationId)) return;
+
+    try {
+      setActionError("");
+      setProcessingIds((current) => [...current, notificationId]);
+
+      const response = await apiClient.delete(
+        `/notifications/${notificationId}`
+      );
+
+      if (!response.data?.success) {
+        throw new Error(
+          response.data?.message || "Failed to delete notification."
+        );
+      }
+
+      setNotifications((current) =>
+        current.filter(
+          (notification) =>
+            notification.notificationId !== notificationId
+        )
+      );
+
+      await fetchUnreadCount();
+    } catch (err) {
+      console.error("Delete notification error:", err);
+
+      setActionError(
+        getApiErrorMessage(err, "Failed to delete notification.")
+      );
+    } finally {
+      setProcessingIds((current) =>
+        current.filter((id) => id !== notificationId)
+      );
+    }
   };
 
-  const unreadCount = notifications.filter(
-    (notification) => notification.unread
-  ).length;
+  // =========================================================
+  // PAGE
+  // =========================================================
 
   return (
     <div className="recruiter-notifications-page">
-
       {/* SIDEBAR */}
       <RecruiterSidebar />
 
@@ -118,10 +340,8 @@ function RecruiterNotifications() {
 
       {/* MAIN CONTENT */}
       <main className="recruiter-notifications-main">
-
         {/* HEADER */}
         <div className="recruiter-notifications-header">
-
           <div>
             <span className="recruiter-page-label">
               RECRUITMENT WORKSPACE
@@ -138,19 +358,34 @@ function RecruiterNotifications() {
             <button
               className="mark-all-btn"
               onClick={markAllAsRead}
+              disabled={markingAll}
             >
               <CheckCheck size={16} />
-              Mark all as read
+              {markingAll ? "Marking..." : "Mark all as read"}
             </button>
           )}
-
         </div>
+
+        {/* ERRORS */}
+        {(error || actionError) && (
+          <div
+            role="alert"
+            style={{
+              marginBottom: "16px",
+              padding: "12px 16px",
+              borderRadius: "8px",
+              background: "#fff1f1",
+              color: "#d92d20",
+              border: "1px solid #fecdca",
+            }}
+          >
+            {error || actionError}
+          </div>
+        )}
 
         {/* SUMMARY */}
         <div className="notification-summary">
-
           <div className="notification-summary-card">
-
             <div className="summary-icon">
               <Bell size={19} />
             </div>
@@ -159,11 +394,9 @@ function RecruiterNotifications() {
               <span>Total Notifications</span>
               <strong>{notifications.length}</strong>
             </div>
-
           </div>
 
           <div className="notification-summary-card">
-
             <div className="summary-icon unread-summary">
               <Bell size={19} />
             </div>
@@ -172,16 +405,12 @@ function RecruiterNotifications() {
               <span>Unread</span>
               <strong>{unreadCount}</strong>
             </div>
-
           </div>
-
         </div>
 
         {/* NOTIFICATION CARD */}
         <section className="notifications-card">
-
           <div className="notifications-card-header">
-
             <div>
               <h2>Recent Notifications</h2>
 
@@ -191,16 +420,20 @@ function RecruiterNotifications() {
             </div>
 
             <Bell size={20} />
-
           </div>
 
           {/* LIST */}
           <div className="notifications-list">
-
-            {notifications.length === 0 ? (
-
+            {loading ? (
               <div className="empty-notifications">
+                <div className="empty-icon">
+                  <Bell size={28} />
+                </div>
 
+                <h3>Loading notifications...</h3>
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="empty-notifications">
                 <div className="empty-icon">
                   <Bell size={28} />
                 </div>
@@ -208,100 +441,79 @@ function RecruiterNotifications() {
                 <h3>No notifications</h3>
 
                 <p>
-                  You're all caught up. New updates
-                  will appear here.
+                  You're all caught up. New updates will appear here.
                 </p>
-
               </div>
-
             ) : (
+              notifications.map((notification) => {
+                const type = getNotificationType(notification.type);
+                const unread = notification.readStatus === false;
+                const processing = processingIds.includes(
+                  notification.notificationId
+                );
 
-              notifications.map((notification) => (
-
-                <div
-                  key={notification.id}
-                  className={`notification-item ${
-                    notification.unread
-                      ? "unread"
-                      : ""
-                  }`}
-                >
-
-                  {/* ICON */}
+                return (
                   <div
-                    className={`notification-icon ${notification.type}`}
+                    key={notification.notificationId}
+                    className={`notification-item ${
+                      unread ? "unread" : ""
+                    }`}
                   >
-                    {getIcon(notification.type)}
-                  </div>
-
-                  {/* CONTENT */}
-                  <div className="notification-content">
-
-                    <div className="notification-title-row">
-
-                      <h3>
-                        {notification.title}
-                      </h3>
-
-                      {notification.unread && (
-                        <span className="unread-badge">
-                          New
-                        </span>
-                      )}
-
+                    {/* ICON */}
+                    <div className={`notification-icon ${type}`}>
+                      {getIcon(type)}
                     </div>
 
-                    <p>
-                      {notification.message}
-                    </p>
+                    {/* CONTENT */}
+                    <div className="notification-content">
+                      <div className="notification-title-row">
+                        <h3>
+                          {getNotificationTitle(notification.type)}
+                        </h3>
 
-                    <span className="notification-time">
-                      {notification.time}
-                    </span>
+                        {unread && (
+                          <span className="unread-badge">New</span>
+                        )}
+                      </div>
 
-                  </div>
+                      <p>{notification.message || "—"}</p>
 
-                  {/* ACTIONS */}
-                  <div className="notification-actions">
+                      <span className="notification-time">
+                        {formatNotificationTime(notification.createdAt)}
+                      </span>
+                    </div>
 
-                    {notification.unread && (
+                    {/* ACTIONS */}
+                    <div className="notification-actions">
+                      {unread && (
+                        <button
+                          onClick={() =>
+                            markAsRead(notification.notificationId)
+                          }
+                          disabled={processing}
+                          title="Mark as read"
+                        >
+                          <CheckCircle size={17} />
+                        </button>
+                      )}
+
                       <button
                         onClick={() =>
-                          markAsRead(
-                            notification.id
-                          )
+                          deleteNotification(notification.notificationId)
                         }
-                        title="Mark as read"
+                        disabled={processing}
+                        title="Delete"
                       >
-                        <CheckCircle size={17} />
+                        <Trash2 size={17} />
                       </button>
-                    )}
-
-                    <button
-                      onClick={() =>
-                        deleteNotification(
-                          notification.id
-                        )
-                      }
-                      title="Delete"
-                    >
-                      <Trash2 size={17} />
-                    </button>
-
+                    </div>
                   </div>
-
-                </div>
-
-              ))
-
+                );
+              })
             )}
-
           </div>
-
         </section>
-
       </main>
-
     </div>
   );
 }
