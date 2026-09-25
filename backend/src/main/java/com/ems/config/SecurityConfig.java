@@ -189,43 +189,46 @@ public class SecurityConfig {
                                 ).hasRole("EMPLOYEE")
 
                                 // =================================================
-                                // JOBS
-                                // =================================================
 
-                                .requestMatchers(
-                                        HttpMethod.GET,
-                                        "/api/jobs/**"
-                                ).permitAll()
 
-                                .requestMatchers(
-                                        HttpMethod.POST,
-                                        "/api/jobs/**"
-                                ).hasAnyRole(
-                                        "EMPLOYER",
-                                        "HR",
-                                        "HIRING_MANAGER",
-                                        "RECRUITER",
-                                        "SUPER_ADMIN"
-                                )
+                                        // =================================================
+// JOBS
+// =================================================
 
-                                .requestMatchers(
-                                        HttpMethod.PUT,
-                                        "/api/jobs/**"
-                                ).hasAnyRole(
-                                        "EMPLOYER",
-                                        "HR",
-                                        "HIRING_MANAGER",
-                                        "RECRUITER",
-                                        "SUPER_ADMIN"
-                                )
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/jobs/**"
+                                        ).permitAll()
 
-                                .requestMatchers(
-                                        HttpMethod.DELETE,
-                                        "/api/jobs/**"
-                                ).hasAnyRole(
-                                        "EMPLOYER",
-                                        "SUPER_ADMIN"
-                                )
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/jobs/**"
+                                        ).hasAnyRole(
+                                                "EMPLOYER",
+                                                "HR",
+                                                "HIRING_MANAGER",
+                                                "RECRUITER",
+                                                "SUPER_ADMIN"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.PUT,
+                                                "/api/jobs/**"
+                                        ).hasAnyRole(
+                                                "EMPLOYER",
+                                                "HR",
+                                                "HIRING_MANAGER",
+                                                "RECRUITER",
+                                                "SUPER_ADMIN"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.DELETE,
+                                                "/api/jobs/**"
+                                        ).hasAnyRole(
+                                                "EMPLOYER",
+                                                "SUPER_ADMIN"
+                                        )
 
                                 // =================================================
                                 // CANDIDATE APPLICATIONS
@@ -543,32 +546,48 @@ public class SecurityConfig {
                                 )
 
                                 // =================================================
-                                // CONTACT MESSAGES
-                                // =================================================
 
-                                // Anyone can submit the contact form
-                                .requestMatchers(
-                                        HttpMethod.POST,
-                                        "/api/contact/messages"
-                                ).permitAll()
+// =================================================
+// =================================================
+// CONTACT MESSAGES
+// =================================================
 
-                                // HR and SUPER_ADMIN can view all messages
-                                .requestMatchers(
-                                        HttpMethod.GET,
-                                        "/api/contact/messages/**"
-                                ).hasAnyRole(
-                                        "HR",
-                                        "SUPER_ADMIN"
-                                )
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/contact/messages"
+                                        ).permitAll()
 
-                                // HR and SUPER_ADMIN can mark messages as read
-                                .requestMatchers(
-                                        HttpMethod.PUT,
-                                        "/api/contact/messages/**"
-                                ).hasAnyRole(
-                                        "HR",
-                                        "SUPER_ADMIN"
-                                )
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/contact/messages/**"
+                                        ).hasAnyRole(
+                                                "HR",
+                                                "SUPER_ADMIN"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.PUT,
+                                                "/api/contact/messages/*/read"
+                                        ).hasAnyRole(
+                                                "HR",
+                                                "SUPER_ADMIN"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.PUT,
+                                                "/api/contact/messages/*/status"
+                                        ).hasRole(
+                                                "SUPER_ADMIN"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.PUT,
+                                                "/api/contact/messages/*/resolve"
+                                        ).hasRole(
+                                                "SUPER_ADMIN"
+                                        )
+
+
 
                                 // =================================================
                                 // NOTIFICATIONS
@@ -617,12 +636,12 @@ public class SecurityConfig {
                                         "RECRUITER",
                                         "SUPER_ADMIN"
                                 )
+                                        // =================================================
+// EVERYTHING ELSE
+// THIS MUST BE THE LAST AUTHORIZATION RULE
+// =================================================
 
-                                // =================================================
-                                // EVERYTHING ELSE
-                                // =================================================
-
-                                .anyRequest().authenticated()
+                                        .anyRequest().authenticated()
                         )
 
                         // =====================================================
@@ -635,5 +654,6 @@ public class SecurityConfig {
                         );
 
                 return http.build();
+
         }
 }

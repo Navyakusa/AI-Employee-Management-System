@@ -139,6 +139,69 @@ public class EmailNotificationService {
     }
 
     // =========================================================
+    // SEND CONTACT MESSAGE RESOLUTION EMAIL
+    // =========================================================
+
+    public boolean sendContactMessageResolutionEmail(
+            String recipientEmail,
+            String recipientName,
+            String originalSubject,
+            String resolution
+    ) {
+
+        // Validate submitted email
+
+        if (recipientEmail == null || recipientEmail.isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Contact message email address is missing"
+            );
+        }
+
+        // Prepare email subject
+
+        String emailSubject =
+                "EMS - Response to your contact message";
+
+        // Prepare email body
+
+        String emailBody =
+                "Hello " + recipientName + ",\n\n"
+                        + "Thank you for contacting EMS.\n\n"
+                        + "Your message:\n"
+                        + originalSubject + "\n\n"
+                        + "Admin response:\n"
+                        + resolution + "\n\n"
+                        + "Your contact message has been marked as resolved.\n\n"
+                        + "Regards,\n"
+                        + "EMS Support Team";
+
+        // Prepare SMTP message
+
+        SimpleMailMessage message =
+                new SimpleMailMessage();
+
+        message.setFrom(fromEmail);
+
+        message.setTo(recipientEmail);
+
+        message.setSubject(emailSubject);
+
+        message.setText(emailBody);
+
+        // Send email
+
+        mailSender.send(message);
+
+        log.info(
+                "Contact message resolution email sent to: {}",
+                recipientEmail
+        );
+
+        return true;
+    }
+
+    // =========================================================
     // REPLACE DYNAMIC VARIABLES
     // =========================================================
 
@@ -189,12 +252,28 @@ public class EmailNotificationService {
         return result.toString();
     }
 
-    public void sendApplicationAcceptedEmail(String email, String name, String title) {
+    // =========================================================
+    // OTHER EMAIL METHODS
+    // =========================================================
+
+    public void sendApplicationAcceptedEmail(
+            String email,
+            String name,
+            String title
+    ) {
     }
 
-    public void sendApplicationRejectedEmail(String email, String name, String title) {
+    public void sendApplicationRejectedEmail(
+            String email,
+            String name,
+            String title
+    ) {
     }
 
-    public void sendPasswordResetEmail(String email, String userName, String resetToken) {
+    public void sendPasswordResetEmail(
+            String email,
+            String userName,
+            String resetToken
+    ) {
     }
 }

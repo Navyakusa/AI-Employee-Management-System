@@ -33,4 +33,13 @@ public class ContactMessage {
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ContactMessageStatus status = ContactMessageStatus.NEW;
+
+    @Column(columnDefinition = "TEXT")
+    private String resolution;
+
+    private LocalDateTime resolvedAt;
 }
