@@ -14,19 +14,24 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import com.ems.entity.User;
+import com.ems.repository.UserRepository;
 
 @Service
 public class OfferService {
 
     private final OfferRepository offerRepository;
     private final CandidateRepository candidateRepository;
-
+    private final UserRepository userRepository;
+    private final NotificationService notificationService;
     public OfferService(
             OfferRepository offerRepository,
-            CandidateRepository candidateRepository
+            CandidateRepository candidateRepository, UserRepository userRepository, NotificationService notificationService
     ) {
         this.offerRepository = offerRepository;
         this.candidateRepository = candidateRepository;
+        this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
 
@@ -120,10 +125,11 @@ public class OfferService {
                     offerRepository.save(offer);
 
             String generatedCode =
-                    String.format(
-                            "OFF-%03d",
-                            savedOffer.getOfferId()
-                    );
+                    "OFF-" +
+                            java.util.UUID.randomUUID()
+                                    .toString()
+                                    .substring(0, 8)
+                                    .toUpperCase();
 
             savedOffer.setOfferCode(
                     generatedCode
@@ -131,7 +137,31 @@ public class OfferService {
 
             savedOffer =
                     offerRepository.save(savedOffer);
+            Candidate candidate =
+                    candidateRepository
+                            .findById(savedOffer.getCandidateId())
+                            .orElse(null);
 
+            if (candidate != null &&
+                    candidate.getEmail() != null) {
+
+                User candidateUser =
+                        userRepository
+                                .findByEmailIgnoreCase(
+                                        candidate.getEmail()
+                                )
+                                .orElse(null);
+
+                if (candidateUser != null) {
+
+                    notificationService.createNotification(
+                            candidateUser.getUserId(),
+                            "An offer has been generated for "
+                                    + savedOffer.getPosition(),
+                            "OFFER_GENERATED"
+                    );
+                }
+            }
             return ResponseEntity
                     .status(HttpStatus.CREATED)
                     .body(
@@ -588,7 +618,35 @@ public class OfferService {
 
             Offer updated =
                     offerRepository.save(offer);
+            List<User> recruitmentUsers =
+                    userRepository.findAll();
 
+            for (User recruitmentUser : recruitmentUsers) {
+
+                if (recruitmentUser.getRole() == null) {
+                    continue;
+                }
+
+                String role =
+                        recruitmentUser
+                                .getRole()
+                                .toUpperCase();
+
+                if (role.equals("HR") ||
+                        role.equals("RECRUITER") ||
+                        role.equals("HIRING_MANAGER") ||
+                        role.equals("SUPER_ADMIN")) {
+
+                    notificationService.createNotification(
+                            recruitmentUser.getUserId(),
+                            "Candidate "
+                                    + candidate.getName()
+                                    + " accepted the offer for "
+                                    + updated.getPosition(),
+                            "OFFER_ACCEPTED"
+                    );
+                }
+            }
             return ResponseEntity.ok(
                     new ApiResponse<>(
                             true,

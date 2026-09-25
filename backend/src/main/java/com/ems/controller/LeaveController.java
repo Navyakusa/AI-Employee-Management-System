@@ -26,7 +26,12 @@ public class LeaveController {
         this.leaveService = leaveService;
     }
 
+    @PutMapping("/{leaveId}/approve")
+    public ResponseEntity<ApiResponse<LeaveResponseDto>> approveLeave(
+            @PathVariable Long leaveId) {
 
+        return leaveService.approveLeave(leaveId);
+    }
     // =========================================================
     // APPLY LEAVE
     // =========================================================

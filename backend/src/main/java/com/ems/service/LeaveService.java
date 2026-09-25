@@ -1,4 +1,3 @@
-
 package com.ems.service;
 
 import com.ems.common.ApiResponse;
@@ -9,9 +8,11 @@ import com.ems.dto.LeaveTypeDto;
 import com.ems.entity.Employee;
 import com.ems.entity.Leave;
 import com.ems.entity.LeaveBalance;
+import com.ems.entity.User;
 import com.ems.repository.EmployeeRepository;
 import com.ems.repository.LeaveBalanceRepository;
 import com.ems.repository.LeaveRepository;
+import com.ems.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -29,15 +30,21 @@ public class LeaveService {
     private final LeaveRepository leaveRepository;
     private final LeaveBalanceRepository leaveBalanceRepository;
     private final EmployeeRepository employeeRepository;
+    private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public LeaveService(
             LeaveRepository leaveRepository,
             LeaveBalanceRepository leaveBalanceRepository,
-            EmployeeRepository employeeRepository) {
+            EmployeeRepository employeeRepository,
+            UserRepository userRepository,
+            NotificationService notificationService) {
 
         this.leaveRepository = leaveRepository;
         this.leaveBalanceRepository = leaveBalanceRepository;
         this.employeeRepository = employeeRepository;
+        this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
 
@@ -306,6 +313,182 @@ public class LeaveService {
 
 
     // =========================================================
+    // APPROVE LEAVE
+    // =========================================================
+
+    public ResponseEntity<ApiResponse<LeaveResponseDto>>
+    approveLeave(Long leaveId) {
+
+        try {
+
+            // -------------------------------------------------
+            // 1. Find leave request
+            // -------------------------------------------------
+
+            Leave leave =
+                    leaveRepository
+                            .findById(leaveId)
+                            .orElse(null);
+
+            if (leave == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Leave request not found",
+                                        null
+                                )
+                        );
+            }
+
+
+            // -------------------------------------------------
+            // 2. Validate current status
+            // -------------------------------------------------
+
+            if ("APPROVED".equalsIgnoreCase(
+                    leave.getStatus())) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Leave request is already approved",
+                                        null
+                                )
+                        );
+            }
+
+
+            if ("REJECTED".equalsIgnoreCase(
+                    leave.getStatus())) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Rejected leave request cannot be approved",
+                                        null
+                                )
+                        );
+            }
+
+
+            if (!"PENDING".equalsIgnoreCase(
+                    leave.getStatus())) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Only pending leave requests can be approved",
+                                        null
+                                )
+                        );
+            }
+
+
+            // -------------------------------------------------
+            // 3. Find employee
+            // -------------------------------------------------
+
+            Employee employee =
+                    employeeRepository
+                            .findById(
+                                    leave.getEmployeeId()
+                            )
+                            .orElse(null);
+
+            if (employee == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Employee not found",
+                                        null
+                                )
+                        );
+            }
+
+
+            // -------------------------------------------------
+            // 4. Approve leave
+            // -------------------------------------------------
+
+            leave.setStatus("APPROVED");
+
+            Leave updatedLeave =
+                    leaveRepository.save(leave);
+
+
+            // -------------------------------------------------
+            // 5. Find corresponding User
+            // -------------------------------------------------
+
+            if (employee.getEmail() != null
+                    && !employee.getEmail().isBlank()) {
+
+                User employeeUser =
+                        userRepository
+                                .findByEmailIgnoreCase(
+                                        employee.getEmail()
+                                )
+                                .orElse(null);
+
+
+                // -------------------------------------------------
+                // 6. Create notification + trigger email
+                // -------------------------------------------------
+
+                if (employeeUser != null) {
+
+                    notificationService.createNotification(
+                            employeeUser.getUserId(),
+                            "Your leave request has been approved",
+                            "LEAVE_APPROVED"
+                    );
+                }
+            }
+
+
+            // -------------------------------------------------
+            // 7. Return response
+            // -------------------------------------------------
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Leave request approved successfully",
+                            mapToResponseDto(updatedLeave)
+                    )
+            );
+
+        } catch (Exception e) {
+
+            return ResponseEntity
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to approve leave request: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
+        }
+    }
+
+
+    // =========================================================
     // GET MY LEAVE REQUESTS
     // =========================================================
 
@@ -544,8 +727,6 @@ public class LeaveService {
 
             // -------------------------------------------------
             // Used leave
-            //
-            // Approved leave whose dates have started/passed.
             // -------------------------------------------------
 
             LocalDate today =

@@ -273,6 +273,14 @@ public class SecurityConfig {
                                         "RECRUITER",
                                         "SUPER_ADMIN"
                                 )
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/onboarding/**"
+                                        )
+                                        .hasAnyRole(
+                                                "HR",
+                                                "SUPER_ADMIN"
+                                        )
 
                                 .requestMatchers(
                                         HttpMethod.GET,
@@ -293,7 +301,14 @@ public class SecurityConfig {
                                         "RECRUITER",
                                         "SUPER_ADMIN"
                                 )
-
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/onboarding/start"
+                                        )
+                                        .hasAnyRole(
+                                                "HR",
+                                                "SUPER_ADMIN"
+                                        )
                                 // =================================================
                                 // INTERVIEWS
                                 // =================================================
