@@ -20,13 +20,20 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import com.ems.entity.Candidate;
+import com.ems.entity.User;
+import com.ems.repository.UserRepository;
 
 @Service
 public class AIResumeScreeningService {
 
     @Autowired
     private CandidateRepository candidateRepository;
+    @Autowired
+    private UserRepository userRepository;
 
+    @Autowired
+    private NotificationService notificationService;
     @Autowired
     private AIResumeScreeningRepository screeningRepository;
 
@@ -505,6 +512,31 @@ public class AIResumeScreeningService {
                     screeningRepository.save(
                             screening
                     );
+            Candidate candidate =
+                    candidateRepository
+                            .findById(requestDto.getCandidateId())
+                            .orElse(null);
+
+            if (candidate != null &&
+                    candidate.getEmail() != null) {
+
+                User candidateUser =
+                        userRepository
+                                .findByEmailIgnoreCase(
+                                        candidate.getEmail()
+                                )
+                                .orElse(null);
+
+                if (candidateUser != null) {
+
+                    notificationService.createNotification(
+                            candidateUser.getUserId(),
+                            "Your AI resume screening has been completed for "
+                                    + job.getTitle(),
+                            "RESUME_SCREENING_COMPLETED"
+                    );
+                }
+            }
 
 
             // =====================================================
