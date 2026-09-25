@@ -28,8 +28,13 @@ function CandidateJobs() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+
+
   // Jobs are fetched from the backend API.
   const [jobs, setJobs] = useState([]);
+
+  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 

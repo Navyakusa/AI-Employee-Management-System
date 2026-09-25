@@ -241,21 +241,28 @@ function InterviewerEvaluationView() {
             </div>
 
             {/* FEEDBACK */}
+            {/*
+              The real backend has no separate "detailed feedback" text
+              field at all (confirmed via InterviewEvaluationDto.java) —
+              this section only renders if there's actually something
+              to show, rather than an empty box with a heading.
+            */}
+            {evaluation.feedback && (
+              <div className="interviewer-view-section">
+                <div className="interviewer-view-section-title">
+                  <MessageSquareText size={19} />
 
-            <div className="interviewer-view-section">
-              <div className="interviewer-view-section-title">
-                <MessageSquareText size={19} />
+                  <div>
+                    <h3>Detailed Interview Feedback</h3>
+                    <p>Overall assessment submitted by the interviewer.</p>
+                  </div>
+                </div>
 
-                <div>
-                  <h3>Detailed Interview Feedback</h3>
-                  <p>Overall assessment submitted by the interviewer.</p>
+                <div className="interviewer-view-feedback-box">
+                  {evaluation.feedback}
                 </div>
               </div>
-
-              <div className="interviewer-view-feedback-box">
-                {evaluation.feedback}
-              </div>
-            </div>
+            )}
 
             {/* RECOMMENDATION */}
 
@@ -279,7 +286,17 @@ function InterviewerEvaluationView() {
 
                 <div>
                   <span>Interviewer Recommendation</span>
-                  <strong>{evaluation.recommendation}</strong>
+                  {/*
+                    KEPT PER PRODUCT DECISION: the real backend has no
+                    field to store this at all (confirmed via
+                    InterviewEvaluationDto.java), so this will always
+                    show the fallback below until backend adds a
+                    matching field — the section stays, but the value
+                    is honest about not being saved anywhere yet.
+                  */}
+                  <strong>
+                    {evaluation.recommendation || "Not recorded"}
+                  </strong>
                 </div>
               </div>
 

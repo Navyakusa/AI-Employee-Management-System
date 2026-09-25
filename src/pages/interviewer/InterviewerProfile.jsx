@@ -54,6 +54,7 @@ const FALLBACK_PROFILE = {
   department: "IT",
   role: "INTERVIEWER",
   designation: "Technical Interviewer",
+  location: "",
 };
 
 function InterviewerProfile() {

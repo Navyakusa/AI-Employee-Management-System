@@ -16,22 +16,42 @@ import {
   mapNotification,
   mapProfile,
   mapEvaluation,
+  mapCandidateRow,
 } from "./interviewerHelpers";
 
 const unwrap = (response) => response?.data?.data ?? null;
 
 /* ---------------- INTERVIEWS ---------------- */
 
-// The raw interview object only carries candidateId / jobId (confirmed
-// via Swagger's schema — no name, email or job title come back), so
-// they're joined in here the same way candidateService.js joins job
-// titles into candidate-side interviews.
+// CONFIRMED via real response from GET /interviewer/interviews/my:
+//   {
+//     data: {
+//       scheduledCount, completedCount, totalCount,
+//       interviews: [{ interviewId, candidateId, candidateName,
+//         candidateEmail, jobId, jobTitle, interviewDateTime,
+//         interviewMode, meetingLink, location, status, notes }]
+//     }
+//   }
+// Two things this confirmed:
+//   1. The array is nested under data.interviews, NOT data itself —
+//      candidateName/candidateEmail/jobTitle are already included
+//      directly on each interview, so the /candidates/all + /jobs/all
+//      join below is now just a fallback for fields this DTO doesn't
+//      send (experience, skills), not the primary data source.
+//   2. status and interviewMode are UPPERCASE enums ("SCHEDULED",
+//      "ONLINE"), not "Scheduled"/"Online" — normalized in
+//      interviewerHelpers.js's mapInterview.
+// Still unconfirmed: no interviewType field in this response at all —
+// see the GAP note in interviewerHelpers.js.
 export const getMyInterviews = async () => {
-  const [interviewsRaw, candidatesRaw, jobsRaw] = await Promise.all([
+  const [responseData, candidatesRaw, jobsRaw] = await Promise.all([
     axiosInstance
-      .get("/interviews/my")
+      .get("/interviewer/interviews/my")
       .then(unwrap)
-      .catch(() => []),
+      .catch((err) => {
+        console.error("GET /interviewer/interviews/my failed:", err);
+        return null;
+      }),
     axiosInstance
       .get("/candidates/all")
       .then(unwrap)
@@ -42,7 +62,7 @@ export const getMyInterviews = async () => {
       .catch(() => []),
   ]);
 
-  const interviews = interviewsRaw || [];
+  const interviews = responseData?.interviews ?? [];
   const candidates = candidatesRaw || [];
   const jobs = jobsRaw || [];
 
@@ -66,74 +86,205 @@ export const getMyInterviews = async () => {
   );
 };
 
-/*
-  GAP: no GET /interviews/{interviewId} exists yet. Once backend adds
-  one, replace the workaround in getInterviewById() below.
-*/
+// UPDATED: now uses the dedicated interviewer-interview-controller
+// endpoint instead of the generic one.
 export const getInterviewById = async (interviewId) => {
-  const interviews = await getMyInterviews();
-  return (
-    interviews.find((item) => String(item.id) === String(interviewId)) ||
-    null
+  const raw = unwrap(
+    await axiosInstance
+      .get(`/interviewer/interviews/${interviewId}`)
+      .catch((err) => {
+        console.error(
+          `GET /interviewer/interviews/${interviewId} failed:`,
+          err
+        );
+        throw err;
+      })
   );
+
+  if (!raw) {
+    return null;
+  }
+
+  // Still need candidate + job details joined in, same as the list.
+  const [candidate, job] = await Promise.all([
+    getCandidateById(raw.candidateId).catch(() => null),
+    axiosInstance
+      .get(`/jobs/${raw.jobId}`)
+      .then(unwrap)
+      .catch(() => null),
+  ]);
+
+  return mapInterview(raw, candidate, job);
+};
+
+// CONFIRMED via backend source: GET /interviewer-dashboard/summary
+// returns { interviewerId, todaysInterviews, upcomingInterviews,
+// completedInterviews, pendingEvaluations, todaysSchedule: [Interview],
+// evaluationQueue: [Interview] } — todaysSchedule/evaluationQueue are
+// RAW Interview entities (interviewId, candidateId, jobId, ..., no
+// candidate name or job title), so they're joined against
+// /candidates/all + /jobs/all the same way getMyInterviews() does.
+//
+// CONFIRMED BACKEND BUG (InterviewerDashboardService.java): both
+// pendingEvaluations and evaluationQueue use the EXACT SAME query as
+// completedInterviews — there is no check for whether an evaluation
+// was already submitted. This means the raw backend values would
+// always equal completedInterviews, even for interviews you've
+// already evaluated. Worked around here by cross-referencing the real
+// evaluations list and filtering out anything already Submitted.
+// Report this to backend: pendingEvaluations should exclude interviews
+// that already have a SUBMITTED InterviewEvaluation row.
+export const getDashboardSummary = async () => {
+  const [summaryRaw, candidatesRaw, jobsRaw, evaluationsList] =
+    await Promise.all([
+      axiosInstance
+        .get("/interviewer-dashboard/summary")
+        .then(unwrap)
+        .catch((err) => {
+          console.error("GET /interviewer-dashboard/summary failed:", err);
+          return null;
+        }),
+      axiosInstance
+        .get("/candidates/all")
+        .then(unwrap)
+        .catch(() => []),
+      axiosInstance
+        .get("/jobs/all")
+        .then(unwrap)
+        .catch(() => []),
+      getMyEvaluationsList().catch(() => []),
+    ]);
+
+  const summary = summaryRaw || {};
+  const candidates = candidatesRaw || [];
+  const jobs = jobsRaw || [];
+
+  const candidatesById = new Map(
+    candidates.map((candidate) => [
+      String(candidate.id ?? candidate.candidateId),
+      candidate,
+    ])
+  );
+
+  const jobsById = new Map(
+    jobs.map((job) => [String(job.id ?? job.jobId), job])
+  );
+
+  const mapRawInterview = (raw) =>
+    mapInterview(
+      raw,
+      candidatesById.get(String(raw.candidateId)),
+      jobsById.get(String(raw.jobId))
+    );
+
+  const todaysSchedule = (summary.todaysSchedule ?? []).map(mapRawInterview);
+
+  const submittedInterviewIds = new Set(
+    evaluationsList
+      .filter((evaluation) => evaluation.status === "Submitted")
+      .map((evaluation) => String(evaluation.interviewId))
+  );
+
+  const evaluationQueue = (summary.evaluationQueue ?? [])
+    .map(mapRawInterview)
+    .filter((interview) => !submittedInterviewIds.has(String(interview.id)));
+
+  return {
+    todaysInterviews: Number(summary.todaysInterviews ?? 0),
+    upcomingInterviews: Number(summary.upcomingInterviews ?? 0),
+    completedInterviews: Number(summary.completedInterviews ?? 0),
+    // Corrected count, not the buggy backend value — see comment above.
+    pendingEvaluations: evaluationQueue.length,
+    todaysSchedule,
+    evaluationQueue,
+  };
 };
 
 /*
-  GAP workaround: there is still no endpoint scoped to "candidates
-  assigned to me". This derives the candidates list from getMyInterviews()
-  instead — one row per interview (each interview already carries the
-  candidate's name/email/job, joined in above). If a candidate has more
-  than one interview with this interviewer, they'll appear more than
-  once; ask backend if that's acceptable or if a real dedicated
-  endpoint should be added later.
+  GAP workaround retired: this used to derive the candidates list from
+  getMyInterviews() since no dedicated endpoint existed. Now uses
+  GET /interviewer/candidates/my directly — see the function below.
 */
+
+// CONFIRMED via backend source: GET /interviewer/candidates/my exists
+// and returns { totalCandidates, scheduledCandidates,
+// completedCandidates, candidates: [InterviewerCandidateDto] }.
+// IMPORTANT: this does NOT deduplicate by candidate either — backend
+// source (InterviewerCandidateService.java) builds one row per
+// INTERVIEW, same as our old workaround. A candidate with 2 interviews
+// with you still shows up twice — that's a backend design choice, not
+// something fixable from here.
 export const getMyCandidatesList = async () => {
-  const interviews = await getMyInterviews();
+  const raw = unwrap(
+    await axiosInstance
+      .get("/interviewer/candidates/my")
+      .catch((err) => {
+        console.error("GET /interviewer/candidates/my failed:", err);
+        return null;
+      })
+  );
 
-  return interviews.map((interview) => ({
-    id: interview.candidateId,
-    name: interview.candidate,
-    email: interview.email,
-    job: interview.job,
-    experience: interview.experience,
-    interviewDate: interview.date,
-    interviewStatus: interview.status,
-  }));
+  const rows = raw?.candidates ?? [];
+  return rows.map(mapCandidateRow);
 };
 
-/*
-  GAP workaround: it's unclear if GET /interview-feedback (no id) is
-  scoped to the logged-in interviewer, so instead this builds the
-  Pending + Submitted list by checking each completed interview
-  individually via getEvaluationByInterviewId. This is one API call
-  PER completed interview (N+1) — fine for a handful of interviews,
-  but ask backend for a proper bulk "my evaluations" endpoint if the
-  list grows.
-*/
+// CONFIRMED via backend source: GET /interviewer/evaluations/my
+// returns { pendingCount, submittedCount, totalCount, evaluations }.
+// BUT that "evaluations" list only contains interviews that already
+// have an InterviewEvaluation database row (backend source:
+// evaluationRepository.findByInterviewerId — no auto-creation of a
+// placeholder row for completed-but-not-yet-started evaluations). A
+// completed interview with NO evaluation row at all won't appear in
+// that list, so it's merged here with getMyInterviews() to synthesize
+// a "Pending" entry for anything completed that's missing one —
+// otherwise those interviews would silently vanish from this page
+// instead of showing up as something to evaluate.
 export const getMyEvaluationsList = async () => {
-  const interviews = await getMyInterviews();
-  const completed = interviews.filter(
-    (interview) => interview.status === "Completed"
+  const [rawResponse, interviews] = await Promise.all([
+    axiosInstance
+      .get("/interviewer/evaluations/my")
+      .then(unwrap)
+      .catch((err) => {
+        console.error("GET /interviewer/evaluations/my failed:", err);
+        return null;
+      }),
+    getMyInterviews(),
+  ]);
+
+  const existingEvaluations = (rawResponse?.evaluations ?? []).map(
+    mapEvaluation
   );
 
-  return Promise.all(
-    completed.map(async (interview) => {
-      const evaluation = await getEvaluationByInterviewId(interview.id);
-
-      return {
-        interviewId: interview.id,
-        candidateId: interview.candidateId,
-        candidate: interview.candidate,
-        email: interview.email,
-        job: interview.job,
-        interviewDate: interview.date,
-        interviewType: interview.type,
-        status: evaluation ? "Submitted" : "Pending",
-        rating: evaluation?.overallRating ?? null,
-        recommendation: evaluation?.recommendation ?? null,
-      };
-    })
+  const existingInterviewIds = new Set(
+    existingEvaluations.map((evaluation) => String(evaluation.interviewId))
   );
+
+  const syntheticPending = interviews
+    .filter(
+      (interview) =>
+        interview.status === "Completed" &&
+        !existingInterviewIds.has(String(interview.id))
+    )
+    .map((interview) => ({
+      evaluationId: null,
+      interviewId: interview.id,
+      candidateId: interview.candidateId,
+      candidate: interview.candidate,
+      email: interview.email,
+      job: interview.job,
+      interviewDate: interview.date,
+      interviewType: interview.type,
+      status: "Pending",
+      recommendation: null,
+    }));
+
+  return [
+    ...existingEvaluations.map((evaluation) => ({
+      ...evaluation,
+      rating: evaluation.overallRating,
+    })),
+    ...syntheticPending,
+  ];
 };
 
 /* ---------------- NOTIFICATIONS ---------------- */
@@ -153,16 +304,42 @@ export const markNotificationRead = async (notificationId) =>
 export const markAllNotificationsRead = async () =>
   axiosInstance.put("/notifications/read-all");
 
+// New endpoints your backend teammate just added:
+export const deleteNotification = async (notificationId) =>
+  axiosInstance.delete(`/notifications/${notificationId}`);
+
+export const getNotificationStats = async () =>
+  unwrap(await axiosInstance.get("/notifications/stats"));
+
 /* ---------------- SETTINGS ---------------- */
 
-// NOT YET CONFIRMED: does the generic Settings DTO carry these 4
-// interviewer-specific boolean fields, or does interviewer need its
-// own settings shape (the way Employee has EmployeeSettingsDto)?
+// CONFIRMED via backend source: /api/settings/current and
+// /api/settings/save were never the right endpoints — that
+// SettingsController serves a global, organization-wide Settings
+// entity (organizationName, supportEmail, maintenanceMode, etc.),
+// completely unrelated to per-user notification preferences.
+//
+// The real per-user endpoint is /api/employee-settings/my
+// (EmployeeSettingsController), which works for the interviewer
+// account too since it's backed by the same Employee record Profile
+// uses. It only supports 3 real fields though — NOT the 4 toggles
+// the original mock UI had:
+//   emailNotifications, systemNotifications, darkMode
+// There is no backend field anywhere for "Evaluation Reminders" or
+// "Evaluation Confirmation" specifically — ask backend if those need
+// their own fields added, or if emailNotifications/systemNotifications
+// should just cover them for now.
 export const getCurrentSettings = async () =>
-  unwrap(await axiosInstance.get("/settings/current"));
+  unwrap(await axiosInstance.get("/employee-settings/my"));
 
 export const saveSettings = async (settings) =>
-  unwrap(await axiosInstance.put("/settings/save", settings));
+  unwrap(
+    await axiosInstance.put("/employee-settings/my", {
+      emailNotifications: settings.emailNotifications,
+      systemNotifications: settings.systemNotifications,
+      darkMode: settings.darkMode,
+    })
+  );
 
 /* ---------------- PROFILE ---------------- */
 
@@ -171,44 +348,121 @@ export const getMyProfile = async () => {
   return raw ? mapProfile(raw) : null;
 };
 
+// CONFIRMED via backend source (ProfileController.java): this endpoint
+// uses @RequestParam, NOT @RequestBody — it expects QUERY STRING
+// parameters, not a JSON body. All 5 are required by Spring even if
+// unchanged (a missing param throws before the service layer's
+// "only update if non-blank" logic ever runs), so every call must
+// include userName, email, phone, department, AND location — even
+// though "location" isn't shown anywhere in the Profile UI. Passing
+// it through unchanged from what was loaded avoids silently wiping it.
 export const updateMyProfile = async (payload) => {
-  const raw = unwrap(await axiosInstance.put("/profile/update", payload));
+  const raw = unwrap(
+    await axiosInstance.put("/profile/update", null, {
+      params: {
+        userName: payload.name ?? "",
+        email: payload.email ?? "",
+        phone: payload.phone ?? "",
+        department: payload.department ?? "",
+        location: payload.location ?? "",
+      },
+    })
+  );
   return raw ? mapProfile(raw) : null;
 };
 
-/* ---------------- INTERVIEW FEEDBACK / EVALUATIONS ---------------- */
+/* ---------------- INTERVIEW EVALUATIONS ---------------- */
 
-// NOT YET CONFIRMED: exact InterviewFeedbackDto field names for the
-// request body (technicalRating, communicationRating, etc.).
-export const submitEvaluation = async (payload) =>
-  unwrap(await axiosInstance.post("/interview-feedback", payload));
+// CONFIRMED via backend source: the real endpoint is
+// POST /interviewer/evaluations/interview/{interviewId} — NOT
+// /interview-feedback (that was the wrong endpoint this whole time).
+// Real request body (InterviewEvaluationRequestDto):
+//   { technicalSkills, communication, problemSolving, overallRating,
+//     strengths, areasForImprovement }
+// There is NO recommendation field on the real DTO. The evaluation
+// form still collects one (kept per product decision — ask backend
+// to add a matching field if it should actually be saved), but it is
+// intentionally left out of this request body since the backend has
+// nowhere to store it.
+export const submitEvaluation = async (payload) => {
+  const raw = unwrap(
+    await axiosInstance.post(
+      `/interviewer/evaluations/interview/${payload.interviewId}`,
+      {
+        technicalSkills: payload.technicalRating,
+        communication: payload.communicationRating,
+        problemSolving: payload.problemSolvingRating,
+        overallRating: payload.overallRating ?? null,
+        strengths: payload.strengths,
+        areasForImprovement: payload.improvementAreas,
+      }
+    )
+  );
 
-export const getEvaluationByInterviewId = async (interviewId) => {
-  try {
-    const raw = unwrap(
-      await axiosInstance.get(`/interview-feedback/interview/${interviewId}`)
-    );
-    return raw ? mapEvaluation(raw) : null;
-  } catch {
-    // No evaluation submitted yet for this interview.
-    return null;
-  }
+  return raw ? mapEvaluation(raw) : null;
 };
 
-/*
-  GAP: unclear if GET /interview-feedback (no id) is scoped to the
-  logged-in interviewer or returns everyone's feedback. Needed for
-  InterviewerEvaluations.jsx's combined Pending + Submitted list.
-  Confirm with backend before wiring that page up.
-*/
+// CONFIRMED via backend source: there is no direct "get evaluation by
+// interviewId" endpoint — only by evaluationId (GET
+// /interviewer/evaluations/{evaluationId}), or the full list (GET
+// /interviewer/evaluations/my). Since evaluationId isn't known from
+// the interviewId alone, this fetches the full list and searches it
+// client-side instead.
+export const getEvaluationByInterviewId = async (interviewId) => {
+  const raw = unwrap(
+    await axiosInstance
+      .get("/interviewer/evaluations/my")
+      .catch((err) => {
+        console.error("GET /interviewer/evaluations/my failed:", err);
+        return null;
+      })
+  );
+
+  const evaluations = raw?.evaluations ?? [];
+  const match = evaluations.find(
+    (evaluation) => String(evaluation.interviewId) === String(interviewId)
+  );
+
+  return match ? mapEvaluation(match) : null;
+};
+
+/* ---------------- PASSWORD ---------------- */
+
+// NOT YET CONFIRMED LIVE: backend team described adding this endpoint
+// but it did not exist in the source code we reviewed. If this 404s,
+// it means it hasn't been deployed yet — that's expected, not a bug
+// on our end. ChangePasswordDto requires all 3 fields.
+export const changePassword = async ({
+  currentPassword,
+  newPassword,
+  confirmPassword,
+}) =>
+  unwrap(
+    await axiosInstance.put("/auth/change-password", {
+      currentPassword,
+      newPassword,
+      confirmPassword,
+    })
+  );
 
 /* ---------------- CANDIDATES ---------------- */
 
-// GET /candidates/{id} works for InterviewerCandidateDetails.jsx, but
-// there is no endpoint scoped to "candidates assigned to me" yet for
-// InterviewerCandidates.jsx (the list page).
+// UPDATED: the generic GET /candidates/{id} started returning 403 for
+// the interviewer role — same pattern as /interviews/my. Backend added
+// a dedicated interviewer-candidate-details-controller endpoint for
+// this exact purpose; using that instead.
 export const getCandidateById = async (candidateId) =>
-  unwrap(await axiosInstance.get(`/candidates/${candidateId}`));
+  unwrap(
+    await axiosInstance
+      .get(`/interviewer/candidate-details/${candidateId}`)
+      .catch((err) => {
+        console.error(
+          `GET /interviewer/candidate-details/${candidateId} failed:`,
+          err
+        );
+        throw err;
+      })
+  );
 
 /* ---------------- RESUME ---------------- */
 

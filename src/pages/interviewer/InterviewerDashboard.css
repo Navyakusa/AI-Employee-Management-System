@@ -1591,6 +1591,16 @@ body {
   color: #13835f;
 }
 
+.interviewer-interview-status.cancelled {
+  background: #fdecea;
+  color: #c0392b;
+}
+
+.interviewer-interview-status.rescheduled {
+  background: #fff4e5;
+  color: #b76e00;
+}
+
 
 /* JOB */
 
@@ -2215,6 +2225,16 @@ body {
 .interviewer-candidate-interview-status.completed {
   background: #eaf9f3;
   color: #13835f;
+}
+
+.interviewer-candidate-interview-status.cancelled {
+  background: #fdecea;
+  color: #c0392b;
+}
+
+.interviewer-candidate-interview-status.rescheduled {
+  background: #fff4e5;
+  color: #b76e00;
 }
 
 
@@ -4068,6 +4088,16 @@ body {
 .interviewer-candidates-status.completed {
   background: #eaf9f3;
   color: #13835f;
+}
+
+.interviewer-candidates-status.cancelled {
+  background: #fdecea;
+  color: #c0392b;
+}
+
+.interviewer-candidates-status.rescheduled {
+  background: #fff4e5;
+  color: #b76e00;
 }
 
 

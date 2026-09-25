@@ -23,28 +23,57 @@ import { getCandidateById } from "../../services/interviewerService";
 
 import "./InterviewerDashboard.css";
 
-/*
-  NOT YET CONFIRMED with backend — verify GET /candidates/{id} field
-  names against a real response and adjust the right-hand side below.
-  matchScore in particular may come from a separate AI-matching
-  endpoint rather than living on the Candidate object itself.
-*/
+// CONFIRMED via backend source (InterviewerCandidateDetailsDto.java,
+// from GET /interviewer/candidate-details/{candidateId}):
+//   { candidateId, name, email, phone, location, education,
+//     experience, skills (comma-separated STRING, not an array),
+//     resume, linkedin, portfolio, expectedSalary, noticePeriod,
+//     source, applicationDate, jobId, appliedPosition, interviewId,
+//     interviewDateTime, interviewMode, interviewStatus,
+//     aiMatchScore, professionalSummary }
+// Note: aiMatchScore is currently hardcoded to null on the backend
+// (not computed yet) — the "AI Match Score" section already only
+// renders when matchScore isn't null, so this just naturally stays
+// hidden until backend implements it, with no crash either way.
+function splitSkillsString(skills) {
+  if (Array.isArray(skills)) {
+    return skills;
+  }
+
+  if (typeof skills === "string" && skills.trim()) {
+    return skills
+      .split(",")
+      .map((skill) => skill.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
 function mapCandidate(raw) {
   return {
-    id: raw.id ?? raw.candidateId,
-    name: raw.name,
-    email: raw.email,
-    phone: raw.phone ?? raw.phoneNumber ?? "",
-    location: raw.location ?? "",
-    job: raw.job ?? raw.jobTitle ?? "",
-    experience: raw.experience ?? "",
-    education: raw.education ?? "",
-    matchScore: raw.matchScore ?? null,
-    interviewStatus: raw.interviewStatus ?? "",
-    resume: raw.resume ?? raw.resumeName ?? "",
-    resumeId: raw.resumeId ?? null,
-    summary: raw.summary ?? "",
-    skills: raw.skills ?? [],
+    id: raw.candidateId,
+    name: String(raw.name ?? ""),
+    email: String(raw.email ?? ""),
+    phone: String(raw.phone ?? ""),
+    location: String(raw.location ?? ""),
+    job: String(raw.appliedPosition ?? ""),
+    experience: String(raw.experience ?? ""),
+    education: String(raw.education ?? ""),
+    matchScore: raw.aiMatchScore ?? null,
+    interviewStatus: String(raw.interviewStatus ?? ""),
+    resume: String(raw.resume ?? ""),
+    resumeId: null,
+    summary: String(raw.professionalSummary ?? ""),
+    skills: splitSkillsString(raw.skills),
+    // Not yet shown in the UI, but captured in case they're useful
+    // later — linkedin/portfolio/expectedSalary/noticePeriod/source
+    // are all real fields on this DTO with no UI section yet.
+    linkedin: raw.linkedin ?? "",
+    portfolio: raw.portfolio ?? "",
+    expectedSalary: raw.expectedSalary ?? null,
+    noticePeriod: raw.noticePeriod ?? "",
+    source: raw.source ?? "",
   };
 }
 
@@ -57,8 +86,14 @@ function InterviewerCandidateDetails() {
 
   useEffect(() => {
     getCandidateById(candidateId)
-      .then((data) => setCandidate(data ? mapCandidate(data) : null))
-      .catch(() => setCandidate(null))
+      .then((data) => {
+        console.log("Raw candidate-details response:", data);
+        setCandidate(data ? mapCandidate(data) : null);
+      })
+      .catch((err) => {
+        console.error("Failed to load candidate details:", err);
+        setCandidate(null);
+      })
       .finally(() => setLoading(false));
   }, [candidateId]);
 
@@ -117,14 +152,20 @@ function InterviewerCandidateDetails() {
     .toUpperCase();
 
   const handleDownloadResume = () => {
-    // NOT YET CONFIRMED: swap this for a real download once backend
-    // confirms the resumeId field name and the /resumes/{id}/view
-    // response shape (direct file bytes vs. a URL to open).
-    alert(
-      candidate.resumeId
-        ? `Resume download will be connected later (resumeId: ${candidate.resumeId})`
-        : "This candidate has no resume on file yet."
-    );
+    // CONFIRMED: there is no separate resumeId field — "resume" on
+    // Candidate is just a single String column, format unconfirmed
+    // (could be a stored file path or a full URL). If it looks like a
+    // URL, open it directly; otherwise there's nothing actionable to
+    // do with it yet — ask backend what this string actually contains.
+    if (candidate.resume && /^https?:\/\//i.test(candidate.resume)) {
+      window.open(candidate.resume, "_blank", "noopener,noreferrer");
+    } else if (candidate.resume) {
+      alert(
+        `Resume on file: "${candidate.resume}" — this isn't a URL, so ask backend what format this field holds (a stored file path? a doc id to fetch separately?) before this can download anything.`
+      );
+    } else {
+      alert("This candidate has no resume on file yet.");
+    }
   };
 
   return (

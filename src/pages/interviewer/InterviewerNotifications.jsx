@@ -79,6 +79,8 @@ function InterviewerNotifications() {
           setPersistWarning(
             "The server accepted the request but this notification is still showing as unread — this looks like a backend issue, not something wrong on your end."
           );
+        } else {
+          window.dispatchEvent(new Event("notifications-updated"));
         }
       })
       .catch((err) => {
@@ -121,6 +123,8 @@ function InterviewerNotifications() {
               stillUnreadCount === 1 ? " is" : "s are"
             } still unread after re-checking — this looks like a backend issue, not something wrong on your end.`
           );
+        } else {
+          window.dispatchEvent(new Event("notifications-updated"));
         }
       })
       .catch((err) => {
@@ -134,9 +138,12 @@ function InterviewerNotifications() {
       });
   };
 
+  // CONFIRMED real type values via backend source — see
+  // interviewerHelpers.js's NOTIFICATION_TITLES comment for where
+  // these come from.
   const getNotificationIcon = (type) => {
     switch (type) {
-      case "INTERVIEW_ASSIGNED":
+      case "INTERVIEW_SCHEDULED":
         return <CalendarDays size={19} />;
 
       case "INTERVIEW_RESCHEDULED":
@@ -145,8 +152,7 @@ function InterviewerNotifications() {
       case "INTERVIEW_CANCELLED":
         return <XCircle size={19} />;
 
-      case "EVALUATION_PENDING":
-      case "EVALUATION_SUBMITTED":
+      case "INTERVIEW_EVALUATION_SUBMITTED":
         return <ClipboardCheck size={19} />;
 
       default:
@@ -156,7 +162,7 @@ function InterviewerNotifications() {
 
   const getNotificationClass = (type) => {
     switch (type) {
-      case "INTERVIEW_ASSIGNED":
+      case "INTERVIEW_SCHEDULED":
         return "assigned";
 
       case "INTERVIEW_RESCHEDULED":
@@ -165,10 +171,7 @@ function InterviewerNotifications() {
       case "INTERVIEW_CANCELLED":
         return "cancelled";
 
-      case "EVALUATION_PENDING":
-        return "evaluation";
-
-      case "EVALUATION_SUBMITTED":
+      case "INTERVIEW_EVALUATION_SUBMITTED":
         return "submitted";
 
       default:
@@ -277,6 +280,22 @@ function InterviewerNotifications() {
                     className={`interviewer-notification-item ${
                       notification.read ? "read" : "unread"
                     }`}
+                    role="button"
+                    tabIndex={0}
+                    style={{ cursor: notification.read ? "default" : "pointer" }}
+                    onClick={() => {
+                      if (!notification.read) {
+                        handleMarkAsRead(notification.id);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (
+                        (e.key === "Enter" || e.key === " ") &&
+                        !notification.read
+                      ) {
+                        handleMarkAsRead(notification.id);
+                      }
+                    }}
                   >
                     <div
                       className={`interviewer-notification-icon ${getNotificationClass(
@@ -306,7 +325,10 @@ function InterviewerNotifications() {
                       <button
                         type="button"
                         className="interviewer-notification-read-button"
-                        onClick={() => handleMarkAsRead(notification.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMarkAsRead(notification.id);
+                        }}
                       >
                         <CheckCheck size={15} />
                         Mark as read

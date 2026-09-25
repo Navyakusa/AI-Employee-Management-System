@@ -167,9 +167,6 @@ function InterviewerCandidates() {
                         .slice(0, 2)
                         .toUpperCase();
 
-                      const isCompleted =
-                        candidate.interviewStatus === "Completed";
-
                       return (
                         <tr key={`${candidate.id}-${index}`}>
                           {/* CANDIDATE */}
@@ -213,9 +210,7 @@ function InterviewerCandidates() {
 
                           <td>
                             <span
-                              className={`interviewer-candidates-status ${
-                                isCompleted ? "completed" : "scheduled"
-                              }`}
+                              className={`interviewer-candidates-status ${candidate.interviewStatus?.toLowerCase()}`}
                             >
                               {candidate.interviewStatus}
                             </span>

@@ -17,7 +17,10 @@ import {
 import InterviewerSidebar from "./InterviewerSidebar";
 import InterviewerNavbar from "./InterviewerNavbar";
 
-import { getMyInterviews } from "../../services/interviewerService";
+import {
+  getMyInterviews,
+  getDashboardSummary,
+} from "../../services/interviewerService";
 
 import "./InterviewerDashboard.css";
 
@@ -25,19 +28,41 @@ function InterviewerDashboard() {
   const navigate = useNavigate();
 
   const [interviews, setInterviews] = useState([]);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    getMyInterviews()
-      .then((data) => {
-        setInterviews(Array.isArray(data) ? data : []);
+    Promise.all([getMyInterviews(), getDashboardSummary()])
+      .then(([interviewsData, summaryData]) => {
+        setInterviews(Array.isArray(interviewsData) ? interviewsData : []);
+        setSummary(summaryData);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Failed to load dashboard:", err);
         setError("Unable to load your interviews right now.");
       })
       .finally(() => setLoading(false));
   }, []);
+
+  /*
+    CONFIRMED backend behavior: the dashboard summary's todaysSchedule
+    and evaluationQueue lists (and their raw counts) include EVERY
+    status, not just Scheduled — a Cancelled or Rescheduled interview
+    today would show up mixed into "Today's Schedule" otherwise. So
+    this filters to Scheduled specifically to match what the page has
+    always meant by "today's schedule", and uses the filtered length
+    for the stat card instead of trusting the backend's unfiltered
+    count — keeping the number and the list underneath it consistent.
+  */
+  const todaysSchedule = (summary?.todaysSchedule ?? []).filter(
+    (interview) => interview.status === "Scheduled"
+  );
+
+  // pendingEvaluations from getDashboardSummary() is already corrected
+  // for the backend's copy-paste bug (see interviewerService.js) — no
+  // further filtering needed here.
+  const evaluationQueue = summary?.evaluationQueue ?? [];
 
   /*
     ASSUMPTION: interview.date is a string that can be directly compared
@@ -52,30 +77,19 @@ function InterviewerDashboard() {
     year: "numeric",
   });
 
-  const todayInterviews = interviews.filter(
-    (interview) =>
-      interview.date === todayDate && interview.status === "Scheduled"
-  );
-
+  // The dashboard summary endpoint has no "list of upcoming
+  // interviews" — only a count — so the Upcoming Interviews grid
+  // still comes from getMyInterviews(), filtered the same way as
+  // before.
   const upcomingInterviews = interviews.filter(
     (interview) =>
       interview.status === "Scheduled" && interview.date !== todayDate
   );
 
-  const completedInterviews = interviews.filter(
-    (interview) => interview.status === "Completed"
-  );
-
-  const pendingEvaluations = interviews.filter(
-    (interview) =>
-      interview.status === "Completed" &&
-      interview.evaluationStatus === "Pending"
-  );
-
   const summaryCards = [
     {
       title: "Today's Interviews",
-      value: todayInterviews.length,
+      value: todaysSchedule.length,
       icon: <CalendarDays size={22} />,
       className: "today",
     },
@@ -87,13 +101,13 @@ function InterviewerDashboard() {
     },
     {
       title: "Completed Interviews",
-      value: completedInterviews.length,
+      value: summary?.completedInterviews ?? 0,
       icon: <CheckCircle2 size={22} />,
       className: "completed",
     },
     {
       title: "Pending Evaluations",
-      value: pendingEvaluations.length,
+      value: evaluationQueue.length,
       icon: <ClipboardCheck size={22} />,
       className: "pending",
     },
@@ -177,8 +191,8 @@ function InterviewerDashboard() {
                   </div>
 
                   <div className="interviewer-schedule-list">
-                    {todayInterviews.length > 0 ? (
-                      todayInterviews.map((interview) => (
+                    {todaysSchedule.length > 0 ? (
+                      todaysSchedule.map((interview) => (
                         <div
                           className="interviewer-schedule-item"
                           key={interview.id}
@@ -264,8 +278,8 @@ function InterviewerDashboard() {
                   </div>
 
                   <div className="interviewer-evaluation-list">
-                    {pendingEvaluations.length > 0 ? (
-                      pendingEvaluations.map((interview) => (
+                    {evaluationQueue.length > 0 ? (
+                      evaluationQueue.map((interview) => (
                         <div
                           className="interviewer-evaluation-item"
                           key={interview.id}

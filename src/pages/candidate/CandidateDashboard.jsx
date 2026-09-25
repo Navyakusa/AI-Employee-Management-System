@@ -68,6 +68,13 @@ function CandidateDashboard() {
   } = dashboard || {};
   // Temporary frontend data.
 
+
+  // Backend integration will replace this later.
+
+  
+
+
+
   const getStatusClass = (status) => {
     return status
       .toLowerCase()

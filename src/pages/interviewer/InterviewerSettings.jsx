@@ -2,15 +2,15 @@ import { useEffect, useState } from "react";
 
 import {
   Bell,
-  CalendarDays,
-  CalendarClock,
   ClipboardCheck,
+  Moon,
   ShieldCheck,
   Building2,
   BriefcaseBusiness,
   Save,
   CheckCircle2,
   LockKeyhole,
+  X,
 } from "lucide-react";
 
 import InterviewerSidebar from "./InterviewerSidebar";
@@ -19,16 +19,42 @@ import InterviewerNavbar from "./InterviewerNavbar";
 import {
   getCurrentSettings,
   saveSettings,
+  changePassword,
 } from "../../services/interviewerService";
 
 import "./InterviewerDashboard.css";
 
+// CONFIRMED via backend source: these are the only 3 fields that
+// actually exist and persist (EmployeeSettings entity, via
+// GET/PUT /api/employee-settings/my). The original 4-toggle mock
+// ("Interview Assignments", "Schedule Changes", "Evaluation
+// Reminders", "Evaluation Confirmation") had no matching backend
+// fields at all — ask backend if those need dedicated fields added,
+// or if these 2 general toggles should just represent them for now.
 const DEFAULT_SETTINGS = {
-  interviewAssignments: true,
-  scheduleChanges: true,
-  evaluationReminders: true,
-  evaluationConfirmation: true,
+  emailNotifications: true,
+  systemNotifications: true,
+  darkMode: false,
 };
+
+// Same pattern used in InterviewerProfile.jsx — distinguishes a real
+// server error response from a request that never got a response at
+// all (network/CORS/endpoint-doesn't-exist-yet), so the message tells
+// you which one happened instead of a generic failure.
+function describeAxiosError(err) {
+  if (err?.response) {
+    const status = err.response.status;
+    const backendMessage = err.response.data?.message;
+
+    return `HTTP ${status}${backendMessage ? `: ${backendMessage}` : ""}`;
+  }
+
+  if (err?.request) {
+    return "no response from server — likely CORS blocked, the server is unreachable, or the endpoint doesn't exist";
+  }
+
+  return err?.message || "unknown error";
+}
 
 function InterviewerSettings() {
   const loggedInUser = JSON.parse(
@@ -41,6 +67,16 @@ function InterviewerSettings() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
 
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+
   const interviewerName =
     loggedInUser?.userName || "Interviewer Test";
 
@@ -49,14 +85,62 @@ function InterviewerSettings() {
 
   const department = loggedInUser?.department || "IT";
 
+  const handlePasswordFieldChange = (event) => {
+    const { name, value } = event.target;
+    setPasswordForm((previous) => ({ ...previous, [name]: value }));
+    setPasswordError(null);
+  };
+
+  const handleChangePassword = (event) => {
+    event.preventDefault();
+
+    if (!passwordForm.currentPassword) {
+      setPasswordError("Enter your current password.");
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters.");
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError("New password and confirmation don't match.");
+      return;
+    }
+
+    setPasswordSaving(true);
+    setPasswordError(null);
+
+    changePassword(passwordForm)
+      .then(() => {
+        setPasswordSuccess(true);
+        setPasswordForm({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+        setTimeout(() => {
+          setPasswordSuccess(false);
+          setShowPasswordForm(false);
+        }, 2000);
+      })
+      .catch((err) => {
+        console.error("Failed to change password:", err);
+        setPasswordError(
+          `Couldn't change your password (${describeAxiosError(err)}).`
+        );
+      })
+      .finally(() => setPasswordSaving(false));
+  };
+
   useEffect(() => {
     getCurrentSettings()
       .then((data) => {
-        // ASSUMPTION: response contains the same 4 boolean fields.
-        // Fall back to defaults for any field the API doesn't return.
         setSettings((previous) => ({ ...previous, ...data }));
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Failed to load settings:", err);
         setError(
           "Couldn't load saved settings — showing defaults."
         );
@@ -82,7 +166,8 @@ function InterviewerSettings() {
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Failed to save settings:", err);
         setError("Couldn't save settings. Please try again.");
       })
       .finally(() => setSaving(false));
@@ -135,69 +220,37 @@ function InterviewerSettings() {
                   <p>Loading settings...</p>
                 ) : (
                   <div className="interviewer-settings-options">
-                    {/* ASSIGNMENTS */}
+                    {/* EMAIL NOTIFICATIONS */}
 
                     <div className="interviewer-settings-option">
                       <div className="interviewer-settings-option-info">
                         <div className="interviewer-settings-option-icon">
-                          <CalendarDays size={18} />
+                          <Bell size={18} />
                         </div>
 
                         <div>
-                          <strong>Interview Assignments</strong>
+                          <strong>Email Notifications</strong>
 
                           <span>
-                            Receive a notification when a new
-                            interview is assigned to you.
+                            Receive interview and evaluation updates
+                            by email.
                           </span>
                         </div>
                       </div>
 
                       <button
                         type="button"
-                        aria-label="Toggle interview assignment notifications"
+                        aria-label="Toggle email notifications"
                         className={`interviewer-settings-toggle ${
-                          settings.interviewAssignments ? "active" : ""
+                          settings.emailNotifications ? "active" : ""
                         }`}
-                        onClick={() =>
-                          handleToggle("interviewAssignments")
-                        }
+                        onClick={() => handleToggle("emailNotifications")}
                       >
                         <span />
                       </button>
                     </div>
 
-                    {/* SCHEDULE */}
-
-                    <div className="interviewer-settings-option">
-                      <div className="interviewer-settings-option-info">
-                        <div className="interviewer-settings-option-icon">
-                          <CalendarClock size={18} />
-                        </div>
-
-                        <div>
-                          <strong>Schedule Changes</strong>
-
-                          <span>
-                            Receive notifications when an interview
-                            is rescheduled or cancelled.
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        aria-label="Toggle schedule change notifications"
-                        className={`interviewer-settings-toggle ${
-                          settings.scheduleChanges ? "active" : ""
-                        }`}
-                        onClick={() => handleToggle("scheduleChanges")}
-                      >
-                        <span />
-                      </button>
-                    </div>
-
-                    {/* EVALUATION REMINDER */}
+                    {/* SYSTEM NOTIFICATIONS */}
 
                     <div className="interviewer-settings-option">
                       <div className="interviewer-settings-option-info">
@@ -206,58 +259,55 @@ function InterviewerSettings() {
                         </div>
 
                         <div>
-                          <strong>Evaluation Reminders</strong>
+                          <strong>System Notifications</strong>
 
                           <span>
-                            Receive reminders when interview
-                            feedback is still pending.
+                            Receive in-app notifications for
+                            interview assignments, schedule changes,
+                            and evaluations.
                           </span>
                         </div>
                       </div>
 
                       <button
                         type="button"
-                        aria-label="Toggle evaluation reminders"
+                        aria-label="Toggle system notifications"
                         className={`interviewer-settings-toggle ${
-                          settings.evaluationReminders ? "active" : ""
+                          settings.systemNotifications ? "active" : ""
                         }`}
                         onClick={() =>
-                          handleToggle("evaluationReminders")
+                          handleToggle("systemNotifications")
                         }
                       >
                         <span />
                       </button>
                     </div>
 
-                    {/* CONFIRMATION */}
+                    {/* DARK MODE */}
 
                     <div className="interviewer-settings-option">
                       <div className="interviewer-settings-option-info">
                         <div className="interviewer-settings-option-icon">
-                          <CheckCircle2 size={18} />
+                          <Moon size={18} />
                         </div>
 
                         <div>
-                          <strong>Evaluation Confirmation</strong>
+                          <strong>Dark Mode</strong>
 
                           <span>
-                            Receive confirmation after your
-                            interview evaluation has been submitted.
+                            Switch the interface to a darker color
+                            theme.
                           </span>
                         </div>
                       </div>
 
                       <button
                         type="button"
-                        aria-label="Toggle evaluation confirmation notifications"
+                        aria-label="Toggle dark mode"
                         className={`interviewer-settings-toggle ${
-                          settings.evaluationConfirmation
-                            ? "active"
-                            : ""
+                          settings.darkMode ? "active" : ""
                         }`}
-                        onClick={() =>
-                          handleToggle("evaluationConfirmation")
-                        }
+                        onClick={() => handleToggle("darkMode")}
                       >
                         <span />
                       </button>
@@ -297,19 +347,111 @@ function InterviewerSettings() {
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    disabled
-                    title="Available after backend integration"
-                  >
-                    Change Password
-                  </button>
+                  {!showPasswordForm && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswordForm(true)}
+                    >
+                      Change Password
+                    </button>
+                  )}
                 </div>
 
-                <p className="interviewer-settings-backend-note">
-                  Password management will be enabled when the account
-                  security API is integrated.
-                </p>
+                {/*
+                  NOT YET CONFIRMED LIVE: this calls
+                  PUT /api/auth/change-password, which backend
+                  described adding but wasn't present in the source
+                  we reviewed. If it 404s, that just means it hasn't
+                  been deployed yet — not a bug here.
+                */}
+                {showPasswordForm && (
+                  <form
+                    className="interviewer-evaluation-form-section"
+                    onSubmit={handleChangePassword}
+                    style={{ marginTop: "16px" }}
+                  >
+                    <div className="interviewer-profile-field">
+                      <label>Current Password</label>
+                      <input
+                        type="password"
+                        name="currentPassword"
+                        value={passwordForm.currentPassword}
+                        onChange={handlePasswordFieldChange}
+                        autoComplete="current-password"
+                      />
+                    </div>
+
+                    <div className="interviewer-profile-field">
+                      <label>New Password</label>
+                      <input
+                        type="password"
+                        name="newPassword"
+                        value={passwordForm.newPassword}
+                        onChange={handlePasswordFieldChange}
+                        autoComplete="new-password"
+                      />
+                    </div>
+
+                    <div className="interviewer-profile-field">
+                      <label>Confirm New Password</label>
+                      <input
+                        type="password"
+                        name="confirmPassword"
+                        value={passwordForm.confirmPassword}
+                        onChange={handlePasswordFieldChange}
+                        autoComplete="new-password"
+                      />
+                    </div>
+
+                    {passwordError && (
+                      <p className="interviewer-evaluation-error">
+                        {passwordError}
+                      </p>
+                    )}
+
+                    {passwordSuccess && (
+                      <p className="interviewer-settings-saved-message">
+                        <CheckCircle2 size={16} />
+                        Password changed successfully.
+                      </p>
+                    )}
+
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "10px",
+                        marginTop: "12px",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="cancel"
+                        onClick={() => {
+                          setShowPasswordForm(false);
+                          setPasswordError(null);
+                          setPasswordForm({
+                            currentPassword: "",
+                            newPassword: "",
+                            confirmPassword: "",
+                          });
+                        }}
+                        disabled={passwordSaving}
+                      >
+                        <X size={16} />
+                        Cancel
+                      </button>
+
+                      <button
+                        type="submit"
+                        className="save"
+                        disabled={passwordSaving}
+                      >
+                        <Save size={16} />
+                        {passwordSaving ? "Saving..." : "Save Password"}
+                      </button>
+                    </div>
+                  </form>
+                )}
               </section>
 
               {/* SAVE */}
