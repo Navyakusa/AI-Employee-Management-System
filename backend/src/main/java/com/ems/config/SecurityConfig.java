@@ -637,6 +637,13 @@ public class SecurityConfig {
                                         "SUPER_ADMIN"
                                 )
                                         // =================================================
+// RESUME UPLOAD
+// =================================================
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/resumes/upload"
+                                        ).hasRole("CANDIDATE")                  // =================================================
 // EVERYTHING ELSE
 // THIS MUST BE THE LAST AUTHORIZATION RULE
 // =================================================
