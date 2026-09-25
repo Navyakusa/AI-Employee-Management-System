@@ -202,6 +202,7 @@ public class SecurityConfig {
                                         "/api/jobs/**"
                                 ).hasAnyRole(
                                         "EMPLOYER",
+                                        "HR",
                                         "HIRING_MANAGER",
                                         "RECRUITER",
                                         "SUPER_ADMIN"
@@ -212,6 +213,7 @@ public class SecurityConfig {
                                         "/api/jobs/**"
                                 ).hasAnyRole(
                                         "EMPLOYER",
+                                        "HR",
                                         "HIRING_MANAGER",
                                         "RECRUITER",
                                         "SUPER_ADMIN"
