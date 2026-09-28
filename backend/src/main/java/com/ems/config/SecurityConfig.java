@@ -377,6 +377,8 @@ public class SecurityConfig {
                                         HttpMethod.PUT,
                                         "/api/interviews/*/reschedule"
                                 ).hasAnyRole(
+
+                                        "HR",
                                         "HIRING_MANAGER",
                                         "RECRUITER",
                                         "SUPER_ADMIN"
@@ -386,6 +388,7 @@ public class SecurityConfig {
                                         HttpMethod.PUT,
                                         "/api/interviews/*/status"
                                 ).hasAnyRole(
+                                        "HR",
                                         "INTERVIEWER",
                                         "HIRING_MANAGER",
                                         "RECRUITER",
