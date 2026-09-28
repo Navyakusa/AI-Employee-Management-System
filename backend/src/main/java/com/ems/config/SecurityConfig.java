@@ -373,63 +373,77 @@ public class SecurityConfig {
                                         "SUPER_ADMIN"
                                 )
 
-                                // HR ADDED
-                                .requestMatchers(
-                                        HttpMethod.GET,
-                                        "/api/interviews/management"
-                                ).hasAnyRole(
-                                        "HR",
-                                        "HIRING_MANAGER",
-                                        "RECRUITER",
-                                        "SUPER_ADMIN"
-                                )
+                                        // =========================================================
+// INTERVIEW MANAGEMENT
+// =========================================================
 
-                                .requestMatchers(
-                                        HttpMethod.GET,
-                                        "/api/interviews/stats"
-                                ).hasAnyRole(
-                                        "HIRING_MANAGER",
-                                        "RECRUITER",
-                                        "SUPER_ADMIN"
-                                )
+// View interview management
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/interviews/management"
+                                        ).hasAnyRole(
+                                                "HR",
+                                                "HIRING_MANAGER",
+                                                "RECRUITER",
+                                                "SUPER_ADMIN"
+                                        )
 
-                                .requestMatchers(
-                                        HttpMethod.GET,
-                                        "/api/interviews/upcoming"
-                                ).hasAnyRole(
-                                        "HIRING_MANAGER",
-                                        "RECRUITER",
-                                        "SUPER_ADMIN"
-                                )
+// View interview statistics
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/interviews/stats"
+                                        ).hasAnyRole(
+                                                "HR",
+                                                "HIRING_MANAGER",
+                                                "RECRUITER",
+                                                "SUPER_ADMIN"
+                                        )
 
-                                .requestMatchers(
-                                        HttpMethod.GET,
-                                        "/api/interviews/search"
-                                ).hasAnyRole(
-                                        "HIRING_MANAGER",
-                                        "RECRUITER",
-                                        "SUPER_ADMIN"
-                                )
+// View upcoming interviews
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/interviews/upcoming"
+                                        ).hasAnyRole(
+                                                "HR",
+                                                "HIRING_MANAGER",
+                                                "RECRUITER",
+                                                "SUPER_ADMIN"
+                                        )
 
-                                .requestMatchers(
-                                        HttpMethod.GET,
-                                        "/api/interviews/status/**"
-                                ).hasAnyRole(
-                                        "HIRING_MANAGER",
-                                        "RECRUITER",
-                                        "SUPER_ADMIN"
-                                )
+// Search interviews
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/interviews/search"
+                                        ).hasAnyRole(
+                                                "HR",
+                                                "HIRING_MANAGER",
+                                                "RECRUITER",
+                                                "SUPER_ADMIN"
+                                        )
 
-                                .requestMatchers(
-                                        HttpMethod.GET,
-                                        "/api/interviews/*"
-                                ).hasAnyRole(
-                                        "CANDIDATE",
-                                        "INTERVIEWER",
-                                        "HIRING_MANAGER",
-                                        "RECRUITER",
-                                        "SUPER_ADMIN"
-                                )
+// Filter interviews by status
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/interviews/status/**"
+                                        ).hasAnyRole(
+                                                "HR",
+                                                "HIRING_MANAGER",
+                                                "RECRUITER",
+                                                "SUPER_ADMIN"
+                                        )
+
+// Get individual interview
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/interviews/*"
+                                        ).hasAnyRole(
+                                                "CANDIDATE",
+                                                "HR",
+                                                "INTERVIEWER",
+                                                "HIRING_MANAGER",
+                                                "RECRUITER",
+                                                "SUPER_ADMIN"
+                                        )
 
                                 // =================================================
                                 // INTERVIEW FEEDBACK / EVALUATION
@@ -652,13 +666,19 @@ public class SecurityConfig {
                                         "SUPER_ADMIN"
                                 )
                                         // =================================================
+
 // RESUME UPLOAD
 // =================================================
 
                                         .requestMatchers(
                                                 HttpMethod.POST,
                                                 "/api/resumes/upload"
-                                        ).hasRole("CANDIDATE")                  // =================================================
+                                        ).hasAnyRole(
+                                                "CANDIDATE",
+                                                "RECRUITER",
+                                                "HR",
+                                                "SUPER_ADMIN"
+                                        )
 // EVERYTHING ELSE
 // THIS MUST BE THE LAST AUTHORIZATION RULE
 // =================================================
