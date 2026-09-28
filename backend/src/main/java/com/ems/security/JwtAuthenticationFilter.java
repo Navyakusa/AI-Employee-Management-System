@@ -6,6 +6,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -22,8 +23,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Component
-public class JwtAuthenticationFilter
-        extends OncePerRequestFilter {
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Autowired
     private JwtService jwtService;
@@ -39,6 +39,17 @@ public class JwtAuthenticationFilter
             throws ServletException, IOException {
 
         // =====================================================
+        // REQUEST INFORMATION
+        // =====================================================
+
+        System.out.println(
+                "REQUEST: "
+                        + request.getMethod()
+                        + " "
+                        + request.getRequestURI()
+        );
+
+        // =====================================================
         // GET AUTHORIZATION HEADER
         // =====================================================
 
@@ -50,35 +61,15 @@ public class JwtAuthenticationFilter
         );
 
         // =====================================================
-        // NO TOKEN
+        // NO JWT TOKEN
         // =====================================================
 
         if (authHeader == null ||
                 !authHeader.startsWith("Bearer ")) {
-            System.out.println(
-                    "REQUEST: " + request.getMethod()
-                            + " " + request.getRequestURI()
-            );
 
             System.out.println(
-                    "AUTH: " +
-                            SecurityContextHolder
-                                    .getContext()
-                                    .getAuthentication()
+                    "No Bearer token found."
             );
-
-            if (SecurityContextHolder
-                    .getContext()
-                    .getAuthentication() != null) {
-
-                System.out.println(
-                        "AUTHORITIES: " +
-                                SecurityContextHolder
-                                        .getContext()
-                                        .getAuthentication()
-                                        .getAuthorities()
-                );
-            }
 
             filterChain.doFilter(
                     request,
@@ -93,7 +84,25 @@ public class JwtAuthenticationFilter
         // =====================================================
 
         String token =
-                authHeader.substring(7);
+                authHeader.substring(7).trim();
+
+        if (token.isEmpty()) {
+
+            System.out.println(
+                    "Bearer token is empty."
+            );
+
+            filterChain.doFilter(
+                    request,
+                    response
+            );
+
+            return;
+        }
+
+        // =====================================================
+        // EXTRACT EMAIL FROM JWT
+        // =====================================================
 
         String email;
 
@@ -126,33 +135,81 @@ public class JwtAuthenticationFilter
         // =====================================================
 
         if (email != null &&
+                !email.isBlank() &&
                 SecurityContextHolder
                         .getContext()
                         .getAuthentication() == null) {
 
-            UserDetails userDetails =
-                    userDetailsService
-                            .loadUserByUsername(email);
+            UserDetails userDetails;
+
+            try {
+
+                userDetails =
+                        userDetailsService
+                                .loadUserByUsername(email);
+
+            } catch (Exception e) {
+
+                System.out.println(
+                        "User not found for JWT email: "
+                                + email
+                );
+
+                filterChain.doFilter(
+                        request,
+                        response
+                );
+
+                return;
+            }
 
             // =================================================
-            // VALIDATE TOKEN
+            // VALIDATE JWT
             // =================================================
 
-            boolean valid =
-                    jwtService.validateToken(
-                            token,
-                            userDetails.getUsername()
-                    );
+            boolean valid;
+
+            try {
+
+                valid =
+                        jwtService.validateToken(
+                                token,
+                                userDetails.getUsername()
+                        );
+
+            } catch (Exception e) {
+
+                System.out.println(
+                        "JWT validation failed: "
+                                + e.getMessage()
+                );
+
+                filterChain.doFilter(
+                        request,
+                        response
+                );
+
+                return;
+            }
 
             if (valid) {
 
                 // =============================================
-                // NORMALIZE AUTHORITIES
+                // ORIGINAL AUTHORITIES
                 // =============================================
 
                 Collection<? extends GrantedAuthority>
                         originalAuthorities =
                         userDetails.getAuthorities();
+
+                System.out.println(
+                        "Original Authorities: "
+                                + originalAuthorities
+                );
+
+                // =============================================
+                // NORMALIZE AUTHORITIES
+                // =============================================
 
                 List<GrantedAuthority>
                         normalizedAuthorities =
@@ -160,11 +217,6 @@ public class JwtAuthenticationFilter
                                 .stream()
                                 .map(this::normalizeAuthority)
                                 .collect(Collectors.toList());
-
-                System.out.println(
-                        "Original Authorities: "
-                                + originalAuthorities
-                );
 
                 System.out.println(
                         "Normalized Authorities: "
@@ -188,6 +240,10 @@ public class JwtAuthenticationFilter
                                 .buildDetails(request)
                 );
 
+                // =============================================
+                // STORE AUTHENTICATION
+                // =============================================
+
                 SecurityContextHolder
                         .getContext()
                         .setAuthentication(
@@ -203,8 +259,17 @@ public class JwtAuthenticationFilter
                         "Authorities: "
                                 + normalizedAuthorities
                 );
+            } else {
+
+                System.out.println(
+                        "JWT is invalid or expired."
+                );
             }
         }
+
+        // =====================================================
+        // CONTINUE REQUEST
+        // =====================================================
 
         filterChain.doFilter(
                 request,
@@ -228,7 +293,10 @@ public class JwtAuthenticationFilter
         String authorityName =
                 authority.getAuthority().trim();
 
-        // Already in Spring Security format
+        // -----------------------------------------------------
+        // Already ROLE_ format
+        // -----------------------------------------------------
+
         if (authorityName.startsWith("ROLE_")) {
 
             return new SimpleGrantedAuthority(
@@ -236,15 +304,22 @@ public class JwtAuthenticationFilter
             );
         }
 
-        // Convert application roles to ROLE_ format
+        // -----------------------------------------------------
+        // Convert application role to Spring role
+        // -----------------------------------------------------
+
         if (isApplicationRole(authorityName)) {
 
             return new SimpleGrantedAuthority(
-                    "ROLE_" + authorityName
+                    "ROLE_" +
+                            authorityName.toUpperCase()
             );
         }
 
-        // Keep non-role authorities unchanged
+        // -----------------------------------------------------
+        // Keep other authorities unchanged
+        // -----------------------------------------------------
+
         return new SimpleGrantedAuthority(
                 authorityName
         );
@@ -256,6 +331,10 @@ public class JwtAuthenticationFilter
 
     private boolean isApplicationRole(
             String authority) {
+
+        if (authority == null) {
+            return false;
+        }
 
         return switch (authority.toUpperCase()) {
 

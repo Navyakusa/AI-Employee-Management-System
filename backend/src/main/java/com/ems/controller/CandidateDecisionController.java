@@ -21,56 +21,120 @@ public class CandidateDecisionController {
     public CandidateDecisionController(
             CandidateDecisionService candidateDecisionService
     ) {
-        this.candidateDecisionService = candidateDecisionService;
+        this.candidateDecisionService =
+                candidateDecisionService;
     }
 
-    // Get all candidate decisions
-    // Optional search by candidate name, email, or job title
+    // =========================================================
+    // ALL DECISIONS
+    // =========================================================
+
     @GetMapping
-    public ResponseEntity<ApiResponse<List<CandidateDecisionDto>>> getAllDecisions(
+    public ResponseEntity<
+            ApiResponse<List<CandidateDecisionDto>>>
+    getAllDecisions(
             @RequestParam(required = false) String search
     ) {
-        return candidateDecisionService.getAllDecisions(search);
+
+        return candidateDecisionService
+                .getAllDecisions(search);
     }
 
-    // Get pending candidates
+    // =========================================================
+    // PENDING DECISIONS
+    // =========================================================
+
     @GetMapping("/pending")
-    public ResponseEntity<ApiResponse<List<CandidateDecisionDto>>> getPendingDecisions() {
-        return candidateDecisionService.getPendingDecisions();
+    public ResponseEntity<
+            ApiResponse<List<CandidateDecisionDto>>>
+    getPendingDecisions() {
+
+        return candidateDecisionService
+                .getPendingDecisions();
     }
 
-    // Get approved / selected / hired candidates
+    // =========================================================
+    // APPROVED
+    // =========================================================
+
     @GetMapping("/approved")
-    public ResponseEntity<ApiResponse<List<CandidateDecisionDto>>> getApprovedCandidates() {
-        return candidateDecisionService.getApprovedCandidates();
+    public ResponseEntity<
+            ApiResponse<List<CandidateDecisionDto>>>
+    getApprovedCandidates() {
+
+        return candidateDecisionService
+                .getApprovedCandidates();
     }
 
-    // Get rejected candidates
+    // =========================================================
+    // REJECTED
+    // =========================================================
+
     @GetMapping("/rejected")
-    public ResponseEntity<ApiResponse<List<CandidateDecisionDto>>> getRejectedCandidates() {
-        return candidateDecisionService.getRejectedCandidates();
+    public ResponseEntity<
+            ApiResponse<List<CandidateDecisionDto>>>
+    getRejectedCandidates() {
+
+        return candidateDecisionService
+                .getRejectedCandidates();
     }
 
-    // Approve candidate
+    // =========================================================
+    // SINGLE DECISION
+    // =========================================================
+
+    @GetMapping("/{applicationId}")
+    public ResponseEntity<
+            ApiResponse<CandidateDecisionDto>>
+    getDecisionByApplicationId(
+            @PathVariable Long applicationId
+    ) {
+
+        return candidateDecisionService
+                .getDecisionByApplicationId(applicationId);
+    }
+
+    // =========================================================
+    // APPROVE
+    // =========================================================
+
     @PatchMapping("/{applicationId}/approve")
-    public ResponseEntity<ApiResponse<CandidateDecisionDto>> approveCandidate(
+    public ResponseEntity<
+            ApiResponse<CandidateDecisionDto>>
+    approveCandidate(
             @PathVariable Long applicationId
     ) {
-        return candidateDecisionService.approveCandidate(applicationId);
+
+        return candidateDecisionService
+                .approveCandidate(applicationId);
     }
 
-    // Reject candidate
+    // =========================================================
+    // REJECT
+    // =========================================================
+
     @PatchMapping("/{applicationId}/reject")
-    public ResponseEntity<ApiResponse<CandidateDecisionDto>> rejectCandidate(
+    public ResponseEntity<
+            ApiResponse<CandidateDecisionDto>>
+    rejectCandidate(
             @PathVariable Long applicationId
     ) {
-        return candidateDecisionService.rejectCandidate(applicationId);
+
+        return candidateDecisionService
+                .rejectCandidate(applicationId);
     }
+
+    // =========================================================
+    // AI DECISION RECOMMENDATION
+    // =========================================================
+
     @PostMapping("/recommend")
-    public ResponseEntity<ApiResponse<CandidateDecisionResponseDto>>
+    public ResponseEntity<
+            ApiResponse<CandidateDecisionResponseDto>>
     recommendCandidateDecision(
             @Valid
-            @RequestBody CandidateDecisionRequestDto request) {
+            @RequestBody CandidateDecisionRequestDto request
+    ) {
 
         return candidateDecisionService
                 .recommendDecision(request);

@@ -11,37 +11,68 @@ import java.util.List;
 
 public interface JobRepository extends JpaRepository<Job, Long> {
 
-    // Search jobs by title
+    // =========================================================
+    // HIRING MANAGER
+    // =========================================================
 
-    // Search jobs by location
+    long countByHiringManagerId(Long hiringManagerId);
 
-    // Search jobs by title and location
-    
-    // Count jobs by status
-    long countByStatusIgnoreCase(String status);
-
-    // Get latest 5 jobs
-    Collection<Job> findTop5ByOrderByCreatedDateDesc();
-
-    // Job status statistics
-    @Query("""
-       SELECT j.status, COUNT(j)
-       FROM Job j
-       WHERE j.status IS NOT NULL
-       GROUP BY j.status
-       """)
-    List<Object[]> countJobsByStatus();
-
-    // Get jobs assigned to a Hiring Manager
     List<Job> findByHiringManagerId(Long hiringManagerId);
 
-    ResponseEntity<ApiResponse<List<Job>>> findByTitleContainingIgnoreCaseAndLocationContainingIgnoreCase(String title, String location);
+    // =========================================================
+    // JOB STATUS
+    // =========================================================
 
-    ResponseEntity<ApiResponse<List<Job>>> findByTitleContainingIgnoreCase(String title);
+    long countByStatusIgnoreCase(String status);
 
-    ResponseEntity<ApiResponse<List<Job>>> findByLocationContainingIgnoreCase(String location);
+    // =========================================================
+    // LATEST JOBS
+    // =========================================================
 
-    long countByDepartmentIgnoreCase(String department);
+    Collection<Job> findTop5ByOrderByCreatedDateDesc();
 
-    long countByDepartmentIgnoreCaseAndStatusIgnoreCase(String department, String open);
+    // =========================================================
+    // JOB STATUS STATISTICS
+    // =========================================================
+
+    @Query("""
+        SELECT j.status, COUNT(j)
+        FROM Job j
+        WHERE j.status IS NOT NULL
+        GROUP BY j.status
+        """)
+    List<Object[]> countJobsByStatus();
+
+    // =========================================================
+    // JOB SEARCH
+    // =========================================================
+
+    ResponseEntity<ApiResponse<List<Job>>>
+    findByTitleContainingIgnoreCaseAndLocationContainingIgnoreCase(
+            String title,
+            String location
+    );
+
+    ResponseEntity<ApiResponse<List<Job>>>
+    findByTitleContainingIgnoreCase(
+            String title
+    );
+
+    ResponseEntity<ApiResponse<List<Job>>>
+    findByLocationContainingIgnoreCase(
+            String location
+    );
+
+    // =========================================================
+    // DEPARTMENT
+    // =========================================================
+
+    long countByDepartmentIgnoreCase(
+            String department
+    );
+
+    long countByDepartmentIgnoreCaseAndStatusIgnoreCase(
+            String department,
+            String status
+    );
 }

@@ -2,16 +2,19 @@ package com.ems.service;
 
 import com.ems.common.ApiResponse;
 import com.ems.common.ApplicationStatus;
+import com.ems.common.InterviewStatus;
 import com.ems.dto.*;
 import com.ems.entity.*;
 import com.ems.mapper.CandidateDecisionMapper;
 import com.ems.repository.*;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class CandidateDecisionService {
@@ -24,353 +27,1036 @@ public class CandidateDecisionService {
     private final CandidateDecisionMapper candidateDecisionMapper;
     private final PythonAIClient pythonAIClient;
     private final CandidateRankingRepository candidateRankingRepository;
+    private final AICandidateMatchingRepository aiCandidateMatchingRepository;
 
-    public CandidateDecisionService(ApplicationRepository applicationRepository, CandidateRepository candidateRepository, JobRepository jobRepository, InterviewRepository interviewRepository, InterviewFeedbackRepository interviewFeedbackRepository, CandidateDecisionMapper candidateDecisionMapper, PythonAIClient pythonAIClient, CandidateRankingRepository candidateRankingRepository) {
-        this.applicationRepository = applicationRepository;
-        this.candidateRepository = candidateRepository;
-        this.jobRepository = jobRepository;
-        this.interviewRepository = interviewRepository;
-        this.interviewFeedbackRepository = interviewFeedbackRepository;
-        this.candidateDecisionMapper = candidateDecisionMapper;
-        this.pythonAIClient = pythonAIClient;
-        this.candidateRankingRepository = candidateRankingRepository;
+    public CandidateDecisionService(
+            ApplicationRepository applicationRepository,
+            CandidateRepository candidateRepository,
+            JobRepository jobRepository,
+            InterviewRepository interviewRepository,
+            InterviewFeedbackRepository interviewFeedbackRepository,
+            CandidateDecisionMapper candidateDecisionMapper,
+            PythonAIClient pythonAIClient,
+            CandidateRankingRepository candidateRankingRepository,
+            AICandidateMatchingRepository aiCandidateMatchingRepository
+    ) {
+        this.applicationRepository =
+                applicationRepository;
+
+        this.candidateRepository =
+                candidateRepository;
+
+        this.jobRepository =
+                jobRepository;
+
+        this.interviewRepository =
+                interviewRepository;
+
+        this.interviewFeedbackRepository =
+                interviewFeedbackRepository;
+
+        this.candidateDecisionMapper =
+                candidateDecisionMapper;
+
+        this.pythonAIClient =
+                pythonAIClient;
+
+        this.candidateRankingRepository =
+                candidateRankingRepository;
+
+        this.aiCandidateMatchingRepository =
+                aiCandidateMatchingRepository;
     }
 
-    public ResponseEntity<ApiResponse<List<CandidateDecisionDto>>> getAllDecisions(String search) {
+    // =========================================================
+    // ALL DECISIONS
+    // =========================================================
+
+    public ResponseEntity<
+            ApiResponse<List<CandidateDecisionDto>>>
+    getAllDecisions(String search) {
 
         try {
 
-            List<Application> applications = applicationRepository.findByStatusIn(List.of(ApplicationStatus.PENDING, ApplicationStatus.SELECTED, ApplicationStatus.HIRED, ApplicationStatus.REJECTED));
+            List<CandidateDecisionDto> decisions =
+                    new ArrayList<>();
 
-            List<CandidateDecisionDto> decisions = buildDecisionDtos(applications);
+            // Pending candidates
+            List<Application> shortlisted =
+                    applicationRepository.findByStatus(
+                            ApplicationStatus.SHORTLISTED
+                    );
+
+            for (Application application : shortlisted) {
+
+                if (isReadyForDecision(application)) {
+
+                    CandidateDecisionDto dto =
+                            buildDecisionDto(application);
+
+                    if (dto != null) {
+                        decisions.add(dto);
+                    }
+                }
+            }
+
+            // Existing PENDING records
+            List<Application> pending =
+                    applicationRepository.findByStatus(
+                            ApplicationStatus.PENDING
+                    );
+
+            for (Application application : pending) {
+
+                CandidateDecisionDto dto =
+                        buildDecisionDto(application);
+
+                if (dto != null) {
+                    decisions.add(dto);
+                }
+            }
+
+            // Approved
+            List<Application> approved =
+                    applicationRepository.findByStatusIn(
+                            List.of(
+                                    ApplicationStatus.SELECTED,
+                                    ApplicationStatus.HIRED
+                            )
+                    );
+
+            decisions.addAll(
+                    buildDecisionDtos(approved)
+            );
+
+            // Rejected
+            List<Application> rejected =
+                    applicationRepository.findByStatus(
+                            ApplicationStatus.REJECTED
+                    );
+
+            decisions.addAll(
+                    buildDecisionDtos(rejected)
+            );
 
             // Search
-            if (search != null && !search.trim().isEmpty()) {
+            if (search != null &&
+                    !search.trim().isEmpty()) {
 
-                String keyword = search.trim().toLowerCase();
+                String keyword =
+                        search.trim().toLowerCase();
 
-                decisions = decisions.stream().filter(dto -> (dto.getCandidateName() != null && dto.getCandidateName().toLowerCase().contains(keyword)) || (dto.getCandidateEmail() != null && dto.getCandidateEmail().toLowerCase().contains(keyword)) || (dto.getJobTitle() != null && dto.getJobTitle().toLowerCase().contains(keyword))).toList();
+                decisions =
+                        decisions.stream()
+                                .filter(dto ->
+                                        contains(
+                                                dto.getCandidateName(),
+                                                keyword
+                                        )
+                                                ||
+                                                contains(
+                                                        dto.getCandidateEmail(),
+                                                        keyword
+                                                )
+                                                ||
+                                                contains(
+                                                        dto.getJobTitle(),
+                                                        keyword
+                                                )
+                                )
+                                .toList();
             }
 
-            return ResponseEntity.ok(new ApiResponse<>(true, "Candidate decisions fetched successfully", decisions));
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Candidate decisions fetched successfully",
+                            decisions
+                    )
+            );
 
         } catch (Exception e) {
 
             e.printStackTrace();
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to fetch candidate decisions: " + e.getMessage(), null));
+            return ResponseEntity
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to fetch candidate decisions: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
         }
     }
 
     // =========================================================
-    // GET PENDING DECISIONS
+    // PENDING DECISIONS
+    // SHORTLISTED + COMPLETED INTERVIEW + FEEDBACK
     // =========================================================
-    public ResponseEntity<ApiResponse<List<CandidateDecisionDto>>> getPendingDecisions() {
+
+    public ResponseEntity<
+            ApiResponse<List<CandidateDecisionDto>>>
+    getPendingDecisions() {
 
         try {
 
-            List<Application> applications = applicationRepository.findByStatus(ApplicationStatus.PENDING);
+            List<CandidateDecisionDto> decisions =
+                    new ArrayList<>();
 
-            List<CandidateDecisionDto> decisions = buildDecisionDtos(applications);
+            List<Application> applications =
+                    applicationRepository.findByStatus(
+                            ApplicationStatus.SHORTLISTED
+                    );
 
-            return ResponseEntity.ok(new ApiResponse<>(true, "Pending candidate decisions fetched successfully", decisions));
+            for (Application application : applications) {
+
+                if (!isReadyForDecision(application)) {
+                    continue;
+                }
+
+                CandidateDecisionDto dto =
+                        buildDecisionDto(application);
+
+                if (dto != null) {
+                    decisions.add(dto);
+                }
+            }
+
+            // Support old PENDING records
+            List<Application> oldPending =
+                    applicationRepository.findByStatus(
+                            ApplicationStatus.PENDING
+                    );
+
+            decisions.addAll(
+                    buildDecisionDtos(oldPending)
+            );
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Pending candidate decisions fetched successfully",
+                            decisions
+                    )
+            );
 
         } catch (Exception e) {
 
             e.printStackTrace();
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to fetch pending decisions: " + e.getMessage(), null));
+            return ResponseEntity
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to fetch pending decisions: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
         }
     }
 
     // =========================================================
-    // GET APPROVED CANDIDATES
-    // SELECTED + HIRED
+    // APPROVED
     // =========================================================
-    public ResponseEntity<ApiResponse<List<CandidateDecisionDto>>> getApprovedCandidates() {
+
+    public ResponseEntity<
+            ApiResponse<List<CandidateDecisionDto>>>
+    getApprovedCandidates() {
 
         try {
 
-            List<Application> applications = applicationRepository.findByStatusIn(List.of(ApplicationStatus.SELECTED, ApplicationStatus.HIRED));
+            List<Application> applications =
+                    applicationRepository.findByStatusIn(
+                            List.of(
+                                    ApplicationStatus.SELECTED,
+                                    ApplicationStatus.HIRED
+                            )
+                    );
 
-            List<CandidateDecisionDto> decisions = buildDecisionDtos(applications);
-
-            return ResponseEntity.ok(new ApiResponse<>(true, "Approved candidates fetched successfully", decisions));
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Approved candidates fetched successfully",
+                            buildDecisionDtos(applications)
+                    )
+            );
 
         } catch (Exception e) {
 
             e.printStackTrace();
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to fetch approved candidates: " + e.getMessage(), null));
+            return ResponseEntity
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to fetch approved candidates: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
         }
     }
 
     // =========================================================
-    // GET REJECTED CANDIDATES
+    // REJECTED
     // =========================================================
-    public ResponseEntity<ApiResponse<List<CandidateDecisionDto>>> getRejectedCandidates() {
+
+    public ResponseEntity<
+            ApiResponse<List<CandidateDecisionDto>>>
+    getRejectedCandidates() {
 
         try {
 
-            List<Application> applications = applicationRepository.findByStatus(ApplicationStatus.REJECTED);
+            List<Application> applications =
+                    applicationRepository.findByStatus(
+                            ApplicationStatus.REJECTED
+                    );
 
-            List<CandidateDecisionDto> decisions = buildDecisionDtos(applications);
-
-            return ResponseEntity.ok(new ApiResponse<>(true, "Rejected candidates fetched successfully", decisions));
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Rejected candidates fetched successfully",
+                            buildDecisionDtos(applications)
+                    )
+            );
 
         } catch (Exception e) {
 
             e.printStackTrace();
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to fetch rejected candidates: " + e.getMessage(), null));
+            return ResponseEntity
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to fetch rejected candidates: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
         }
     }
 
     // =========================================================
-    // APPROVE CANDIDATE
-    // PENDING → SELECTED
+    // SINGLE DECISION
     // =========================================================
-    public ResponseEntity<ApiResponse<CandidateDecisionDto>> approveCandidate(Long applicationId) {
+
+    public ResponseEntity<
+            ApiResponse<CandidateDecisionDto>>
+    getDecisionByApplicationId(
+            Long applicationId
+    ) {
 
         try {
 
-            Application application = applicationRepository.findById(applicationId).orElse(null);
+            Application application =
+                    applicationRepository
+                            .findById(applicationId)
+                            .orElse(null);
 
             if (application == null) {
 
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Application not found", null));
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Application not found",
+                                        null
+                                )
+                        );
             }
 
-            application.setStatus(ApplicationStatus.SELECTED);
+            CandidateDecisionDto dto =
+                    buildDecisionDto(application);
 
-            Application updatedApplication = applicationRepository.save(application);
+            if (dto == null) {
 
-            CandidateDecisionDto dto = buildDecisionDto(updatedApplication);
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Candidate decision data not found",
+                                        null
+                                )
+                        );
+            }
 
-            return ResponseEntity.ok(new ApiResponse<>(true, "Candidate approved successfully", dto));
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Candidate decision fetched successfully",
+                            dto
+                    )
+            );
 
         } catch (Exception e) {
 
             e.printStackTrace();
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to approve candidate: " + e.getMessage(), null));
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to fetch candidate decision: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
         }
     }
 
     // =========================================================
-    // REJECT CANDIDATE
-    // ANY STATUS → REJECTED
+    // APPROVE
     // =========================================================
-    public ResponseEntity<ApiResponse<CandidateDecisionDto>> rejectCandidate(Long applicationId) {
+
+    public ResponseEntity<
+            ApiResponse<CandidateDecisionDto>>
+    approveCandidate(Long applicationId) {
 
         try {
 
-            Application application = applicationRepository.findById(applicationId).orElse(null);
+            Application application =
+                    applicationRepository
+                            .findById(applicationId)
+                            .orElse(null);
 
             if (application == null) {
 
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Application not found", null));
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Application not found",
+                                        null
+                                )
+                        );
             }
 
-            application.setStatus(ApplicationStatus.REJECTED);
+            if (!isDecisionAllowed(application)) {
 
-            Application updatedApplication = applicationRepository.save(application);
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Candidate is not ready for final decision. Interview must be completed and feedback must be submitted.",
+                                        null
+                                )
+                        );
+            }
 
-            CandidateDecisionDto dto = buildDecisionDto(updatedApplication);
+            application.setStatus(
+                    ApplicationStatus.SELECTED
+            );
 
-            return ResponseEntity.ok(new ApiResponse<>(true, "Candidate rejected successfully", dto));
+            Application updated =
+                    applicationRepository.save(
+                            application
+                    );
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Candidate approved successfully",
+                            buildDecisionDto(updated)
+                    )
+            );
 
         } catch (Exception e) {
 
             e.printStackTrace();
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to reject candidate: " + e.getMessage(), null));
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to approve candidate: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
+        }
+    }
+
+    // =========================================================
+    // REJECT
+    // =========================================================
+
+    public ResponseEntity<
+            ApiResponse<CandidateDecisionDto>>
+    rejectCandidate(Long applicationId) {
+
+        try {
+
+            Application application =
+                    applicationRepository
+                            .findById(applicationId)
+                            .orElse(null);
+
+            if (application == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Application not found",
+                                        null
+                                )
+                        );
+            }
+
+            if (!isDecisionAllowed(application)) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Candidate is not ready for final decision. Interview must be completed and feedback must be submitted.",
+                                        null
+                                )
+                        );
+            }
+
+            application.setStatus(
+                    ApplicationStatus.REJECTED
+            );
+
+            Application updated =
+                    applicationRepository.save(
+                            application
+                    );
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Candidate rejected successfully",
+                            buildDecisionDto(updated)
+                    )
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to reject candidate: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
         }
     }
 
     // =========================================================
     // BUILD DTO LIST
     // =========================================================
-    private List<CandidateDecisionDto> buildDecisionDtos(List<Application> applications) {
 
-        List<CandidateDecisionDto> decisions = new ArrayList<>();
+    private List<CandidateDecisionDto>
+    buildDecisionDtos(
+            List<Application> applications
+    ) {
 
-        for (Application application : applications) {
+        List<CandidateDecisionDto> result =
+                new ArrayList<>();
 
-            CandidateDecisionDto dto = buildDecisionDto(application);
+        for (Application application :
+                applications) {
+
+            CandidateDecisionDto dto =
+                    buildDecisionDto(application);
 
             if (dto != null) {
-                decisions.add(dto);
+                result.add(dto);
             }
         }
 
-        return decisions;
+        return result;
     }
 
     // =========================================================
-    // BUILD ONE COMPLETE DTO
+    // BUILD DTO
     // =========================================================
-    private CandidateDecisionDto buildDecisionDto(Application application) {
 
-        Candidate candidate = candidateRepository.findById(application.getCandidateId()).orElse(null);
+    private CandidateDecisionDto buildDecisionDto(
+            Application application
+    ) {
 
-        Job job = jobRepository.findById(application.getJobId()).orElse(null);
+        Candidate candidate =
+                candidateRepository
+                        .findById(
+                                application.getCandidateId()
+                        )
+                        .orElse(null);
+
+        Job job =
+                jobRepository
+                        .findById(
+                                application.getJobId()
+                        )
+                        .orElse(null);
 
         if (candidate == null || job == null) {
             return null;
         }
 
-        // Map Candidate → DTO
-        CandidateDecisionDto dto = candidateDecisionMapper.candidateToDto(candidate);
+        CandidateDecisionDto dto =
+                candidateDecisionMapper
+                        .candidateToDto(candidate);
 
-        // Application information
-        dto.setApplicationId(application.getApplicationId());
+        dto.setApplicationId(
+                application.getApplicationId()
+        );
 
-        // Job information
         dto.setJobId(job.getId());
+
         dto.setJobTitle(job.getTitle());
 
-        // Application status
-        dto.setStatus(application.getStatus() != null ? application.getStatus().name() : null);
+        dto.setStatus(
+                application.getStatus() != null
+                        ? application.getStatus().name()
+                        : null
+        );
+
+        dto.setAppliedAt(
+                application.getAppliedAt()
+        );
 
         // =====================================================
-        // FIND INTERVIEW SCORE
+        // LATEST INTERVIEW
         // =====================================================
 
-        List<Interview> interviews = interviewRepository.findByCandidateId(candidate.getId());
+        Optional<Interview> interviewOptional =
+                interviewRepository
+                        .findFirstByApplicationIdOrderByInterviewDateTimeDesc(
+                                application.getApplicationId()
+                        );
 
-        Integer interviewScore = null;
+        if (interviewOptional.isPresent()) {
 
-        for (Interview interview : interviews) {
+            Interview interview =
+                    interviewOptional.get();
 
-            InterviewFeedback feedback = interviewFeedbackRepository.findByInterviewId(interview.getInterviewId()).orElse(null);
+            dto.setInterviewId(
+                    interview.getInterviewId()
+            );
+
+            dto.setInterviewStatus(
+                    interview.getStatus() != null
+                            ? interview.getStatus().name()
+                            : null
+            );
+
+            dto.setInterviewDateTime(
+                    interview.getInterviewDateTime()
+            );
+
+            InterviewFeedback feedback =
+                    interviewFeedbackRepository
+                            .findByInterviewId(
+                                    interview.getInterviewId()
+                            )
+                            .orElse(null);
 
             if (feedback != null) {
 
-                interviewScore = feedback.getRating();
+                Integer score =
+                        feedback.getOverallRating();
 
-                // Use the latest feedback found
-                // for this candidate
+                if (score == null) {
+                    score = feedback.getRating();
+                }
+
+                dto.setInterviewScore(score);
+
+                dto.setInterviewRecommendation(
+                        feedback.getRecommendation()
+                );
+
+                dto.setInterviewFeedback(
+                        feedback.getFeedback()
+                );
             }
         }
 
-        dto.setInterviewScore(interviewScore);
+        // =====================================================
+        // AI MATCH SCORE
+        // Python ranking is preferred.
+        // Existing AI matching table is fallback.
+        // =====================================================
 
-        // =====================================================
-        // AI MATCH PERCENTAGE
-        // =====================================================
-        // This will remain null until the ML team provides
-        // the AI Candidate Matching result.
-        dto.setAiMatchPercentage(null);
+        Double aiScore = null;
+
+        Optional<CandidateRanking> ranking =
+                candidateRankingRepository
+                        .findByCandidateIdAndJobId(
+                                candidate.getId(),
+                                job.getId()
+                        );
+
+        if (ranking.isPresent()) {
+
+            aiScore =
+                    ranking.get().getMatchScore();
+        }
+
+        if (aiScore == null) {
+
+            Optional<AICandidateMatching>
+                    matching =
+                    aiCandidateMatchingRepository
+                            .findFirstByCandidateIdAndJobIdOrderByIdDesc(
+                                    candidate.getId(),
+                                    job.getId()
+                            );
+
+            if (matching.isPresent()) {
+
+                aiScore =
+                        matching.get()
+                                .getOverallMatchScore();
+            }
+        }
+
+        dto.setAiMatchPercentage(aiScore);
 
         return dto;
     }
 
-    public ResponseEntity<ApiResponse<CandidateDecisionResponseDto>> recommendDecision(CandidateDecisionRequestDto request) {
+    // =========================================================
+    // READY FOR DECISION
+    // =========================================================
+
+    private boolean isReadyForDecision(
+            Application application
+    ) {
+
+        if (application == null) {
+            return false;
+        }
+
+        if (application.getStatus() !=
+                ApplicationStatus.SHORTLISTED
+                &&
+                application.getStatus() !=
+                        ApplicationStatus.PENDING) {
+
+            return false;
+        }
+
+        Optional<Interview> interviewOptional =
+                interviewRepository
+                        .findFirstByApplicationIdOrderByInterviewDateTimeDesc(
+                                application.getApplicationId()
+                        );
+
+        if (interviewOptional.isEmpty()) {
+            return false;
+        }
+
+        Interview interview =
+                interviewOptional.get();
+
+        if (interview.getStatus() !=
+                InterviewStatus.COMPLETED) {
+
+            return false;
+        }
+
+        return interviewFeedbackRepository
+                .existsByInterviewId(
+                        interview.getInterviewId()
+                );
+    }
+
+    private boolean isDecisionAllowed(
+            Application application
+    ) {
+
+        if (application.getStatus() ==
+                ApplicationStatus.PENDING) {
+
+            return true;
+        }
+
+        return isReadyForDecision(application);
+    }
+
+    // =========================================================
+    // AI DECISION RECOMMENDATION
+    // =========================================================
+
+    public ResponseEntity<
+            ApiResponse<CandidateDecisionResponseDto>>
+    recommendDecision(
+            CandidateDecisionRequestDto request
+    ) {
 
         try {
 
-            Long jobId = request.getJobId();
-            Long candidateId = request.getCandidateId();
+            Long jobId =
+                    request.getJobId();
+
+            Long candidateId =
+                    request.getCandidateId();
 
             // =====================================================
-            // 1. Get existing AI candidate ranking
+            // 1. MATCH SCORE
             // =====================================================
 
-            CandidateRanking ranking = candidateRankingRepository.findByCandidateIdAndJobId(candidateId, jobId).orElseThrow(() -> new RuntimeException("Candidate ranking not found for candidate ID: " + candidateId + " and job ID: " + jobId));
+            Double matchScore = null;
 
-            if (ranking.getMatchScore() == null) {
-                throw new RuntimeException("Match score is not available for candidate ID: " + candidateId);
+            Optional<CandidateRanking> ranking =
+                    candidateRankingRepository
+                            .findByCandidateIdAndJobId(
+                                    candidateId,
+                                    jobId
+                            );
+
+            if (ranking.isPresent()) {
+
+                matchScore =
+                        ranking.get().getMatchScore();
+            }
+
+            if (matchScore == null) {
+
+                Optional<AICandidateMatching>
+                        matching =
+                        aiCandidateMatchingRepository
+                                .findFirstByCandidateIdAndJobIdOrderByIdDesc(
+                                        candidateId,
+                                        jobId
+                                );
+
+                if (matching.isPresent()) {
+
+                    matchScore =
+                            matching.get()
+                                    .getOverallMatchScore();
+                }
+            }
+
+            if (matchScore == null) {
+
+                throw new RuntimeException(
+                        "AI match score is not available"
+                );
             }
 
             // =====================================================
-            // 2. Get latest interview for candidate + job
+            // 2. LATEST INTERVIEW
             // =====================================================
 
-            Interview interview = (Interview) interviewRepository.findFirstByCandidateIdAndJobIdOrderByInterviewDateTimeDesc(candidateId, jobId).orElseThrow(() -> new RuntimeException("Interview not found for candidate ID: " + candidateId + " and job ID: " + jobId));
+            Interview interview =
+                    interviewRepository
+                            .findFirstByCandidateIdAndJobIdOrderByInterviewDateTimeDesc(
+                                    candidateId,
+                                    jobId
+                            )
+                            .orElseThrow(() ->
+                                    new RuntimeException(
+                                            "Interview not found"
+                                    )
+                            );
 
-            // =====================================================
-            // 3. Get feedback for that interview
-            // =====================================================
+            if (interview.getStatus() !=
+                    InterviewStatus.COMPLETED) {
 
-            InterviewFeedback feedback = interviewFeedbackRepository.findByInterviewId(interview.getInterviewId()).orElseThrow(() -> new RuntimeException("Interview feedback not found for interview ID: " + interview.getInterviewId()));
-
-            if (feedback.getRating() == null) {
-                throw new RuntimeException("Interview rating is not available");
+                throw new RuntimeException(
+                        "Interview is not completed"
+                );
             }
 
             // =====================================================
-            // 4. Convert EMS 1-5 rating to Python 1-10 scale
+            // 3. FEEDBACK
             // =====================================================
 
-            double feedbackScore = feedback.getRating() * 2.0;
+            InterviewFeedback feedback =
+                    interviewFeedbackRepository
+                            .findByInterviewId(
+                                    interview.getInterviewId()
+                            )
+                            .orElseThrow(() ->
+                                    new RuntimeException(
+                                            "Interview feedback not found"
+                                    )
+                            );
+
+            Integer overall =
+                    feedback.getOverallRating();
+
+            if (overall == null) {
+                overall = feedback.getRating();
+            }
+
+            if (overall == null) {
+
+                throw new RuntimeException(
+                        "Interview rating is not available"
+                );
+            }
+
+            // EMS = 1-5
+            // Python AI = 1-10
+
+            double overallScore =
+                    overall * 2.0;
+
+            double technical =
+                    feedback.getTechnicalRating() != null
+                            ? feedback.getTechnicalRating() * 2.0
+                            : overallScore;
+
+            double communication =
+                    feedback.getCommunicationRating() != null
+                            ? feedback.getCommunicationRating() * 2.0
+                            : overallScore;
+
+            double problemSolving =
+                    feedback.getProblemSolvingRating() != null
+                            ? feedback.getProblemSolvingRating() * 2.0
+                            : overallScore;
+
+            PythonDecisionFeedbackDto
+                    pythonFeedback =
+                    new PythonDecisionFeedbackDto();
+
+            pythonFeedback.setTechnicalSkills(
+                    technical
+            );
+
+            pythonFeedback.setCommunication(
+                    communication
+            );
+
+            pythonFeedback.setProblemSolving(
+                    problemSolving
+            );
+
+            pythonFeedback.setTeamwork(
+                    overallScore
+            );
+
+            pythonFeedback.setLeadership(
+                    overallScore
+            );
+
+            PythonDecisionRequestDto
+                    pythonRequest =
+                    new PythonDecisionRequestDto();
+
+            pythonRequest.setMatchProbabilityPct(
+                    matchScore
+            );
+
+            pythonRequest.setInterviewFeedback(
+                    pythonFeedback
+            );
 
             // =====================================================
-            // 5. Build Python interview feedback
-            // =====================================================
-            //
-            // EMS currently stores one overall rating.
-            // Therefore we use that same overall score for each
-            // Python feedback dimension.
+            // 4. CALL PYTHON AI
             // =====================================================
 
-            PythonDecisionFeedbackDto pythonFeedback = new PythonDecisionFeedbackDto();
-
-            pythonFeedback.setTechnicalSkills(feedbackScore);
-
-            pythonFeedback.setCommunication(feedbackScore);
-
-            pythonFeedback.setProblemSolving(feedbackScore);
-
-            pythonFeedback.setTeamwork(feedbackScore);
-
-            pythonFeedback.setLeadership(feedbackScore);
+            PythonDecisionResponseDto aiResponse =
+                    pythonAIClient
+                            .recommendCandidateDecision(
+                                    pythonRequest
+                            );
 
             // =====================================================
-            // 6. Build Python decision request
+            // 5. RESPONSE
             // =====================================================
 
-            PythonDecisionRequestDto pythonRequest = new PythonDecisionRequestDto();
+            CandidateDecisionResponseDto response =
+                    new CandidateDecisionResponseDto();
 
-            pythonRequest.setMatchProbabilityPct(ranking.getMatchScore());
+            response.setJobId(jobId);
 
-            pythonRequest.setInterviewFeedback(pythonFeedback);
+            response.setCandidateId(candidateId);
 
-            // =====================================================
-            // 7. Call Python AI
-            // =====================================================
+            response.setMatchProbabilityPct(
+                    aiResponse.getMatchProbabilityPct()
+            );
 
-            PythonDecisionResponseDto aiResponse = pythonAIClient.recommendCandidateDecision(pythonRequest);
+            response.setInterviewAverageScore(
+                    aiResponse.getInterviewAverageScore()
+            );
 
-            // =====================================================
-            // 8. Build EMS response
-            // =====================================================
+            response.setCombinedScorePct(
+                    aiResponse.getCombinedScorePct()
+            );
 
-            CandidateDecisionResponseDto responseDto = new CandidateDecisionResponseDto();
+            response.setRecommendation(
+                    aiResponse.getRecommendation()
+            );
 
-            responseDto.setJobId(jobId);
+            response.setRationale(
+                    aiResponse.getRationale()
+            );
 
-            responseDto.setCandidateId(candidateId);
+            response.setNote(
+                    aiResponse.getNote()
+            );
 
-            responseDto.setMatchProbabilityPct(aiResponse.getMatchProbabilityPct());
-
-            responseDto.setInterviewAverageScore(aiResponse.getInterviewAverageScore());
-
-            responseDto.setCombinedScorePct(aiResponse.getCombinedScorePct());
-
-            responseDto.setRecommendation(aiResponse.getRecommendation());
-
-            responseDto.setRationale(aiResponse.getRationale());
-
-            responseDto.setNote(aiResponse.getNote());
-
-            return ResponseEntity.ok(new ApiResponse<>(true, "Candidate decision recommendation generated successfully", responseDto));
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Candidate decision recommendation generated successfully",
+                            response
+                    )
+            );
 
         } catch (Exception e) {
 
             e.printStackTrace();
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to generate candidate decision recommendation: " + e.getMessage(), null));
+            return ResponseEntity
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to generate candidate decision recommendation: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
         }
+    }
+
+    private boolean contains(
+            String value,
+            String keyword
+    ) {
+
+        return value != null &&
+                value.toLowerCase()
+                        .contains(keyword);
     }
 }

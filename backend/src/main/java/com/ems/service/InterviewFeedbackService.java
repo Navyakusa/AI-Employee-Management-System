@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import com.ems.common.InterviewStatus;
 
 @Service
 public class InterviewFeedbackService {
@@ -246,6 +247,15 @@ public class InterviewFeedbackService {
 
             InterviewFeedback saved =
                     feedbackRepository.save(feedback);
+            // =========================================================
+// MARK INTERVIEW AS COMPLETED
+// =========================================================
+
+            interview.setStatus(
+                    InterviewStatus.COMPLETED
+            );
+
+            interviewRepository.save(interview);
 
             // -------------------------------------------------
             // Notify HR / recruitment users

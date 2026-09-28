@@ -2,6 +2,7 @@ package com.ems.repository;
 
 import com.ems.common.ApplicationStatus;
 import com.ems.entity.Application;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,38 +13,79 @@ import java.util.Optional;
 public interface ApplicationRepository
         extends JpaRepository<Application, Long> {
 
+    // =========================================================
+    // CANDIDATE
+    // =========================================================
+
     List<Application> findByCandidateId(Long candidateId);
+
     Optional<Application>
     findByCandidateIdAndJobId(
             Long candidateId,
             Long jobId
     );
-    List<Application> findByJobId(Long jobId);
 
     boolean existsByCandidateIdAndJobId(
             Long candidateId,
             Long jobId
     );
 
-    long countByStatus(
+    long countByCandidateId(Long candidateId);
+
+    List<Application>
+    findTop5ByCandidateIdOrderByAppliedAtDesc(
+            Long candidateId
+    );
+
+    Optional<Application>
+    findFirstByCandidateIdOrderByAppliedAtDesc(
+            Long candidateId
+    );
+
+    // =========================================================
+    // JOB
+    // =========================================================
+
+    List<Application> findByJobId(Long jobId);
+
+    Long countByJobId(Long jobId);
+
+    // =========================================================
+    // STATUS
+    // =========================================================
+
+    long countByStatus(ApplicationStatus status);
+
+    List<Application> findByStatus(
             ApplicationStatus status
     );
 
-    Long countByJobId(Long id);
+    List<Application> findByStatusIn(
+            List<ApplicationStatus> statuses
+    );
 
-    List<Application> findTop5ByOrderByAppliedAtDesc();
+    // =========================================================
+    // RECENT APPLICATIONS
+    // =========================================================
 
-    long countByCandidateId(Long candidateId);
+    List<Application>
+    findTop5ByOrderByAppliedAtDesc();
 
-    List<Application> findTop5ByCandidateIdOrderByAppliedAtDesc(Long candidateId);
+    // =========================================================
+    // APPLICATION STATUS STATISTICS
+    // =========================================================
 
     @Query("""
-       SELECT a.status, COUNT(a)
-       FROM Application a
-       WHERE a.status IS NOT NULL
-       GROUP BY a.status
-       """)
+        SELECT a.status, COUNT(a)
+        FROM Application a
+        WHERE a.status IS NOT NULL
+        GROUP BY a.status
+        """)
     List<Object[]> countApplicationsByStatus();
+
+    // =========================================================
+    // DEPARTMENT
+    // =========================================================
 
     @Query("""
         SELECT COUNT(a)
@@ -58,14 +100,40 @@ public interface ApplicationRepository
             @Param("department") String department
     );
 
-    List<Application> findByStatus(
-            ApplicationStatus status
+    // =========================================================
+    // HIRING MANAGER - FILTERED APPLICATIONS
+    // =========================================================
+
+    @Query("""
+        SELECT a
+        FROM Application a
+        WHERE a.status = :status
+        AND a.jobId IN (
+            SELECT j.id
+            FROM Job j
+            WHERE j.hiringManagerId = :hiringManagerId
+        )
+        ORDER BY a.appliedAt DESC
+        """)
+    List<Application> findByStatusAndHiringManagerId(
+            @Param("status") ApplicationStatus status,
+            @Param("hiringManagerId") Long hiringManagerId
     );
 
-    List<Application> findByStatusIn(
-            List<ApplicationStatus> statuses
-    );
-    Optional<Application>
-    findFirstByCandidateIdOrderByAppliedAtDesc(Long candidateId);
+    // =========================================================
+    // HIRING MANAGER - TOTAL APPLICATIONS
+    // =========================================================
 
+    @Query("""
+        SELECT COUNT(a)
+        FROM Application a
+        WHERE a.jobId IN (
+            SELECT j.id
+            FROM Job j
+            WHERE j.hiringManagerId = :hiringManagerId
+        )
+        """)
+    long countByHiringManagerId(
+            @Param("hiringManagerId") Long hiringManagerId
+    );
 }

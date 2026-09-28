@@ -19,5 +19,7 @@ public class HiringManagerDashboardDto {
 
     private Long totalInterviews;
 
+    private Long pendingDecisions;
+
     private String department;
 }

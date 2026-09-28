@@ -3,6 +3,8 @@ package com.ems.dto;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Setter
 public class CandidateDecisionDto {
@@ -18,12 +20,25 @@ public class CandidateDecisionDto {
 
     private String experience;
 
-    // Interview evaluation score
     private Integer interviewScore;
 
-    // AI matching score - will be populated when ML integration is connected
     private Double aiMatchPercentage;
 
-    // Current application/decision status
     private String status;
+
+    // =========================================================
+    // INTERVIEW INFORMATION
+    // =========================================================
+
+    private Long interviewId;
+
+    private String interviewStatus;
+
+    private String interviewRecommendation;
+
+    private String interviewFeedback;
+
+    private LocalDateTime interviewDateTime;
+
+    private LocalDateTime appliedAt;
 }

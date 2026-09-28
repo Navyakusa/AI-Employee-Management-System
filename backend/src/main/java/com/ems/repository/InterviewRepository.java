@@ -9,6 +9,8 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.repository.query.Param;
+
 
 public interface InterviewRepository extends JpaRepository<Interview, Long> {
 
@@ -66,5 +68,22 @@ public interface InterviewRepository extends JpaRepository<Interview, Long> {
     Optional<Interview> findFirstByCandidateIdAndJobIdOrderByInterviewDateTimeDesc(
             Long candidateId,
             Long jobId
+    );
+    Optional<Interview>
+    findFirstByApplicationIdOrderByInterviewDateTimeDesc(
+            Long applicationId
+    );
+
+    @Query("""
+    SELECT COUNT(i)
+    FROM Interview i
+    WHERE i.jobId IN (
+        SELECT j.id
+        FROM Job j
+        WHERE j.hiringManagerId = :hiringManagerId
+    )
+    """)
+    long countByHiringManagerId(
+            @Param("hiringManagerId") Long hiringManagerId
     );
 }
