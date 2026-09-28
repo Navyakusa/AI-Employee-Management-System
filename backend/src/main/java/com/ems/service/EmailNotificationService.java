@@ -1,4 +1,5 @@
-package com.ems.service;
+
+        package com.ems.service;
 
 import com.ems.entity.EmailTemplate;
 import com.ems.entity.User;
@@ -202,6 +203,80 @@ public class EmailNotificationService {
     }
 
     // =========================================================
+    // SEND PASSWORD RESET EMAIL
+    // =========================================================
+
+    public void sendPasswordResetEmail(
+            String email,
+            String userName,
+            String resetToken
+    ) {
+
+        // Validate recipient email
+
+        if (email == null || email.isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Recipient email address is missing"
+            );
+        }
+
+        // Validate reset token
+
+        if (resetToken == null || resetToken.isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Password reset token is missing"
+            );
+        }
+
+        // Create frontend reset-password link
+
+        String resetLink =
+                "http://localhost:5173/reset-password?token="
+                        + resetToken;
+
+        // Email subject
+
+        String emailSubject =
+                "EMS - Password Reset Request";
+
+        // Email body
+
+        String emailBody =
+                "Hello " + userName + ",\n\n"
+                        + "We received a request to reset your EMS password.\n\n"
+                        + "Please use the following link to reset your password:\n\n"
+                        + resetLink + "\n\n"
+                        + "This password reset link will expire in 30 minutes.\n\n"
+                        + "If you did not request a password reset, please ignore this email.\n\n"
+                        + "Regards,\n"
+                        + "EMS Support Team";
+
+        // Prepare SMTP message
+
+        SimpleMailMessage message =
+                new SimpleMailMessage();
+
+        message.setFrom(fromEmail);
+
+        message.setTo(email);
+
+        message.setSubject(emailSubject);
+
+        message.setText(emailBody);
+
+        // Send email through Gmail SMTP
+
+        mailSender.send(message);
+
+        log.info(
+                "Password reset email sent to: {}",
+                email
+        );
+    }
+
+    // =========================================================
     // REPLACE DYNAMIC VARIABLES
     // =========================================================
 
@@ -269,11 +344,5 @@ public class EmailNotificationService {
             String title
     ) {
     }
-
-    public void sendPasswordResetEmail(
-            String email,
-            String userName,
-            String resetToken
-    ) {
-    }
 }
+
