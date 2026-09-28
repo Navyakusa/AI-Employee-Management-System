@@ -27,6 +27,7 @@ public class ResumeController {
     )
     public ResponseEntity<ApiResponse<ResumeResponseDto>> uploadResume(
             @Valid @ModelAttribute ResumeRequestDto request) {
+        System.out.println("========== RESUME UPLOAD CONTROLLER REACHED ==========");
 
         return resumeService.uploadResume(request);
     }

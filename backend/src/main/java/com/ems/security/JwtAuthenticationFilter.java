@@ -55,6 +55,30 @@ public class JwtAuthenticationFilter
 
         if (authHeader == null ||
                 !authHeader.startsWith("Bearer ")) {
+            System.out.println(
+                    "REQUEST: " + request.getMethod()
+                            + " " + request.getRequestURI()
+            );
+
+            System.out.println(
+                    "AUTH: " +
+                            SecurityContextHolder
+                                    .getContext()
+                                    .getAuthentication()
+            );
+
+            if (SecurityContextHolder
+                    .getContext()
+                    .getAuthentication() != null) {
+
+                System.out.println(
+                        "AUTHORITIES: " +
+                                SecurityContextHolder
+                                        .getContext()
+                                        .getAuthentication()
+                                        .getAuthorities()
+                );
+            }
 
             filterChain.doFilter(
                     request,
