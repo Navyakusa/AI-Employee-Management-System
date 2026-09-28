@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.ems.config.AppProperties;
 
 @Slf4j
 @Service
@@ -30,6 +31,7 @@ public class EmailNotificationService {
     private final EmailTemplateRepository emailTemplateRepository;
 
     private final UserRepository userRepository;
+    private final AppProperties appProperties;
 
     @Value("${spring.mail.username}")
     private String fromEmail;
@@ -232,10 +234,23 @@ public class EmailNotificationService {
 
         // Create frontend reset-password link
 
-        String resetLink =
-                "http://localhost:5173/reset-password?token="
-                        + resetToken;
+        String frontendUrl =
+                appProperties.getFrontendUrl();
 
+        if (frontendUrl == null || frontendUrl.isBlank()) {
+            throw new IllegalStateException(
+                    "Frontend URL is not configured. "
+                            + "Please configure app.frontend-url "
+                            + "in application.yml"
+            );
+        }
+
+        frontendUrl = frontendUrl.replaceAll("/+$", "");
+
+        String resetLink =
+                frontendUrl
+                        + "/reset-password?token="
+                        + resetToken;
         // Email subject
 
         String emailSubject =
