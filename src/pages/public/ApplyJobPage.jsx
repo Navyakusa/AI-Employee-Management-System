@@ -4,6 +4,7 @@ import {
   useNavigate,
   useParams,
 } from "react-router-dom";
+
 import {
   ArrowLeft,
   Upload,
@@ -20,33 +21,27 @@ import {
   FileText,
 } from "lucide-react";
 
+import apiClient from "../../services/apiClient";
+
 function ApplyJobPage() {
   const { jobId } = useParams();
   const navigate = useNavigate();
 
-  // ==========================================
-  // PROTECT APPLY PAGE
-  // ONLY LOGGED-IN CANDIDATES CAN ACCESS
-  // ==========================================
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    const role = localStorage.getItem("role");
+  // =========================================================
+  // STATE
+  // =========================================================
 
-    const isCandidate =
-      token &&
-      role?.toUpperCase() === "CANDIDATE";
+  const [job, setJob] = useState(null);
+  const [candidateProfile, setCandidateProfile] =
+    useState(null);
 
-    if (!isCandidate) {
-      navigate("/login", {
-        replace: true,
-        state: {
-          from: `/apply/${jobId}`,
-          jobId: jobId,
-          applyingForJob: true,
-        },
-      });
-    }
-  }, [jobId, navigate]);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [pageError, setPageError] = useState("");
+  const [submitError, setSubmitError] = useState("");
+
+  const [submitted, setSubmitted] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -64,19 +59,154 @@ function ApplyJobPage() {
 
   const [resume, setResume] = useState(null);
   const [errors, setErrors] = useState({});
-  const [submitted, setSubmitted] = useState(false);
 
-  const jobs = {
-    1: "Frontend Developer",
-    2: "Java Developer",
-    3: "HR Executive",
-    4: "Backend Developer",
-    5: "UI/UX Designer",
-    6: "Data Analyst",
-  };
+  // =========================================================
+  // PROTECT APPLY PAGE
+  // ONLY LOGGED-IN CANDIDATES CAN ACCESS
+  // =========================================================
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
+
+    const isCandidate =
+      token &&
+      role?.toUpperCase() === "CANDIDATE";
+
+    if (!isCandidate) {
+      sessionStorage.setItem(
+        "pendingApplication",
+        `/apply/${jobId}`
+      );
+
+      navigate("/login", {
+        replace: true,
+        state: {
+          from: `/apply/${jobId}`,
+          jobId: jobId,
+          applyingForJob: true,
+        },
+      });
+    }
+  }, [jobId, navigate]);
+
+  // =========================================================
+  // LOAD REAL JOB + CURRENT CANDIDATE PROFILE
+  // =========================================================
+
+  useEffect(() => {
+    const loadPageData = async () => {
+      const token = localStorage.getItem("token");
+      const role = localStorage.getItem("role");
+
+      const isCandidate =
+        token &&
+        role?.toUpperCase() === "CANDIDATE";
+
+      if (!isCandidate) {
+        return;
+      }
+
+      try {
+        setPageLoading(true);
+        setPageError("");
+
+        const [jobResponse, profileResponse] =
+          await Promise.all([
+            apiClient.get(`/jobs/${jobId}`),
+            apiClient.get("/candidate-profile/my"),
+          ]);
+
+        // ==========================================
+        // JOB
+        // ==========================================
+
+        const jobData =
+          jobResponse.data?.data ||
+          jobResponse.data;
+
+        if (!jobData?.id) {
+          throw new Error("Job not found.");
+        }
+
+        setJob(jobData);
+
+        // Do not allow application for closed job
+        if (
+          jobData.status &&
+          jobData.status.toUpperCase() !== "OPEN"
+        ) {
+          setPageError(
+            "This position is no longer open for applications."
+          );
+        }
+
+        // ==========================================
+        // CANDIDATE PROFILE
+        // ==========================================
+
+        const profileData =
+          profileResponse.data?.data ||
+          profileResponse.data;
+
+        if (!profileData?.id) {
+          throw new Error(
+            "Candidate profile could not be loaded."
+          );
+        }
+
+        setCandidateProfile(profileData);
+
+        // Prefill existing candidate details
+        setFormData({
+          fullName: profileData.name || "",
+          email: profileData.email || "",
+          phone: profileData.phone || "",
+          location: profileData.location || "",
+          education: profileData.education || "",
+          experience: profileData.experience || "",
+          skills: profileData.skills || "",
+          linkedin: profileData.linkedin || "",
+          portfolio: profileData.portfolio || "",
+          expectedSalary:
+            profileData.expectedSalary !== null &&
+            profileData.expectedSalary !== undefined
+              ? String(profileData.expectedSalary)
+              : "",
+          noticePeriod:
+            profileData.noticePeriod || "",
+        });
+      } catch (error) {
+        console.error(
+          "Failed to load application page:",
+          error
+        );
+
+        setPageError(
+          error.response?.data?.message ||
+            error.message ||
+            "Unable to load application details."
+        );
+      } finally {
+        setPageLoading(false);
+      }
+    };
+
+    if (jobId) {
+      loadPageData();
+    }
+  }, [jobId]);
+
+  // =========================================================
+  // REAL JOB TITLE
+  // =========================================================
 
   const jobTitle =
-    jobs[jobId] || "Selected Position";
+    job?.title || "Selected Position";
+
+  // =========================================================
+  // INPUT CHANGE
+  // =========================================================
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -90,7 +220,13 @@ function ApplyJobPage() {
       ...prev,
       [name]: "",
     }));
+
+    setSubmitError("");
   };
+
+  // =========================================================
+  // RESUME CHANGE
+  // =========================================================
 
   const handleResumeChange = (e) => {
     const file = e.target.files[0];
@@ -137,7 +273,13 @@ function ApplyJobPage() {
       ...prev,
       resume: "",
     }));
+
+    setSubmitError("");
   };
+
+  // =========================================================
+  // VALIDATION
+  // =========================================================
 
   const validateForm = () => {
     const newErrors = {};
@@ -191,102 +333,327 @@ function ApplyJobPage() {
 
     setErrors(newErrors);
 
-    return (
-      Object.keys(newErrors).length === 0
-    );
+    return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  // =========================================================
+  // CONVERT EXPECTED SALARY TO NUMBER
+  // Backend expects number
+  // =========================================================
+
+  const getExpectedSalary = () => {
+    if (!formData.expectedSalary.trim()) {
+      return null;
+    }
+
+    const cleanedValue =
+      formData.expectedSalary
+        .replace(/₹/g, "")
+        .replace(/,/g, "")
+        .trim();
+
+    const salary = Number(cleanedValue);
+
+    if (Number.isNaN(salary)) {
+      return null;
+    }
+
+    return salary;
+  };
+
+  // =========================================================
+  // SUBMIT APPLICATION
+  // =========================================================
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    setSubmitError("");
 
     if (!validateForm()) {
       return;
     }
 
-    const applicationData =
-      new FormData();
+    if (!candidateProfile?.id) {
+      setSubmitError(
+        "Candidate profile could not be identified. Please login again."
+      );
+      return;
+    }
 
-    applicationData.append(
-      "jobId",
-      jobId
-    );
+    if (!job?.id) {
+      setSubmitError(
+        "Job information could not be identified."
+      );
+      return;
+    }
 
-    applicationData.append(
-      "fullName",
-      formData.fullName
-    );
+    if (
+      job.status &&
+      job.status.toUpperCase() !== "OPEN"
+    ) {
+      setSubmitError(
+        "This position is no longer open for applications."
+      );
+      return;
+    }
 
-    applicationData.append(
-      "email",
-      formData.email
-    );
+    try {
+      setSubmitting(true);
 
-    applicationData.append(
-      "phone",
-      formData.phone
-    );
+      // =====================================================
+      // STEP 1:
+      // UPDATE CURRENT CANDIDATE PROFILE
+      // PUT /api/candidate-profile/my
+      // =====================================================
 
-    applicationData.append(
-      "location",
-      formData.location
-    );
+      const profilePayload = {
+        name: formData.fullName.trim(),
+        phone: formData.phone.trim(),
+        location: formData.location.trim(),
+        education: formData.education.trim(),
+        experience: formData.experience.trim(),
+        skills: formData.skills.trim(),
 
-    applicationData.append(
-      "education",
-      formData.education
-    );
+        linkedin:
+          formData.linkedin.trim() || null,
 
-    applicationData.append(
-      "experience",
-      formData.experience
-    );
+        portfolio:
+          formData.portfolio.trim() || null,
 
-    applicationData.append(
-      "skills",
-      formData.skills
-    );
+        expectedSalary: getExpectedSalary(),
 
-    applicationData.append(
-      "linkedin",
-      formData.linkedin
-    );
+        noticePeriod:
+          formData.noticePeriod || null,
+      };
 
-    applicationData.append(
-      "portfolio",
-      formData.portfolio
-    );
+      console.log(
+        "Updating candidate profile:",
+        profilePayload
+      );
 
-    applicationData.append(
-      "expectedSalary",
-      formData.expectedSalary
-    );
+      const profileResponse =
+        await apiClient.put(
+          "/candidate-profile/my",
+          profilePayload
+        );
 
-    applicationData.append(
-      "noticePeriod",
-      formData.noticePeriod
-    );
+      console.log(
+        "Candidate profile updated:",
+        profileResponse.data
+      );
 
-    applicationData.append(
-      "resume",
-      resume
-    );
+      const updatedProfile =
+        profileResponse.data?.data ||
+        profileResponse.data;
 
-    console.log(
-      "Application ready:",
-      {
-        jobId,
-        ...formData,
-        resume,
+      // Candidate ID from backend profile
+      const candidateId =
+        updatedProfile?.id ||
+        candidateProfile.id;
+
+      if (!candidateId) {
+        throw new Error(
+          "Candidate ID was not returned by the backend."
+        );
       }
-    );
 
-    setSubmitted(true);
+      // Keep updated profile in state
+      setCandidateProfile((prev) => ({
+        ...prev,
+        ...updatedProfile,
+        id: candidateId,
+      }));
+
+      // =====================================================
+      // STEP 2:
+      // CREATE REAL JOB APPLICATION
+      // POST /api/applications/apply/{jobId}
+      //
+      // No body required.
+      // Candidate is identified from JWT.
+      // =====================================================
+
+      console.log(
+        "Creating application for job:",
+        job.id
+      );
+
+      const applicationResponse =
+        await apiClient.post(
+          `/applications/apply/${job.id}`
+        );
+
+      console.log(
+        "Application response:",
+        applicationResponse.data
+      );
+
+      if (
+        applicationResponse.data?.success === false
+      ) {
+        throw new Error(
+          applicationResponse.data?.message ||
+            "Failed to create application."
+        );
+      }
+
+      const createdApplication =
+        applicationResponse.data?.data;
+
+      if (!createdApplication?.applicationId) {
+        throw new Error(
+          "Application was not created successfully."
+        );
+      }
+
+      // =====================================================
+      // STEP 3:
+      // UPLOAD RESUME
+      // POST /api/resumes/upload
+      //
+      // multipart/form-data:
+      // candidateId
+      // file
+      // =====================================================
+
+      const resumeData = new FormData();
+
+      resumeData.append(
+        "candidateId",
+        String(candidateId)
+      );
+
+      resumeData.append(
+        "file",
+        resume
+      );
+
+      console.log(
+        "Uploading resume for candidate:",
+        candidateId
+      );
+
+      const resumeResponse =
+        await apiClient.post(
+          "/resumes/upload",
+          resumeData
+        );
+
+      console.log(
+        "Resume upload response:",
+        resumeResponse.data
+      );
+
+      if (
+        resumeResponse.data?.success === false
+      ) {
+        throw new Error(
+          resumeResponse.data?.message ||
+            "Resume upload failed."
+        );
+      }
+
+      // =====================================================
+      // EVERYTHING SUCCESSFUL
+      // =====================================================
+
+      console.log(
+        "Application submitted successfully:",
+        {
+          application:
+            applicationResponse.data?.data,
+          resume:
+            resumeResponse.data?.data,
+        }
+      );
+
+      // Remove old pending redirect
+      sessionStorage.removeItem(
+        "pendingApplication"
+      );
+
+      // Show success page ONLY now
+      setSubmitted(true);
+    } catch (error) {
+      console.error(
+        "Application submission failed:",
+        error
+      );
+
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        "Unable to submit your application. Please try again.";
+
+      setSubmitError(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  // =========================================================
+  // PAGE LOADING
+  // =========================================================
+
+  if (pageLoading) {
+    return (
+      <section className="job-not-found">
+        <div className="container">
+          <Briefcase size={42} />
+
+          <h1>Loading Application...</h1>
+
+          <p>
+            Please wait while we load your profile
+            and job information.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  // =========================================================
+  // JOB / PROFILE LOAD ERROR
+  // =========================================================
+
+  if (!job || !candidateProfile) {
+    return (
+      <section className="job-not-found">
+        <div className="container">
+
+          <h1>
+            Unable to Start Application
+          </h1>
+
+          <p>
+            {pageError ||
+              "Unable to load the required application information."}
+          </p>
+
+          <Link
+            to="/jobs"
+            className="btn btn-primary"
+          >
+            <ArrowLeft size={18} />
+            Back to Jobs
+          </Link>
+
+        </div>
+      </section>
+    );
+  }
+
+  // =========================================================
+  // SUCCESS PAGE
+  // =========================================================
 
   if (submitted) {
     return (
       <section className="application-success-page">
+
         <div className="container">
+
           <div className="application-success-card">
 
             <div className="success-icon">
@@ -321,23 +688,33 @@ function ApplyJobPage() {
               </Link>
 
               <Link
-                to="/"
+                to="/candidate/dashboard"
                 className="success-secondary-button"
               >
-                Back to Home
+                Go to Dashboard
               </Link>
 
             </div>
+
           </div>
+
         </div>
+
       </section>
     );
   }
 
+  // =========================================================
+  // MAIN UI
+  // =========================================================
+
   return (
     <div className="apply-job-page">
 
+      {/* HEADER */}
+
       <section className="apply-job-header">
+
         <div className="container">
 
           <Link
@@ -362,9 +739,14 @@ function ApplyJobPage() {
           </p>
 
         </div>
+
       </section>
 
+
+      {/* FORM */}
+
       <section className="application-form-section">
+
         <div className="container application-layout">
 
           <form
@@ -372,13 +754,14 @@ function ApplyJobPage() {
             onSubmit={handleSubmit}
           >
 
-            {/* =========================
+            {/* =========================================
                 PERSONAL INFORMATION
-            ========================= */}
+            ========================================= */}
 
             <div className="application-form-card">
 
               <div className="application-section-heading">
+
                 <User size={21} />
 
                 <div>
@@ -387,13 +770,16 @@ function ApplyJobPage() {
                   </h2>
 
                   <p>
-                    Tell us how we can
-                    contact you.
+                    Tell us how we can contact you.
                   </p>
                 </div>
+
               </div>
 
+
               <div className="application-form-grid">
+
+                {/* FULL NAME */}
 
                 <div className="form-group full-width">
 
@@ -410,12 +796,8 @@ function ApplyJobPage() {
                       name="fullName"
                       type="text"
                       placeholder="      Enter your full name"
-                      value={
-                        formData.fullName
-                      }
-                      onChange={
-                        handleChange
-                      }
+                      value={formData.fullName}
+                      onChange={handleChange}
                     />
 
                   </div>
@@ -427,6 +809,9 @@ function ApplyJobPage() {
                   )}
 
                 </div>
+
+
+                {/* EMAIL */}
 
                 <div className="form-group">
 
@@ -443,12 +828,8 @@ function ApplyJobPage() {
                       name="email"
                       type="email"
                       placeholder="     example@email.com"
-                      value={
-                        formData.email
-                      }
-                      onChange={
-                        handleChange
-                      }
+                      value={formData.email}
+                      readOnly
                     />
 
                   </div>
@@ -460,6 +841,9 @@ function ApplyJobPage() {
                   )}
 
                 </div>
+
+
+                {/* PHONE */}
 
                 <div className="form-group">
 
@@ -476,12 +860,8 @@ function ApplyJobPage() {
                       name="phone"
                       type="tel"
                       placeholder="    +91 xxxxxxxxxx"
-                      value={
-                        formData.phone
-                      }
-                      onChange={
-                        handleChange
-                      }
+                      value={formData.phone}
+                      onChange={handleChange}
                     />
 
                   </div>
@@ -493,6 +873,9 @@ function ApplyJobPage() {
                   )}
 
                 </div>
+
+
+                {/* LOCATION */}
 
                 <div className="form-group full-width">
 
@@ -509,12 +892,8 @@ function ApplyJobPage() {
                       name="location"
                       type="text"
                       placeholder="       Hyderabad, Telangana"
-                      value={
-                        formData.location
-                      }
-                      onChange={
-                        handleChange
-                      }
+                      value={formData.location}
+                      onChange={handleChange}
                     />
 
                   </div>
@@ -528,11 +907,13 @@ function ApplyJobPage() {
                 </div>
 
               </div>
+
             </div>
 
-            {/* =========================
+
+            {/* =========================================
                 PROFESSIONAL INFORMATION
-            ========================= */}
+            ========================================= */}
 
             <div className="application-form-card">
 
@@ -553,7 +934,10 @@ function ApplyJobPage() {
 
               </div>
 
+
               <div className="application-form-grid">
+
+                {/* EDUCATION */}
 
                 <div className="form-group">
 
@@ -563,21 +947,15 @@ function ApplyJobPage() {
 
                   <div className="input-with-icon">
 
-                    <GraduationCap
-                      size={18}
-                    />
+                    <GraduationCap size={18} />
 
                     <input
                       id="education"
                       name="education"
                       type="text"
                       placeholder="      B.Tech Computer Science"
-                      value={
-                        formData.education
-                      }
-                      onChange={
-                        handleChange
-                      }
+                      value={formData.education}
+                      onChange={handleChange}
                     />
 
                   </div>
@@ -589,6 +967,9 @@ function ApplyJobPage() {
                   )}
 
                 </div>
+
+
+                {/* EXPERIENCE */}
 
                 <div className="form-group">
 
@@ -605,12 +986,8 @@ function ApplyJobPage() {
                       name="experience"
                       type="text"
                       placeholder="      Example: 2 Years"
-                      value={
-                        formData.experience
-                      }
-                      onChange={
-                        handleChange
-                      }
+                      value={formData.experience}
+                      onChange={handleChange}
                     />
 
                   </div>
@@ -623,6 +1000,9 @@ function ApplyJobPage() {
 
                 </div>
 
+
+                {/* SKILLS */}
+
                 <div className="form-group full-width">
 
                   <label htmlFor="skills">
@@ -634,17 +1014,12 @@ function ApplyJobPage() {
                     name="skills"
                     rows="4"
                     placeholder="Example: React, JavaScript, HTML, CSS, REST API"
-                    value={
-                      formData.skills
-                    }
-                    onChange={
-                      handleChange
-                    }
+                    value={formData.skills}
+                    onChange={handleChange}
                   />
 
                   <small>
-                    Separate multiple skills
-                    using commas.
+                    Separate multiple skills using commas.
                   </small>
 
                   {errors.skills && (
@@ -656,11 +1031,13 @@ function ApplyJobPage() {
                 </div>
 
               </div>
+
             </div>
 
-            {/* =========================
+
+            {/* =========================================
                 CAREER DETAILS
-            ========================= */}
+            ========================================= */}
 
             <div className="application-form-card">
 
@@ -674,14 +1051,17 @@ function ApplyJobPage() {
                   </h2>
 
                   <p>
-                    Additional information
-                    about your profile.
+                    Additional information about
+                    your profile.
                   </p>
                 </div>
 
               </div>
 
+
               <div className="application-form-grid">
+
+                {/* LINKEDIN */}
 
                 <div className="form-group">
 
@@ -698,16 +1078,16 @@ function ApplyJobPage() {
                       name="linkedin"
                       type="url"
                       placeholder="     https://linkedin.com/in/..."
-                      value={
-                        formData.linkedin
-                      }
-                      onChange={
-                        handleChange
-                      }
+                      value={formData.linkedin}
+                      onChange={handleChange}
                     />
 
                   </div>
+
                 </div>
+
+
+                {/* PORTFOLIO */}
 
                 <div className="form-group">
 
@@ -724,16 +1104,16 @@ function ApplyJobPage() {
                       name="portfolio"
                       type="url"
                       placeholder="     https://..."
-                      value={
-                        formData.portfolio
-                      }
-                      onChange={
-                        handleChange
-                      }
+                      value={formData.portfolio}
+                      onChange={handleChange}
                     />
 
                   </div>
+
                 </div>
+
+
+                {/* EXPECTED SALARY */}
 
                 <div className="form-group">
 
@@ -750,16 +1130,16 @@ function ApplyJobPage() {
                       name="expectedSalary"
                       type="text"
                       placeholder="      Example: ₹6,00,000"
-                      value={
-                        formData.expectedSalary
-                      }
-                      onChange={
-                        handleChange
-                      }
+                      value={formData.expectedSalary}
+                      onChange={handleChange}
                     />
 
                   </div>
+
                 </div>
+
+
+                {/* NOTICE PERIOD */}
 
                 <div className="form-group">
 
@@ -769,19 +1149,13 @@ function ApplyJobPage() {
 
                   <div className="input-with-icon">
 
-                    <CalendarDays
-                      size={18}
-                    />
+                    <CalendarDays size={18} />
 
                     <select
                       id="noticePeriod"
                       name="noticePeriod"
-                      value={
-                        formData.noticePeriod
-                      }
-                      onChange={
-                        handleChange
-                      }
+                      value={formData.noticePeriod}
+                      onChange={handleChange}
                     >
 
                       <option value="">
@@ -811,14 +1185,17 @@ function ApplyJobPage() {
                     </select>
 
                   </div>
+
                 </div>
 
               </div>
+
             </div>
 
-            {/* =========================
+
+            {/* =========================================
                 RESUME UPLOAD
-            ========================= */}
+            ========================================= */}
 
             <div className="application-form-card">
 
@@ -827,6 +1204,7 @@ function ApplyJobPage() {
                 <FileText size={22} />
 
                 <div>
+
                   <h2>
                     Resume Upload
                   </h2>
@@ -835,9 +1213,11 @@ function ApplyJobPage() {
                     Upload your latest resume
                     for AI screening.
                   </p>
+
                 </div>
 
               </div>
+
 
               <div className="resume-upload-area">
 
@@ -845,9 +1225,7 @@ function ApplyJobPage() {
                   id="resume"
                   type="file"
                   accept=".pdf,.doc,.docx"
-                  onChange={
-                    handleResumeChange
-                  }
+                  onChange={handleResumeChange}
                 />
 
                 <label htmlFor="resume">
@@ -855,8 +1233,7 @@ function ApplyJobPage() {
                   <Upload size={32} />
 
                   <strong>
-                    Click to upload your
-                    resume
+                    Click to upload your resume
                   </strong>
 
                   <span>
@@ -868,12 +1245,14 @@ function ApplyJobPage() {
 
               </div>
 
+
               {resume && (
                 <div className="selected-resume">
 
                   <FileText size={18} />
 
                   <div>
+
                     <strong>
                       {resume.name}
                     </strong>
@@ -886,10 +1265,12 @@ function ApplyJobPage() {
                       ).toFixed(2)}{" "}
                       MB
                     </span>
+
                   </div>
 
                 </div>
               )}
+
 
               {errors.resume && (
                 <span className="form-error">
@@ -899,18 +1280,38 @@ function ApplyJobPage() {
 
             </div>
 
+
+            {/* =========================================
+                BACKEND ERROR
+            ========================================= */}
+
+            {submitError && (
+              <div className="form-error">
+                {submitError}
+              </div>
+            )}
+
+
+            {/* =========================================
+                SUBMIT
+            ========================================= */}
+
             <button
               type="submit"
               className="submit-application-button"
+              disabled={submitting}
             >
-              Submit Application
+              {submitting
+                ? "Submitting Application..."
+                : "Submit Application"}
             </button>
 
           </form>
 
-          {/* =========================
+
+          {/* =========================================
               SIDEBAR
-          ========================= */}
+          ========================================= */}
 
           <aside className="application-sidebar">
 
@@ -925,35 +1326,33 @@ function ApplyJobPage() {
               </h3>
 
               <p>
-                Job ID: #{jobId}
+                Job ID: #{job.id}
               </p>
+
 
               <div className="application-info-message">
 
                 <FileText size={20} />
 
                 <p>
-                  Your resume will later
-                  be processed by the AI
-                  screening module to
-                  extract skills,
-                  education and
-                  experience.
+                  Your resume will be uploaded
+                  and can be processed by the AI
+                  screening module to extract
+                  skills, education and experience.
                 </p>
 
               </div>
 
+
               <div className="application-privacy">
 
                 <strong>
-                  Your information is
-                  secure
+                  Your information is secure
                 </strong>
 
                 <p>
-                  The information
-                  provided here will only
-                  be used for recruitment
+                  The information provided here
+                  will only be used for recruitment
                   purposes.
                 </p>
 
@@ -964,6 +1363,7 @@ function ApplyJobPage() {
           </aside>
 
         </div>
+
       </section>
 
     </div>

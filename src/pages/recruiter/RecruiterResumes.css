@@ -613,3 +613,115 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+/* ============================================================
+   CANDIDATE SEARCH - UPLOAD RESUME
+============================================================ */
+
+.candidate-upload-search {
+  position: relative;
+}
+
+.candidate-upload-search > input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.candidate-upload-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+
+  max-height: 240px;
+  overflow-y: auto;
+
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+
+  z-index: 1000;
+}
+
+.candidate-upload-option {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  gap: 11px;
+
+  padding: 11px 12px;
+
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+
+  background: #ffffff;
+
+  text-align: left;
+
+  cursor: pointer;
+}
+
+.candidate-upload-option:last-child {
+  border-bottom: none;
+}
+
+.candidate-upload-option:hover {
+  background: #f8fafc;
+}
+
+.candidate-upload-avatar {
+  width: 36px;
+  height: 36px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background: #eef2ff;
+  color: #4f46e5;
+
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.candidate-upload-option > div:last-child {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.candidate-upload-option strong {
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.candidate-upload-option span {
+  font-size: 12px;
+  color: #64748b;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.candidate-upload-no-results {
+  padding: 16px;
+
+  text-align: center;
+
+  color: #64748b;
+  font-size: 13px;
+}
+
+.candidate-selected-message {
+  color: #059669 !important;
+  font-weight: 600;
+}

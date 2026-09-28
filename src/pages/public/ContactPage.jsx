@@ -7,6 +7,8 @@ import {
   MessageSquare,
 } from "lucide-react";
 
+import apiClient from "../../services/apiClient";
+
 function ContactPage() {
   const [formData, setFormData] = useState({
     name: "",
@@ -16,6 +18,12 @@ function ContactPage() {
   });
 
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // ==========================================
+  // HANDLE INPUT CHANGE
+  // ==========================================
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -24,21 +32,68 @@ function ContactPage() {
       ...prev,
       [name]: value,
     }));
+
+    // Remove old success/error message when user starts typing again
+    setSubmitted(false);
+    setError("");
   };
 
-  const handleSubmit = (e) => {
+  // ==========================================
+  // SUBMIT CONTACT MESSAGE
+  // POST /api/contact/messages
+  // ==========================================
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    console.log("Contact message:", formData);
+    setSubmitted(false);
+    setError("");
+    setLoading(true);
 
-    setSubmitted(true);
+    try {
+      // Backend expects:
+      // fullName, email, subject, message
+      const requestBody = {
+        fullName: formData.name.trim(),
+        email: formData.email.trim(),
+        subject: formData.subject.trim(),
+        message: formData.message.trim(),
+      };
 
-    setFormData({
-      name: "",
-      email: "",
-      subject: "",
-      message: "",
-    });
+      const response = await apiClient.post(
+        "/contact/messages",
+        requestBody
+      );
+
+      const result = response.data;
+
+      if (!result?.success) {
+        throw new Error(
+          result?.message || "Unable to send message."
+        );
+      }
+
+      // Backend successfully saved the message
+      setSubmitted(true);
+
+      // Clear form only after successful submission
+      setFormData({
+        name: "",
+        email: "",
+        subject: "",
+        message: "",
+      });
+    } catch (err) {
+      console.error("Contact message error:", err);
+
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Unable to send your message. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -179,6 +234,23 @@ function ContactPage() {
             )}
 
 
+            {error && (
+              <div
+                style={{
+                  marginBottom: "16px",
+                  padding: "12px 14px",
+                  borderRadius: "8px",
+                  background: "#fef2f2",
+                  border: "1px solid #fecaca",
+                  color: "#dc2626",
+                  fontSize: "14px",
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+
             <form onSubmit={handleSubmit}>
 
               <div className="contact-form-group">
@@ -195,6 +267,7 @@ function ContactPage() {
                   value={formData.name}
                   onChange={handleChange}
                   required
+                  disabled={loading}
                 />
 
               </div>
@@ -214,6 +287,7 @@ function ContactPage() {
                   value={formData.email}
                   onChange={handleChange}
                   required
+                  disabled={loading}
                 />
 
               </div>
@@ -233,6 +307,7 @@ function ContactPage() {
                   value={formData.subject}
                   onChange={handleChange}
                   required
+                  disabled={loading}
                 />
 
               </div>
@@ -252,6 +327,7 @@ function ContactPage() {
                   value={formData.message}
                   onChange={handleChange}
                   required
+                  disabled={loading}
                 />
 
               </div>
@@ -260,8 +336,10 @@ function ContactPage() {
               <button
                 type="submit"
                 className="contact-submit-button"
+                disabled={loading}
               >
-                Send Message
+                {loading ? "Sending..." : "Send Message"}
+
                 <Send size={18} />
               </button>
 

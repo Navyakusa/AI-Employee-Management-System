@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Search,
@@ -10,36 +11,110 @@ import {
   ArrowRight,
 } from "lucide-react";
 
+import apiClient from "../../services/apiClient";
+
 function HomePage() {
-  const featuredJobs = [
-    {
-      id: 1,
-      title: "Frontend Developer",
-      department: "Engineering",
-      location: "Hyderabad",
-      type: "Full Time",
-      experience: "1 - 3 Years",
-      skills: ["React", "JavaScript", "CSS"],
-    },
-    {
-      id: 2,
-      title: "Java Developer",
-      department: "Engineering",
-      location: "Bangalore",
-      type: "Full Time",
-      experience: "2 - 4 Years",
-      skills: ["Java", "Spring Boot", "PostgreSQL"],
-    },
-    {
-      id: 3,
-      title: "HR Executive",
-      department: "Human Resources",
-      location: "Hyderabad",
-      type: "Full Time",
-      experience: "1 - 3 Years",
-      skills: ["Recruitment", "Communication", "HRMS"],
-    },
-  ];
+  // =========================================================
+  // FEATURED JOBS STATE
+  // =========================================================
+
+  const [featuredJobs, setFeaturedJobs] = useState([]);
+  const [jobsLoading, setJobsLoading] = useState(true);
+  const [jobsError, setJobsError] = useState("");
+
+  // =========================================================
+  // LOAD JOBS FROM BACKEND
+  // GET /api/jobs/all
+  // =========================================================
+
+  useEffect(() => {
+    const loadFeaturedJobs = async () => {
+      try {
+        setJobsLoading(true);
+        setJobsError("");
+
+        const response = await apiClient.get("/jobs/all");
+
+        const jobs =
+          response.data?.data ||
+          response.data ||
+          [];
+
+        // Only OPEN jobs should be displayed publicly
+        const openJobs = Array.isArray(jobs)
+          ? jobs.filter(
+              (job) =>
+                job.status?.toUpperCase() === "OPEN"
+            )
+          : [];
+
+        // Show maximum 3 jobs on home page
+        setFeaturedJobs(openJobs.slice(0, 3));
+      } catch (error) {
+        console.error(
+          "Failed to load featured jobs:",
+          error
+        );
+
+        setJobsError(
+          error.response?.data?.message ||
+            "Unable to load featured jobs."
+        );
+      } finally {
+        setJobsLoading(false);
+      }
+    };
+
+    loadFeaturedJobs();
+  }, []);
+
+  // =========================================================
+  // FORMAT EXPERIENCE
+  // =========================================================
+
+  const getExperience = (job) => {
+    const min = job.experienceMin;
+    const max = job.experienceMax;
+
+    if (
+      min !== null &&
+      min !== undefined &&
+      max !== null &&
+      max !== undefined
+    ) {
+      return `${min} - ${max} Years`;
+    }
+
+    if (min !== null && min !== undefined) {
+      return `${min}+ Years`;
+    }
+
+    if (max !== null && max !== undefined) {
+      return `Up to ${max} Years`;
+    }
+
+    return "Not specified";
+  };
+
+  // =========================================================
+  // GET SKILLS
+  // =========================================================
+
+  const getSkills = (job) => {
+    if (!job.requiredSkills) {
+      return [];
+    }
+
+    if (Array.isArray(job.requiredSkills)) {
+      return job.requiredSkills.slice(0, 3);
+    }
+
+    return job.requiredSkills
+      .split(",")
+      .map((skill) => skill.trim())
+      .filter(Boolean)
+      .slice(0, 3);
+  };
 
   return (
     <div className="home-page">
@@ -159,65 +234,117 @@ function HomePage() {
             </Link>
           </div>
 
-          <div className="jobs-grid">
 
-            {featuredJobs.map((job) => (
-              <div className="job-card" key={job.id}>
+          {/* LOADING */}
+          {jobsLoading && (
+            <p>Loading featured jobs...</p>
+          )}
 
-                <div className="job-card-top">
 
-                  <div className="job-icon">
-                    <Briefcase size={22} />
-                  </div>
+          {/* ERROR */}
+          {!jobsLoading && jobsError && (
+            <p className="form-error">
+              {jobsError}
+            </p>
+          )}
 
-                  <span className="job-type">
-                    {job.type}
-                  </span>
 
-                </div>
+          {/* NO OPEN JOBS */}
+          {!jobsLoading &&
+            !jobsError &&
+            featuredJobs.length === 0 && (
+              <p>
+                No open positions are available right now.
+              </p>
+            )}
 
-                <h3>{job.title}</h3>
 
-                <p className="department">
-                  {job.department}
-                </p>
+          {/* REAL BACKEND JOBS */}
+          {!jobsLoading &&
+            !jobsError &&
+            featuredJobs.length > 0 && (
 
-                <div className="job-info">
+              <div className="jobs-grid">
 
-                  <span>
-                    <MapPin size={16} />
-                    {job.location}
-                  </span>
+                {featuredJobs.map((job) => {
 
-                  <span>
-                    <Briefcase size={16} />
-                    {job.experience}
-                  </span>
+                  const skills = getSkills(job);
 
-                </div>
+                  return (
+                    <div
+                      className="job-card"
+                      key={job.id}
+                    >
 
-                <div className="skills">
+                      <div className="job-card-top">
 
-                  {job.skills.map((skill) => (
-                    <span key={skill}>
-                      {skill}
-                    </span>
-                  ))}
+                        <div className="job-icon">
+                          <Briefcase size={22} />
+                        </div>
 
-                </div>
+                        <span className="job-type">
+                          {job.employmentType ||
+                            "Not specified"}
+                        </span>
 
-                <Link
-                  to={`/jobs/${job.id}`}
-                  className="job-link"
-                >
-                  View Job
-                  <ArrowRight size={17} />
-                </Link>
+                      </div>
+
+                      <h3>
+                        {job.title}
+                      </h3>
+
+                      <p className="department">
+                        {job.department ||
+                          "Department not specified"}
+                      </p>
+
+                      <div className="job-info">
+
+                        <span>
+                          <MapPin size={16} />
+                          {job.location ||
+                            "Location not specified"}
+                        </span>
+
+                        <span>
+                          <Briefcase size={16} />
+                          {getExperience(job)}
+                        </span>
+
+                      </div>
+
+
+                      {skills.length > 0 && (
+                        <div className="skills">
+
+                          {skills.map(
+                            (skill, index) => (
+                              <span
+                                key={`${job.id}-${skill}-${index}`}
+                              >
+                                {skill}
+                              </span>
+                            )
+                          )}
+
+                        </div>
+                      )}
+
+
+                      <Link
+                        to={`/jobs/${job.id}`}
+                        className="job-link"
+                      >
+                        View Job
+                        <ArrowRight size={17} />
+                      </Link>
+
+                    </div>
+                  );
+                })}
 
               </div>
-            ))}
-
-          </div>
+            )}
 
         </div>
       </section>

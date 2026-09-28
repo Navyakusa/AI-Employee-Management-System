@@ -48,6 +48,8 @@ import ApplyJobPage from "./pages/public/ApplyJobPage";
 import ContactPage from "./pages/public/ContactPage";
 import NotFoundPage from "./pages/public/NotFoundPage";
 import LoginPage from "./pages/public/auth/LoginPage";
+import ForgotPasswordPage from "./pages/public/auth/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/public/auth/ResetPasswordPage";
 import SignupPage from "./pages/public/auth/SignupPage";
 
 
@@ -102,6 +104,7 @@ import CandidateProfile from "./pages/candidate/CandidateProfile";
 import CandidateNotifications from "./pages/candidate/CandidateNotifications";
 import CandidateSettings from "./pages/candidate/CandidateSettings";
 import RecruiterCandidateDetails from "./pages/recruiter/RecruiterCandidateDetails";
+import AdminContactMessages from "./pages/admin/AdminContactMessages";
 function App() {
   return (
     <BrowserRouter>
@@ -118,6 +121,8 @@ function App() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />}/>
+          <Route path="/reset-password" element={<ResetPasswordPage />}/>
         </Route>
 
         <Route path="/hr/dashboard" element={<HRDashboard />} />
@@ -318,7 +323,10 @@ function App() {
           path="/super-admin/audit-logs"
           element={<AdminAuditLogs />}
         />
-
+        <Route
+  path="/super-admin/contact-messages"
+  element={<AdminContactMessages />}
+/>
         <Route
           path="/super-admin/notifications"
           element={<AdminNotifications />}
