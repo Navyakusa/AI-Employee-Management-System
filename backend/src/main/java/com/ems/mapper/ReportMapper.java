@@ -151,7 +151,7 @@ public interface ReportMapper {
                 .filter(job -> job.getDepartment() != null)
                 .filter(job -> !job.getDepartment().isBlank())
                 .collect(Collectors.groupingBy(
-                        job -> job.getDepartment().trim(),
+                        job -> normalize(job.getDepartment()),
                         LinkedHashMap::new,
                         Collectors.counting()
                 ));

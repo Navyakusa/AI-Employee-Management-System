@@ -324,11 +324,19 @@ public class AIResumeScreeningService {
                             .getExtracted_resume_profile();
 
             if (resumeProfile != null) {
+                System.out.println("=================================");
+                System.out.println("PYTHON RESUME PROFILE");
+                System.out.println("Skills Cleaned = "
+                        + resumeProfile.get("skills_cleaned"));
+                System.out.println("Skills = "
+                        + resumeProfile.get("skills"));
+                System.out.println("=================================");
 
                 screening.setSkills(
                         objectToString(
                                 firstPresent(
                                         resumeProfile,
+                                        "skills_cleaned",
                                         "skills",
                                         "skill",
                                         "extracted_skills"
