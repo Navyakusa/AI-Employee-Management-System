@@ -46,6 +46,75 @@ _BULLET_PATTERN = re.compile(r"^[-*]\s*")
 _PAREN_SUFFIX_PATTERN = re.compile(r"\s*\([^)]*\)\s*$")
 _SPLIT_PATTERN = re.compile(r"[,;\n\u2022]")
 
+
+# Common multi-word technical skills. PDF extraction often removes commas,
+# bullets, or line breaks, turning several real skills into one long phrase
+# (for example: "Database Programming Core Java Advanced Java").  These
+# phrases let the parser recover the individual skills without guessing from
+# arbitrary English text.
+_KNOWN_MULTIWORD_SKILLS = tuple(sorted({
+    "database programming", "core java", "advanced java", "jupyter notebook",
+    "machine learning", "deep learning", "data preprocessing",
+    "feature engineering", "feature visualization", "data visualization",
+    "natural language processing", "computer vision", "artificial intelligence",
+    "web browser tools", "object oriented programming", "object-oriented programming",
+    "scikit-learn", "rest apis", "power bi", "microsoft office",
+    "software development", "web development", "ui development",
+    "data analytics", "data analysis", "predictive modeling", "model evaluation",
+    "version control", "cloud computing", "problem solving", "communication skills",
+}, key=len, reverse=True))
+
+
+def _split_skill_piece(piece: str) -> list:
+    """Split a PDF-flattened skill phrase into individual known skills.
+
+    Handles explicit separators (/, |) and also adjacent known multi-word
+    skills when PDF extraction has removed the original separators.
+    Unknown text is kept as a single piece so this helper does not invent
+    arbitrary skills.
+    """
+    text = re.sub(r"\s+", " ", str(piece)).strip(" .")
+    if not text:
+        return []
+
+    # Explicit separators are reliable boundaries.
+    parts = [p.strip() for p in re.split(r"[/|]", text) if p.strip()]
+    if len(parts) > 1:
+        result = []
+        for part in parts:
+            result.extend(_split_skill_piece(part))
+        return result
+
+    lower = text.lower()
+    matches = []
+    occupied = [False] * len(text)
+    for phrase in _KNOWN_MULTIWORD_SKILLS:
+        for m in re.finditer(rf"(?<![a-z0-9+#.]){re.escape(phrase)}(?![a-z0-9+#.])", lower):
+            if any(occupied[m.start():m.end()]):
+                continue
+            matches.append((m.start(), m.end(), text[m.start():m.end()]))
+            for i in range(m.start(), m.end()):
+                occupied[i] = True
+
+    if not matches:
+        return [text]
+
+    matches.sort()
+    result = []
+    cursor = 0
+    for start, end, value in matches:
+        gap = text[cursor:start].strip(" ,;:-")
+        if gap:
+            # Preserve a short leftover only when it looks like a separate
+            # skill token rather than prose.
+            result.extend([x for x in re.split(r"[,;]+", gap) if x.strip()])
+        result.append(value.strip())
+        cursor = end
+    tail = text[cursor:].strip(" ,;:-")
+    if tail:
+        result.extend([x for x in re.split(r"[,;]+", tail) if x.strip()])
+    return result
+
 # A piece whose FIRST word is one of these almost always means the NER span
 # swallowed part of a sentence (a project description, a responsibility, an
 # instruction) rather than a genuine skill name.
@@ -67,14 +136,6 @@ _NONSKILL_WHOLE_WORDS = frozenset({
     "signature", "reference", "references",
 })
 _MAX_WORDS = 4
-_SKILL_ACTION_WORDS = frozenset({
-    "develop", "developed", "developing", "design", "designed", "designing",
-    "create", "created", "creating", "build", "built", "building",
-    "implement", "implemented", "implementing", "integrate", "integrated",
-    "integrating", "deploy", "deployed", "deploying", "manage", "managed",
-    "managing", "analyze", "analyzed", "analyzing", "analyze", "using",
-    "responsible", "worked", "working", "worked", "improved", "improving",
-})
 
 # Cross-checking against the document's own Location entities only helps when
 # the model recognizes the location at all -- it doesn't recognize every
@@ -136,16 +197,9 @@ _BARE_CATEGORY_LABELS = frozenset({
 # ---------------------------------------------------------------------------
 
 _SKILLS_HEADER_PATTERN = re.compile(
-    r"^\s*(?:"
-    r"skills?\s+summary\b|technical\s+summary\b|"
-    r"technical\s+skills?\b|key\s+skills?\b|core\s+skills?\b|"
-    r"professional\s+skills?\b|relevant\s+skills?\b|"
-    r"skills?\s*set\b|skills?\s*&\s*expertise\b|"
-    r"technical\s+competenc(?:y|ies)\b|technical\s+proficienc(?:y|ies)\b|"
-    r"tools?\s*(?:&|and)\s*technologies\b|"
-    r"areas?\s+of\s+expertise\b|expertise\b|competenc(?:y|ies)\b|"
-    r"skills?\b"
-    r")\s*:?[\s-]*",
+    r"^\s*(?:technical\s+|key\s+|core\s+|professional\s+|relevant\s+)?"
+    r"(?:skills?\b|skill\s*set\b|areas?\s+of\s+expertise\b|expertise\b|competenc(?:y|ies)\b)"
+    r"\s*:?\s*",
     re.IGNORECASE,
 )
 
@@ -154,12 +208,11 @@ _SKILLS_HEADER_PATTERN = re.compile(
 # run on into unrelated content (education, a declaration statement, personal
 # details like date of birth, etc.).
 _SECTION_STOP_PATTERN = re.compile(
-    r"^\s*(?:declaration|projects?|experience|work\s+experience|professional\s+experience|"
-    r"education|academic\s+(?:details|background|qualifications?)|"
+    r"^\s*(?:declaration|projects?|experience|work\s+experience|education|"
     r"certifications?|references?|achievements?|hobbies|interests?|"
     r"extra[\s-]?curricular|personal\s+(?:details|information)|objective|"
-    r"career\s+objective|career\s+summary|professional\s+summary|summary|profile|"
-    r"publications?|awards?|internships?|training|workshops?|"
+    r"career\s+objective|summary|profile|publications?|awards?|"
+    r"internships?|academic\s+(?:details|background)|languages?|"
     r"date\s+of\s+birth|dob|father'?s\s+name|mother'?s\s+name|"
     r"marital\s+status|nationality|gender)\s*:?\s*$",
     re.IGNORECASE,
@@ -492,7 +545,10 @@ def extract_individual_skills(raw_skill_blocks: list, known_locations: list = No
         block = "\n".join(truncated_lines)
 
         pieces = _SPLIT_PATTERN.split(block)
+        expanded_pieces = []
         for piece in pieces:
+            expanded_pieces.extend(_split_skill_piece(piece))
+        for piece in expanded_pieces:
             piece = piece.strip()
             piece = _BULLET_PATTERN.sub("", piece)              # strip "- " / "* " bullet markers
             piece = _COLON_LABEL_PATTERN.sub("", piece)          # strip "Frontend:" / "Languages:" etc. (any label)
@@ -518,15 +574,6 @@ def extract_individual_skills(raw_skill_blocks: list, known_locations: list = No
             if len(words) > _MAX_WORDS:
                 continue
             if words and words[0].lower() in _LEADING_REJECT_WORDS:
-                continue
-            # A genuine skill entry is normally a noun/technology name. A
-            # phrase containing common resume action verbs is much more likely
-            # to be a project/responsibility sentence accidentally captured by
-            # the NER model. Keep the filter conservative so legitimate skills
-            # such as "web development" are still allowed.
-            if len(words) >= 3 and any(w.lower() in _SKILL_ACTION_WORDS for w in words):
-                continue
-            if piece.endswith((".", ":")):
                 continue
             if piece.lower() in _NONSKILL_WHOLE_WORDS:
                 continue
@@ -571,30 +618,10 @@ def parse_resume(text: str) -> dict:
     #    would completely miss.
     header_scanned_sections = _find_skills_sections_by_header(text)
 
-    cleaned_from_headers = extract_individual_skills(
-        header_scanned_sections, known_locations=raw_profile["location"]
-    )
+    cleaned_from_ner = extract_individual_skills(raw_profile["skills_raw"], known_locations=raw_profile["location"])
+    cleaned_from_headers = extract_individual_skills(header_scanned_sections, known_locations=raw_profile["location"])
 
-    # If the resume has an identifiable Skills/Technical Skills section, that
-    # section is the source of truth. Do NOT union NER Skills spans with it: the
-    # trained NER model can label project descriptions, objectives, education,
-    # or responsibilities as Skills. Unioning those spans is exactly what lets
-    # non-skills leak into the skills result.
-    #
-    # NER remains the fallback only for resumes that have no recognizable skills
-    # heading at all.
-    if header_scanned_sections:
-        # Keep the raw field clean too: once a real Skills section is found,
-        # the NER Skills span is not authoritative because it may include
-        # project/objective/education text.
-        raw_profile["skills_raw"] = header_scanned_sections
-        raw_profile["skills_cleaned"] = sorted(set(cleaned_from_headers))
-    else:
-        raw_profile["skills_cleaned"] = sorted(set(
-            extract_individual_skills(
-                raw_profile["skills_raw"], known_locations=raw_profile["location"]
-            )
-        ))
+    raw_profile["skills_cleaned"] = sorted(set(cleaned_from_ner) | set(cleaned_from_headers))
 
     # Same "regex/heuristic fallback alongside the NER model" approach applied
     # to the other fields real-world testing showed the model frequently
