@@ -600,6 +600,215 @@ def _normalize_whitespace(text: str) -> str:
     return "\n".join(re.sub(r"[ \t]+", " ", line) for line in text.split("\n"))
 
 
+# ---------------------------------------------------------------------------
+# Generic Seniority / Industry inference
+# ---------------------------------------------------------------------------
+# The NER model was not trained with Seniority or Industry labels.  These two
+# fields therefore use deterministic evidence-based inference instead of
+# adding candidate-specific hard-coding or pretending the NER model knows
+# labels it was never trained on.
+
+_SENIORITY_PATTERNS = {
+    "Senior": (
+        re.compile(r"\b(?:senior|sr\.?|lead|principal|staff|architect|head|manager|director|vp|vice president)\b", re.I),
+        re.compile(r"\b(?:[5-9]|[1-9]\d)\+?\s*(?:years?|yrs?)\b", re.I),
+    ),
+    "Mid": (
+        re.compile(r"\b(?:mid[- ]level|mid[- ]senior|experienced)\b", re.I),
+        re.compile(r"\b(?:2|3|4)\+?\s*(?:years?|yrs?)\b", re.I),
+    ),
+    "Junior": (
+        re.compile(r"\b(?:junior|jr\.?|entry[- ]level|graduate|recent graduate|fresher|trainee|intern|internship|apprentice)\b", re.I),
+        re.compile(r"\b(?:0|1)\+?\s*(?:years?|yrs?)\b", re.I),
+    ),
+}
+
+_EXPERIENCE_YEARS_PATTERN = re.compile(
+    r"\b(?:over\s+|more\s+than\s+)?(\d+(?:\.\d+)?)\+?\s*(?:years?|yrs?)(?:\s+of\s+experience)?\b",
+    re.I,
+)
+
+# Industry inference deliberately uses broad, stable categories rather than
+# company-name guessing.  Terms are grouped by industry and scored by how
+# directly they indicate that industry.  IT gets additional skill/title
+# evidence because technical resumes commonly omit an explicit industry line.
+_INDUSTRY_KEYWORDS = {
+    "IT": {
+        "title": ("software engineer", "software developer", "frontend", "backend", "full stack", "web developer", "data scientist", "data analyst", "data engineer", "machine learning", "ml engineer", "ai engineer", "devops", "cloud engineer", "qa engineer", "test engineer", "technical support", "system administrator"),
+        "skills": ("python", "java", "javascript", "typescript", "sql", "html", "css", "react", "angular", "vue", "node", "spring", "django", "flask", "fastapi", "aws", "azure", "gcp", "docker", "kubernetes", "git", "machine learning", "deep learning", "tensorflow", "pytorch", "scikit-learn", "data science", "rest api", "api development"),
+        "domain": ("software", "information technology", "information systems", "technology", "it industry", "computer science", "cybersecurity", "cloud computing", "artificial intelligence", "data analytics"),
+    },
+    "Finance": {
+        "title": ("financial analyst", "finance", "investment", "accountant", "accounting", "banking", "credit analyst", "risk analyst", "wealth manager"),
+        "skills": ("financial modeling", "valuation", "excel", "power bi", "tableau", "risk management", "accounting", "quickbooks", "sap fico"),
+        "domain": ("banking", "finance", "financial services", "investment", "insurance", "fintech"),
+    },
+    "Healthcare": {
+        "title": ("doctor", "physician", "nurse", "clinical", "medical", "healthcare", "pharmacist", "therapist", "medical coder"),
+        "skills": ("clinical", "patient care", "medical coding", "hipaa", "electronic health records", "ehr"),
+        "domain": ("healthcare", "hospital", "medical", "clinical", "pharmaceutical", "pharma", "life sciences"),
+    },
+    "Education": {
+        "title": ("teacher", "lecturer", "professor", "tutor", "academic", "instructional designer", "education"),
+        "skills": ("curriculum", "lesson planning", "teaching", "classroom management", "lms"),
+        "domain": ("education", "school", "college", "university", "academic"),
+    },
+    "Retail": {
+        "title": ("retail", "store manager", "merchandiser", "buyer", "retail analyst"),
+        "skills": ("merchandising", "point of sale", "inventory management", "retail operations"),
+        "domain": ("retail", "ecommerce", "e-commerce", "consumer goods"),
+    },
+    "Manufacturing": {
+        "title": ("manufacturing", "production engineer", "process engineer", "plant manager", "quality engineer"),
+        "skills": ("lean manufacturing", "six sigma", "cad", "cam", "production planning", "quality control"),
+        "domain": ("manufacturing", "factory", "industrial", "production", "automotive manufacturing"),
+    },
+    "Telecom": {
+        "title": ("telecom", "network engineer", "network administrator", "telecommunications"),
+        "skills": ("routing", "switching", "cisco", "networking", "5g", "lte"),
+        "domain": ("telecom", "telecommunications", "network operations", "5g"),
+    },
+    "Marketing": {
+        "title": ("marketing", "seo", "sem", "content marketer", "brand manager", "digital marketing", "social media manager"),
+        "skills": ("seo", "sem", "google ads", "social media", "content marketing", "campaign management", "google analytics"),
+        "domain": ("marketing", "advertising", "digital marketing", "branding"),
+    },
+    "Hospitality": {
+        "title": ("hotel", "hospitality", "chef", "restaurant manager", "front office", "event manager"),
+        "skills": ("food service", "hotel operations", "event planning", "guest relations"),
+        "domain": ("hospitality", "hotel", "restaurant", "tourism", "travel"),
+    },
+    "Logistics": {
+        "title": ("logistics", "supply chain", "warehouse", "procurement", "transportation"),
+        "skills": ("supply chain", "warehouse management", "procurement", "inventory", "fleet management"),
+        "domain": ("logistics", "supply chain", "transportation", "shipping"),
+    },
+    "Construction": {
+        "title": ("civil engineer", "construction", "site engineer", "project engineer", "architect"),
+        "skills": ("autocad", "revit", "project management", "quantity surveying"),
+        "domain": ("construction", "real estate", "civil engineering", "infrastructure"),
+    },
+}
+
+
+def _contains_phrase(text: str, phrase: str) -> bool:
+    """Case-insensitive whole-word/phrase match that avoids substring noise."""
+    return bool(re.search(rf"(?<![a-z0-9]){re.escape(phrase)}(?![a-z0-9])", text, re.I))
+
+
+def infer_seniority(text: str, designations: list = None,
+                    years_experience: list = None) -> str | None:
+    """Infer Junior/Mid/Senior from multiple resume signals.
+
+    Priority is explicit title/level evidence, followed by explicit experience
+    years.  Conflicting weak signals are not forced into a random answer.
+    """
+    text = text or ""
+    designation_text = " ".join(designations or [])
+    combined = f"{designation_text}\n{text}"
+
+    scores = {"Junior": 0, "Mid": 0, "Senior": 0}
+
+    # Strong title/level evidence gets more weight than incidental mentions.
+    for level, level_patterns in _SENIORITY_PATTERNS.items():
+        for pattern in level_patterns:
+            if pattern.search(designation_text):
+                scores[level] += 5
+            elif pattern.search(text):
+                scores[level] += 2
+
+    # Prefer structured NER experience values when available, but also inspect
+    # the raw text because many resumes use plain prose rather than an NER span.
+    years = []
+    for value in years_experience or []:
+        m = re.search(r"\d+(?:\.\d+)?", str(value))
+        if m:
+            years.append(float(m.group()))
+    years.extend(float(m.group(1)) for m in _EXPERIENCE_YEARS_PATTERN.finditer(text))
+
+    if years:
+        max_years = max(years)
+        if max_years >= 5:
+            scores["Senior"] += 6
+        elif max_years >= 2:
+            scores["Mid"] += 6
+        else:
+            scores["Junior"] += 4
+
+    # If the resume clearly describes a student/recent graduate with no
+    # stronger senior evidence, classify as Junior rather than leaving it null.
+    junior_context = re.search(
+        r"\b(?:student|recent graduate|fresh graduate|fresher|entry[- ]level|intern|internship|trainee)\b",
+        text, re.I,
+    )
+    if junior_context:
+        scores["Junior"] += 2
+
+    best_level = max(scores, key=scores.get)
+    best_score = scores[best_level]
+    second_score = sorted(scores.values(), reverse=True)[1]
+
+    # Require actual evidence and avoid resolving a close conflict blindly.
+    if best_score == 0 or (best_score == second_score and best_score < 4):
+        return None
+    if best_score - second_score < 2 and best_score < 6:
+        return None
+    return best_level
+
+
+def infer_industry(text: str, designations: list = None,
+                   skills: list = None) -> str | None:
+    """Infer a broad industry from title, skills, and domain evidence.
+
+    This is intentionally conservative: a single keyword is not enough for a
+    non-IT industry.  IT can be established by a strong technical role or by a
+    cluster of technical skills, which reflects how software resumes are often
+    written without an explicit "Industry" field.
+    """
+    text = text or ""
+    designation_text = " ".join(designations or [])
+    skill_text = " ".join(skills or [])
+    lower_text = text.lower()
+
+    scores = {industry: 0 for industry in _INDUSTRY_KEYWORDS}
+    for industry, groups in _INDUSTRY_KEYWORDS.items():
+        for phrase in groups["title"]:
+            if _contains_phrase(designation_text, phrase):
+                scores[industry] += 5
+        for phrase in groups["domain"]:
+            if _contains_phrase(lower_text, phrase):
+                scores[industry] += 3
+        for phrase in groups["skills"]:
+            if _contains_phrase(skill_text, phrase) or _contains_phrase(lower_text, phrase):
+                scores[industry] += 1
+
+    # Additional generic technical-skill cluster signal.  This prevents an
+    # explicit "Industry: IT" field from being necessary for software resumes.
+    technical_tokens = {
+        "python", "java", "javascript", "typescript", "sql", "html", "css",
+        "react", "angular", "vue", "node", "flask", "django", "fastapi",
+        "spring", "git", "docker", "kubernetes", "aws", "azure", "gcp",
+        "machine learning", "deep learning", "scikit-learn", "tensorflow",
+        "pytorch", "rest api", "api", "data science", "data analytics",
+    }
+    tech_hits = sum(1 for token in technical_tokens if _contains_phrase(skill_text, token))
+    if tech_hits >= 3:
+        scores["IT"] += min(tech_hits, 8)
+    if re.search(r"\b(?:software engineer|software developer|frontend|backend|full[- ]stack|web developer|data scientist|data analyst|data engineer|ai engineer|ml engineer|devops|cloud engineer)\b", designation_text, re.I):
+        scores["IT"] += 5
+
+    ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    best_industry, best_score = ranked[0]
+    second_score = ranked[1][1]
+
+    if best_score < 3:
+        return None
+    # A close tie between unrelated industries is ambiguous; don't guess.
+    if best_score == second_score:
+        return None
+    return best_industry
+
+
 def parse_resume(text: str) -> dict:
     text = _normalize_whitespace(text)
     doc = nlp(text)
@@ -655,6 +864,19 @@ def parse_resume(text: str) -> dict:
     raw_profile["designation"] = filter_out_project_titles(raw_profile["designation"], text)
     raw_profile["designation"] = filter_out_language_lists(raw_profile["designation"])
 
+    # Seniority and industry are not NER labels in the current model. Infer
+    # them from the complete resume using the generic evidence-based helpers.
+    raw_profile["seniority"] = infer_seniority(
+        text,
+        designations=raw_profile["designation"],
+        years_experience=raw_profile["years_of_experience"],
+    )
+    raw_profile["industry"] = infer_industry(
+        text,
+        designations=raw_profile["designation"],
+        skills=raw_profile["skills_cleaned"],
+    )
+
     return raw_profile
 
 
@@ -663,10 +885,10 @@ def build_resume_dict_from_text(resume_text: str, resume_id: str = None,
     """Bridges raw resume text into the shape /match-score, /skill-gap, and
     /rank-candidates expect (the same shape a structured ResumeInput produces).
 
-    seniority/industry can't be reliably extracted by the current NER model (its
-    label set doesn't include them) -- pass them in explicitly if known, otherwise
-    they're left as None and the matching engine treats them as "unknown" rather
-    than guessing (seniority_diff defaults to 2, industry_match defaults to False)."""
+    Seniority and industry are inferred generically by parse_resume() from
+    multiple resume signals.  Explicit values passed by the caller still take
+    precedence, so structured backend data can override inference when it is
+    known and authoritative."""
     profile = parse_resume(resume_text)
     skills = profile["skills_cleaned"]
     skills_str = "[" + " ".join(f"'{s}'" for s in skills) + "]"
@@ -675,8 +897,8 @@ def build_resume_dict_from_text(resume_text: str, resume_id: str = None,
     return {
         "resume_id": resume_id or "PARSED_FROM_TEXT",
         "role": role,
-        "seniority": seniority,
-        "industry": industry,
+        "seniority": seniority or profile.get("seniority"),
+        "industry": industry or profile.get("industry"),
         "skills": skills_str,
         # Using the raw resume text itself as the "summary" so the text_similarity
         # feature still has real content to compare against, instead of coming back

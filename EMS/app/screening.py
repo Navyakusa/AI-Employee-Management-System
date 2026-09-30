@@ -48,9 +48,9 @@ def extract_resume_profile_from_text(raw_text: str) -> dict:
     return {
         "resume_id": None,
         "role": profile["designation"][0] if profile["designation"] else None,
-        "seniority": None,  # not in this NER model's label set -- correctly left unavailable, not guessed
+        "seniority": profile.get("seniority"),  # not in this NER model's label set -- correctly left unavailable, not guessed
         "years_experience": profile["years_of_experience"],
-        "industry": None,   # same as above
+        "industry": profile.get("industry"),  # same as above
         "education": profile["degree"],
         "skills": [normalize_skill(s) for s in profile["skills_cleaned"]],
         "companies_worked_at": profile["companies_worked_at"],
