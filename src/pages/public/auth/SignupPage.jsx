@@ -54,7 +54,9 @@ function SignupPage() {
     const password = formData.password;
     const confirmPassword = formData.confirmPassword;
 
+    // ==============================
     // EMPTY FIELD CHECK
+    // ==============================
     if (
       !userName ||
       !email ||
@@ -65,7 +67,9 @@ function SignupPage() {
       return;
     }
 
+    // ==============================
     // PASSWORD LENGTH
+    // ==============================
     if (password.length < 6) {
       setError(
         "Password must be at least 6 characters."
@@ -73,7 +77,9 @@ function SignupPage() {
       return;
     }
 
+    // ==============================
     // PASSWORD MATCH
+    // ==============================
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -87,16 +93,17 @@ function SignupPage() {
       // ==============================
       // CALL SPRING BOOT SIGNUP API
       // ==============================
+      // Role is NOT sent from frontend.
+      // Backend is responsible for assigning
+      // the appropriate role for public signup.
+      // ==============================
       const response = await apiClient.post(
         "/auth/signup",
         {
           userName,
           email,
           password,
-
-          // Keep the values expected by your backend.
           department: "Engineering",
-          role: "EMPLOYEE",
         }
       );
 
@@ -151,7 +158,9 @@ function SignupPage() {
         </p>
 
         <form onSubmit={handleSignup}>
-          {/* FULL NAME */}
+          {/* ==============================
+              FULL NAME
+          ============================== */}
           <div className="form-group">
             <label htmlFor="userName">
               Full Name
@@ -167,7 +176,9 @@ function SignupPage() {
             />
           </div>
 
-          {/* EMAIL */}
+          {/* ==============================
+              EMAIL
+          ============================== */}
           <div className="form-group">
             <label htmlFor="email">
               Email
@@ -183,7 +194,9 @@ function SignupPage() {
             />
           </div>
 
-          {/* PASSWORD */}
+          {/* ==============================
+              PASSWORD
+          ============================== */}
           <div className="form-group">
             <label htmlFor="password">
               Password
@@ -199,7 +212,9 @@ function SignupPage() {
             />
           </div>
 
-          {/* CONFIRM PASSWORD */}
+          {/* ==============================
+              CONFIRM PASSWORD
+          ============================== */}
           <div className="form-group">
             <label htmlFor="confirmPassword">
               Confirm Password
@@ -215,14 +230,18 @@ function SignupPage() {
             />
           </div>
 
-          {/* ERROR */}
+          {/* ==============================
+              ERROR
+          ============================== */}
           {error && (
             <div className="signup-error">
               {error}
             </div>
           )}
 
-          {/* SUCCESS */}
+          {/* ==============================
+              SUCCESS
+          ============================== */}
           {success && (
             <div className="signup-success">
               ✓ {success}
@@ -231,7 +250,9 @@ function SignupPage() {
             </div>
           )}
 
-          {/* CREATE ACCOUNT */}
+          {/* ==============================
+              CREATE ACCOUNT
+          ============================== */}
           <button
             type="submit"
             className="signup-button"
@@ -263,4 +284,3 @@ function SignupPage() {
 }
 
 export default SignupPage;
-
