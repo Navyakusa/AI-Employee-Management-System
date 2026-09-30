@@ -8,17 +8,21 @@ import apiClient from "../../../services/apiClient";
 function LoginPage() {
   const navigate = useNavigate();
 
-  // Must match backend/database role values
-  const [role, setRole] = useState("HR");
-
+  // =========================
+  // FORM DATA
+  // =========================
   const [formData, setFormData] = useState({
     username: "",
     password: "",
   });
 
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] =
+    useState(false);
+
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+
+  const [loading, setLoading] =
+    useState(false);
 
   // =========================
   // HANDLE INPUT CHANGE
@@ -33,14 +37,6 @@ function LoginPage() {
   };
 
   // =========================
-  // HANDLE ROLE CHANGE
-  // =========================
-  const handleRoleChange = (e) => {
-    setRole(e.target.value);
-    setError("");
-  };
-
-  // =========================
   // LOGIN
   // =========================
   const handleLogin = async (e) => {
@@ -50,17 +46,16 @@ function LoginPage() {
       .trim()
       .toLowerCase();
 
-    const enteredPassword = formData.password;
+    const enteredPassword =
+      formData.password;
 
+    // =========================
+    // VALIDATION
+    // =========================
     if (!enteredEmail || !enteredPassword) {
       setError(
         "Please enter your email and password."
       );
-      return;
-    }
-
-    if (!role) {
-      setError("Please select a role.");
       return;
     }
 
@@ -71,12 +66,15 @@ function LoginPage() {
       // =========================
       // CALL BACKEND LOGIN API
       // =========================
+      // Role is NOT sent from frontend.
+      // Backend identifies the user's role
+      // using the authenticated user account.
+      // =========================
       const response = await apiClient.post(
         "/auth/login",
         {
           email: enteredEmail,
           password: enteredPassword,
-          role: role.toUpperCase(),
         }
       );
 
@@ -95,6 +93,9 @@ function LoginPage() {
 
       const userData = result.data;
 
+      // =========================
+      // CHECK USER DATA
+      // =========================
       if (!userData) {
         setError(
           "User data was not received from backend."
@@ -113,7 +114,7 @@ function LoginPage() {
       }
 
       // =========================
-      // CHECK ROLE
+      // CHECK BACKEND ROLE
       // =========================
       if (!userData.role) {
         setError(
@@ -123,20 +124,12 @@ function LoginPage() {
       }
 
       // =========================
-      // ROLE VALIDATION
+      // GET ROLE FROM BACKEND
       // =========================
       const backendRole =
-        userData.role.toUpperCase();
-
-      const selectedRole =
-        role.toUpperCase();
-
-      if (backendRole !== selectedRole) {
-        setError(
-          `You are not authorized to login as ${role}.`
-        );
-        return;
-      }
+        userData.role
+          .trim()
+          .toUpperCase();
 
       // =========================
       // SAVE AUTH DATA
@@ -148,7 +141,7 @@ function LoginPage() {
 
       localStorage.setItem(
         "role",
-        userData.role
+        backendRole
       );
 
       localStorage.setItem(
@@ -157,36 +150,70 @@ function LoginPage() {
           userId: userData.userId,
           userName: userData.userName,
           email: userData.email,
-          role: userData.role,
+          role: backendRole,
         })
       );
 
       // =========================
       // ROLE BASED NAVIGATION
       // =========================
+      // Backend determines the role.
+      // Frontend only redirects according
+      // to the role returned by backend.
+      // =========================
       switch (backendRole) {
         case "HR":
-          navigate("/hr/dashboard");
+          navigate(
+            "/hr/dashboard",
+            {
+              replace: true,
+            }
+          );
           break;
 
         case "SUPER_ADMIN":
-          navigate("/super-admin/dashboard");
+          navigate(
+            "/super-admin/dashboard",
+            {
+              replace: true,
+            }
+          );
           break;
 
         case "RECRUITER":
-          navigate("/recruiter/dashboard");
+          navigate(
+            "/recruiter/dashboard",
+            {
+              replace: true,
+            }
+          );
           break;
 
         case "HIRING_MANAGER":
-          navigate("/hiring-manager/dashboard");
+          navigate(
+            "/hiring-manager/dashboard",
+            {
+              replace: true,
+            }
+          );
           break;
 
         case "INTERVIEWER":
-          navigate("/interviewer/dashboard");
+          navigate(
+            "/interviewer/dashboard",
+            {
+              replace: true,
+            }
+          );
           break;
 
         case "EMPLOYEE":
-          navigate("/employee/dashboard");
+          navigate(
+            "/employee/dashboard",
+            {
+              replace: true,
+            }
+          );
           break;
 
         case "CANDIDATE": {
@@ -198,7 +225,9 @@ function LoginPage() {
               "pendingApplication"
             );
 
+          // =====================================
           // Candidate came from Apply Now
+          // =====================================
           if (pendingApplication) {
             sessionStorage.removeItem(
               "pendingApplication"
@@ -211,9 +240,14 @@ function LoginPage() {
               }
             );
           } else {
-            // Normal Candidate Login
+            // =====================================
+            // NORMAL CANDIDATE LOGIN
+            // =====================================
             navigate(
-              "/candidate/dashboard"
+              "/candidate/dashboard",
+              {
+                replace: true,
+              }
             );
           }
 
@@ -221,18 +255,46 @@ function LoginPage() {
         }
 
         default:
+          // =========================
+          // UNKNOWN ROLE
+          // =========================
           setError(
             `No dashboard configured for role: ${userData.role}`
           );
+
+          // Remove authentication data because
+          // there is no configured dashboard.
+          localStorage.removeItem("token");
+          localStorage.removeItem("role");
+          localStorage.removeItem(
+            "loggedInUser"
+          );
+
           break;
       }
     } catch (error) {
-      console.error("Login error:", error);
-
-      setError(
-        error.response?.data?.message ||
-          "Unable to connect to the server. Please try again."
+      console.error(
+        "Login error:",
+        error
       );
+
+      // =========================
+      // ERROR HANDLING
+      // =========================
+      if (
+        error.response?.status === 401 ||
+        error.response?.status === 403
+      ) {
+        setError(
+          error.response?.data?.message ||
+            "Invalid email or password."
+        );
+      } else {
+        setError(
+          error.response?.data?.message ||
+            "Unable to connect to the server. Please try again."
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -350,50 +412,9 @@ function LoginPage() {
           ================================= */}
 
           <form onSubmit={handleLogin}>
-            {/* ROLE */}
-
-            <div className="form-group">
-              <label htmlFor="role">
-                Login As
-              </label>
-
-              <select
-                id="role"
-                value={role}
-                onChange={handleRoleChange}
-                className="role-select"
-              >
-                <option value="HR">
-                  HR
-                </option>
-
-                <option value="HIRING_MANAGER">
-                  Hiring Manager
-                </option>
-
-                <option value="SUPER_ADMIN">
-                  Super Admin
-                </option>
-
-                <option value="RECRUITER">
-                  Recruiter
-                </option>
-
-                <option value="INTERVIEWER">
-                  Interviewer
-                </option>
-
-                <option value="EMPLOYEE">
-                  Employee
-                </option>
-
-                <option value="CANDIDATE">
-                  Candidate
-                </option>
-              </select>
-            </div>
-
-            {/* EMAIL */}
+            {/* ================================
+                EMAIL
+            ================================= */}
 
             <div className="form-group">
               <label htmlFor="username">
@@ -411,7 +432,9 @@ function LoginPage() {
               />
             </div>
 
-            {/* PASSWORD */}
+            {/* ================================
+                PASSWORD
+            ================================= */}
 
             <div className="form-group">
               <label htmlFor="password">
@@ -449,7 +472,9 @@ function LoginPage() {
               </div>
             </div>
 
-            {/* OPTIONS */}
+            {/* ================================
+                OPTIONS
+            ================================= */}
 
             <div className="login-options">
               <label className="remember-me">
@@ -468,7 +493,9 @@ function LoginPage() {
               </Link>
             </div>
 
-            {/* ERROR */}
+            {/* ================================
+                ERROR
+            ================================= */}
 
             {error && (
               <div className="login-error">
@@ -476,7 +503,9 @@ function LoginPage() {
               </div>
             )}
 
-            {/* LOGIN BUTTON */}
+            {/* ================================
+                LOGIN BUTTON
+            ================================= */}
 
             <button
               type="submit"
@@ -493,13 +522,17 @@ function LoginPage() {
             </button>
           </form>
 
-          {/* DIVIDER */}
+          {/* ================================
+              DIVIDER
+          ================================= */}
 
           <div className="divider">
             <span>or</span>
           </div>
 
-          {/* SIGNUP */}
+          {/* ================================
+              SIGNUP
+          ================================= */}
 
           <div className="signup-section">
             <p>
@@ -514,7 +547,9 @@ function LoginPage() {
             </Link>
           </div>
 
-          {/* BACK HOME */}
+          {/* ================================
+              BACK HOME
+          ================================= */}
 
           <Link
             to="/"
