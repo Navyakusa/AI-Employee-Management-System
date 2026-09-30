@@ -7,6 +7,10 @@ import {
 
 const AdminContext = createContext();
 
+// ============================================================
+// DEFAULT USERS
+// ============================================================
+
 const defaultUsers = [
   {
     id: 1,
@@ -42,6 +46,10 @@ const defaultUsers = [
   },
 ];
 
+// ============================================================
+// DEFAULT ACTIVITIES
+// ============================================================
+
 const defaultActivities = [
   {
     id: 1,
@@ -60,55 +68,148 @@ const defaultActivities = [
   },
 ];
 
+// ============================================================
+// DEFAULT AUDIT LOGS
+// ============================================================
+
 const defaultAuditLogs = [];
 
+// ============================================================
+// SAFE LOCAL STORAGE READER
+// ============================================================
+
+function getStoredData(key, fallback) {
+  try {
+    const storedValue = localStorage.getItem(key);
+
+    // Nothing stored yet
+    if (!storedValue) {
+      return fallback;
+    }
+
+    const parsedValue = JSON.parse(storedValue);
+
+    // Make sure null/undefined does not replace defaults
+    if (parsedValue === null || parsedValue === undefined) {
+      return fallback;
+    }
+
+    return parsedValue;
+  } catch (error) {
+    console.error(
+      `Failed to read ${key} from localStorage:`,
+      error
+    );
+
+    // Remove corrupted localStorage value
+    try {
+      localStorage.removeItem(key);
+    } catch (removeError) {
+      console.error(
+        `Failed to remove corrupted ${key}:`,
+        removeError
+      );
+    }
+
+    return fallback;
+  }
+}
+
+// ============================================================
+// ADMIN PROVIDER
+// ============================================================
+
 export function AdminProvider({ children }) {
-  const [users, setUsers] = useState(() => {
-    const savedUsers = localStorage.getItem("adminUsers");
+  // ==========================================================
+  // USERS
+  // ==========================================================
 
-    return savedUsers
-      ? JSON.parse(savedUsers)
-      : defaultUsers;
-  });
+  const [users, setUsers] = useState(() =>
+    getStoredData(
+      "adminUsers",
+      defaultUsers
+    )
+  );
 
-  const [activities, setActivities] = useState(() => {
-    const savedActivities =
-      localStorage.getItem("adminActivities");
+  // ==========================================================
+  // ACTIVITIES
+  // ==========================================================
 
-    return savedActivities
-      ? JSON.parse(savedActivities)
-      : defaultActivities;
-  });
+  const [activities, setActivities] = useState(() =>
+    getStoredData(
+      "adminActivities",
+      defaultActivities
+    )
+  );
 
-  const [auditLogs, setAuditLogs] = useState(() => {
-    const savedAuditLogs =
-      localStorage.getItem("adminAuditLogs");
+  // ==========================================================
+  // AUDIT LOGS
+  // ==========================================================
 
-    return savedAuditLogs
-      ? JSON.parse(savedAuditLogs)
-      : defaultAuditLogs;
-  });
+  const [auditLogs, setAuditLogs] = useState(() =>
+    getStoredData(
+      "adminAuditLogs",
+      defaultAuditLogs
+    )
+  );
+
+  // ==========================================================
+  // SAVE USERS
+  // ==========================================================
 
   useEffect(() => {
-    localStorage.setItem(
-      "adminUsers",
-      JSON.stringify(users)
-    );
+    try {
+      localStorage.setItem(
+        "adminUsers",
+        JSON.stringify(users)
+      );
+    } catch (error) {
+      console.error(
+        "Failed to save adminUsers:",
+        error
+      );
+    }
   }, [users]);
 
-  useEffect(() => {
-    localStorage.setItem(
-      "adminActivities",
-      JSON.stringify(activities)
-    );
-  }, [activities]);
+  // ==========================================================
+  // SAVE ACTIVITIES
+  // ==========================================================
 
   useEffect(() => {
-    localStorage.setItem(
-      "adminAuditLogs",
-      JSON.stringify(auditLogs)
-    );
+    try {
+      localStorage.setItem(
+        "adminActivities",
+        JSON.stringify(activities)
+      );
+    } catch (error) {
+      console.error(
+        "Failed to save adminActivities:",
+        error
+      );
+    }
+  }, [activities]);
+
+  // ==========================================================
+  // SAVE AUDIT LOGS
+  // ==========================================================
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "adminAuditLogs",
+        JSON.stringify(auditLogs)
+      );
+    } catch (error) {
+      console.error(
+        "Failed to save adminAuditLogs:",
+        error
+      );
+    }
   }, [auditLogs]);
+
+  // ==========================================================
+  // ADD ACTIVITY
+  // ==========================================================
 
   const addActivity = (message) => {
     const activity = {
@@ -122,6 +223,10 @@ export function AdminProvider({ children }) {
       ...prev,
     ]);
   };
+
+  // ==========================================================
+  // ADD AUDIT LOG
+  // ==========================================================
 
   const addAuditLog = ({
     module,
@@ -149,6 +254,10 @@ export function AdminProvider({ children }) {
     ]);
   };
 
+  // ==========================================================
+  // ADD USER
+  // ==========================================================
+
   const addUser = (userData) => {
     const newUser = {
       id: Date.now(),
@@ -171,6 +280,10 @@ export function AdminProvider({ children }) {
       details: `${userData.name} (${userData.email}) was created`,
     });
   };
+
+  // ==========================================================
+  // UPDATE USER
+  // ==========================================================
 
   const updateUser = (id, updatedData) => {
     setUsers((prev) =>
@@ -196,12 +309,18 @@ export function AdminProvider({ children }) {
     });
   };
 
+  // ==========================================================
+  // TOGGLE USER STATUS
+  // ==========================================================
+
   const toggleUserStatus = (id) => {
     const selectedUser = users.find(
       (user) => user.id === id
     );
 
-    if (!selectedUser) return;
+    if (!selectedUser) {
+      return;
+    }
 
     const newStatus =
       selectedUser.status === "Active"
@@ -231,6 +350,10 @@ export function AdminProvider({ children }) {
     });
   };
 
+  // ==========================================================
+  // PROVIDER
+  // ==========================================================
+
   return (
     <AdminContext.Provider
       value={{
@@ -247,6 +370,10 @@ export function AdminProvider({ children }) {
     </AdminContext.Provider>
   );
 }
+
+// ============================================================
+// useAdmin HOOK
+// ============================================================
 
 export function useAdmin() {
   return useContext(AdminContext);

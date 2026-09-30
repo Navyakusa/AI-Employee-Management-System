@@ -50,13 +50,9 @@ function SignupPage() {
     e.preventDefault();
 
     const userName = formData.userName.trim();
-    const email = formData.email
-      .trim()
-      .toLowerCase();
-
+    const email = formData.email.trim().toLowerCase();
     const password = formData.password;
-    const confirmPassword =
-      formData.confirmPassword;
+    const confirmPassword = formData.confirmPassword;
 
     // EMPTY FIELD CHECK
     if (
@@ -90,7 +86,6 @@ function SignupPage() {
 
       // ==============================
       // CALL SPRING BOOT SIGNUP API
-      // PUBLIC SIGNUP = CANDIDATE
       // ==============================
       const response = await apiClient.post(
         "/auth/signup",
@@ -98,8 +93,10 @@ function SignupPage() {
           userName,
           email,
           password,
-          role: "CANDIDATE",
-          department: "candidate",
+
+          // Keep the values expected by your backend.
+          department: "Engineering",
+          role: "EMPLOYEE",
         }
       );
 
@@ -116,9 +113,7 @@ function SignupPage() {
       // ==============================
       // SUCCESS
       // ==============================
-      setSuccess(
-        "Account created successfully!"
-      );
+      setSuccess("Account created successfully!");
 
       // ==============================
       // GO TO LOGIN
@@ -134,7 +129,6 @@ function SignupPage() {
           },
         });
       }, 1500);
-
     } catch (error) {
       console.error("Signup error:", error);
 
@@ -150,7 +144,6 @@ function SignupPage() {
   return (
     <div className="signup-page">
       <div className="signup-card">
-
         <h1>Create Account</h1>
 
         <p className="signup-subtitle">
@@ -158,7 +151,6 @@ function SignupPage() {
         </p>
 
         <form onSubmit={handleSignup}>
-
           {/* FULL NAME */}
           <div className="form-group">
             <label htmlFor="userName">
@@ -249,7 +241,6 @@ function SignupPage() {
               ? "Creating Account..."
               : "Create Account"}
           </button>
-
         </form>
 
         <p className="login-text">
@@ -266,10 +257,10 @@ function SignupPage() {
             Login
           </Link>
         </p>
-
       </div>
     </div>
   );
 }
 
 export default SignupPage;
+

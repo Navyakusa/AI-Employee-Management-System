@@ -6,6 +6,9 @@ import "./HRDashboard.css";
 import {
   fetchDashboardSummary,
   fetchApplicationsByStatus,
+  fetchEmployeeStatistics,
+  fetchInterviewsByStatus,
+  fetchAIScreening,
 } from "./hrApi";
 
 function HRDashboard() {
@@ -13,21 +16,61 @@ function HRDashboard() {
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
+  // ============================================================
+  // DASHBOARD SUMMARY
+  // ============================================================
+
   const [summary, setSummary] = useState(null);
   const [dashboardError, setDashboardError] = useState(false);
+
+  // ============================================================
+  // APPLICATIONS BY STATUS
+  // ============================================================
 
   const [applicationsByStatus, setApplicationsByStatus] = useState([]);
   const [applicationsStatusError, setApplicationsStatusError] =
     useState(false);
 
+  // ============================================================
+  // EMPLOYEE STATISTICS
+  // ============================================================
+
+  const [employeeStatistics, setEmployeeStatistics] = useState(null);
+  const [employeeStatisticsError, setEmployeeStatisticsError] =
+    useState(false);
+
+  // ============================================================
+  // INTERVIEW STATISTICS
+  // ============================================================
+
+  const [interviewsByStatus, setInterviewsByStatus] = useState([]);
+  const [interviewsStatusError, setInterviewsStatusError] =
+    useState(false);
+
+  // ============================================================
+  // AI SCREENING
+  // ============================================================
+
+  const [aiScreening, setAiScreening] = useState(null);
+  const [aiScreeningError, setAiScreeningError] = useState(false);
+
+  // ============================================================
+  // LOAD DASHBOARD DATA
+  // ============================================================
+
   useEffect(() => {
-    // ==============================
+    // ==========================================================
     // DASHBOARD SUMMARY
-    // ==============================
+    // ==========================================================
 
     fetchDashboardSummary()
-      .then((data) => {
-        console.log("Dashboard Summary:", data);
+      .then((response) => {
+        console.log("Dashboard Summary Response:", response);
+
+        const data = response?.data ?? response;
+
+        console.log("Dashboard Summary Data:", data);
+
         setSummary(data);
       })
       .catch((error) => {
@@ -35,14 +78,21 @@ function HRDashboard() {
         setDashboardError(true);
       });
 
-    // ==============================
+    // ==========================================================
     // APPLICATIONS BY STATUS
-    // ==============================
+    // ==========================================================
 
     fetchApplicationsByStatus()
-      .then((data) => {
-        console.log("Applications By Status:", data);
-        setApplicationsByStatus(data);
+      .then((response) => {
+        console.log("Applications By Status Response:", response);
+
+        const data = response?.data ?? response;
+
+        console.log("Applications By Status Data:", data);
+
+        setApplicationsByStatus(
+          Array.isArray(data) ? data : []
+        );
       })
       .catch((error) => {
         console.error(
@@ -52,39 +102,164 @@ function HRDashboard() {
 
         setApplicationsStatusError(true);
       });
+
+    // ==========================================================
+    // EMPLOYEE STATISTICS
+    // ==========================================================
+
+    fetchEmployeeStatistics()
+      .then((response) => {
+        console.log("Employee Statistics Response:", response);
+
+        const data = response?.data ?? response;
+
+        console.log("Employee Statistics Data:", data);
+
+        setEmployeeStatistics(data);
+      })
+      .catch((error) => {
+        console.error(
+          "Employee statistics error:",
+          error
+        );
+
+        setEmployeeStatisticsError(true);
+      });
+
+    // ==========================================================
+    // INTERVIEWS BY STATUS
+    // ==========================================================
+
+    fetchInterviewsByStatus()
+      .then((response) => {
+        console.log(
+          "Interviews By Status Response:",
+          response
+        );
+
+        const data = response?.data ?? response;
+
+        console.log(
+          "Interviews By Status Data:",
+          data
+        );
+
+        setInterviewsByStatus(
+          Array.isArray(data) ? data : []
+        );
+      })
+      .catch((error) => {
+        console.error(
+          "Interviews by status error:",
+          error
+        );
+
+        setInterviewsStatusError(true);
+      });
+
+    // ==========================================================
+    // AI SCREENING
+    // ==========================================================
+
+    fetchAIScreening()
+      .then((response) => {
+        console.log(
+          "AI Screening Response:",
+          response
+        );
+
+        const data = response?.data ?? response;
+
+        console.log(
+          "AI Screening Data:",
+          data
+        );
+
+        setAiScreening(data);
+      })
+      .catch((error) => {
+        console.error(
+          "AI screening error:",
+          error
+        );
+
+        setAiScreeningError(true);
+      });
   }, []);
 
-  // ==============================
+  // ============================================================
   // GET APPLICATION STATUS COUNT
-  // ==============================
+  // ============================================================
 
   const getApplicationStatusCount = (status) => {
     const item = applicationsByStatus.find(
       (item) =>
-        item.status?.toUpperCase() === status.toUpperCase()
+        item.status?.toUpperCase() ===
+        status.toUpperCase()
     );
 
     return item?.count ?? 0;
   };
 
+  // ============================================================
+  // GET INTERVIEW STATUS COUNT
+  // ============================================================
+
+  const getInterviewStatusCount = (status) => {
+    const item = interviewsByStatus.find(
+      (item) =>
+        item.status?.toUpperCase() ===
+        status.toUpperCase()
+    );
+
+    return item?.count ?? 0;
+  };
+
+  // ============================================================
+  // GET TOTAL INTERVIEWS
+  // ============================================================
+
+  const getTotalInterviews = () => {
+    return interviewsByStatus.reduce(
+      (total, item) =>
+        total + (Number(item.count) || 0),
+      0
+    );
+  };
+
+  // ============================================================
+  // LOGOUT
+  // ============================================================
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    navigate("/login");
+  };
+
+  // ============================================================
+  // UI
+  // ============================================================
+
   return (
     <div className="hr-dashboard">
 
-      {/* ==============================
+      {/* ======================================================
           SIDEBAR
-      ============================== */}
+      ====================================================== */}
 
       <HRSidebar />
 
-      {/* ==============================
+      {/* ======================================================
           MAIN CONTENT
-      ============================== */}
+      ====================================================== */}
 
       <main className="hr-main">
 
-        {/* ==============================
+        {/* ====================================================
             HEADER
-        ============================== */}
+        ==================================================== */}
 
         <header className="hr-header">
 
@@ -149,13 +324,7 @@ function HRDashboard() {
 
                 <button
                   className="logout-option"
-                  onClick={() => {
-
-                    localStorage.removeItem("token");
-                    localStorage.removeItem("user");
-
-                    navigate("/login");
-                  }}
+                  onClick={handleLogout}
                 >
                   🚪 <span>Logout</span>
                 </button>
@@ -168,13 +337,15 @@ function HRDashboard() {
 
         </header>
 
-        {/* ==============================
+        {/* ====================================================
             STATISTICS
-        ============================== */}
+        ==================================================== */}
 
         <section className="hr-stats">
 
-          {/* TOTAL EMPLOYEES */}
+          {/* ==================================================
+              TOTAL EMPLOYEES
+          ================================================== */}
 
           <div className="hr-stat-card">
 
@@ -189,18 +360,32 @@ function HRDashboard() {
               </p>
 
               <h2>
-                —
+                {employeeStatisticsError
+                  ? "—"
+                  : employeeStatistics === null
+                  ? "…"
+                  : employeeStatistics.totalEmployees}
               </h2>
 
               <span>
-                Employee API not connected
+                {employeeStatisticsError
+                  ? "Employee API not reachable"
+                  : employeeStatistics === null
+                  ? "Loading..."
+                  : `${employeeStatistics.activeEmployees} active ${
+                      employeeStatistics.activeEmployees === 1
+                        ? "employee"
+                        : "employees"
+                    }`}
               </span>
 
             </div>
 
           </div>
 
-          {/* OPEN POSITIONS */}
+          {/* ==================================================
+              OPEN POSITIONS
+          ================================================== */}
 
           <div className="hr-stat-card">
 
@@ -215,13 +400,11 @@ function HRDashboard() {
               </p>
 
               <h2>
-
                 {dashboardError
                   ? "—"
                   : summary === null
                   ? "…"
                   : summary.activeJobs}
-
               </h2>
 
               <span>
@@ -232,7 +415,9 @@ function HRDashboard() {
 
           </div>
 
-          {/* APPLICATIONS */}
+          {/* ==================================================
+              APPLICATIONS
+          ================================================== */}
 
           <div className="hr-stat-card">
 
@@ -247,27 +432,26 @@ function HRDashboard() {
               </p>
 
               <h2>
-
                 {dashboardError
                   ? "—"
                   : summary === null
                   ? "…"
                   : summary.totalApplications}
-
               </h2>
 
               <span>
                 {dashboardError
                   ? "Dashboard backend not reachable"
                   : "Total applications"}
-
               </span>
 
             </div>
 
           </div>
 
-          {/* NEW EMPLOYEES */}
+          {/* ==================================================
+              NEW EMPLOYEES
+          ================================================== */}
 
           <div className="hr-stat-card">
 
@@ -282,11 +466,19 @@ function HRDashboard() {
               </p>
 
               <h2>
-                —
+                {employeeStatisticsError
+                  ? "—"
+                  : employeeStatistics === null
+                  ? "…"
+                  : employeeStatistics.newEmployees}
               </h2>
 
               <span>
-                Employee API not connected
+                {employeeStatisticsError
+                  ? "Employee API not reachable"
+                  : employeeStatistics === null
+                  ? "Loading..."
+                  : "New employees"}
               </span>
 
             </div>
@@ -295,15 +487,15 @@ function HRDashboard() {
 
         </section>
 
-        {/* ==============================
+        {/* ====================================================
             BOTTOM SECTION
-        ============================== */}
+        ==================================================== */}
 
         <section className="hr-dashboard-grid">
 
-          {/* ==============================
+          {/* ==================================================
               RECRUITMENT OVERVIEW
-          ============================== */}
+          ================================================== */}
 
           <div className="hr-panel">
 
@@ -323,7 +515,9 @@ function HRDashboard() {
 
             </div>
 
-            {/* APPLICATIONS */}
+            {/* =================================================
+                APPLICATIONS
+            ================================================= */}
 
             <div className="recruitment-row">
 
@@ -332,18 +526,18 @@ function HRDashboard() {
               </span>
 
               <strong>
-
                 {dashboardError
                   ? "—"
                   : summary === null
                   ? "…"
                   : summary.totalApplications}
-
               </strong>
 
             </div>
 
-            {/* AI SCREENED */}
+            {/* =================================================
+                AI SCREENED
+            ================================================= */}
 
             <div className="recruitment-row">
 
@@ -352,12 +546,18 @@ function HRDashboard() {
               </span>
 
               <strong>
-                —
+                {aiScreeningError
+                  ? "—"
+                  : aiScreening === null
+                  ? "…"
+                  : aiScreening.totalScreenings}
               </strong>
 
             </div>
 
-            {/* SHORTLISTED */}
+            {/* =================================================
+                SHORTLISTED
+            ================================================= */}
 
             <div className="recruitment-row">
 
@@ -366,20 +566,18 @@ function HRDashboard() {
               </span>
 
               <strong>
-
                 {applicationsStatusError
                   ? "—"
                   : applicationsByStatus.length === 0
                   ? "…"
-                  : getApplicationStatusCount(
-                      "SHORTLISTED"
-                    )}
-
+                  : getApplicationStatusCount("SHORTLISTED")}
               </strong>
 
             </div>
 
-            {/* INTERVIEWS */}
+            {/* =================================================
+                INTERVIEWS
+            ================================================= */}
 
             <div className="recruitment-row">
 
@@ -388,18 +586,18 @@ function HRDashboard() {
               </span>
 
               <strong>
-
-                {dashboardError
+                {interviewsStatusError
                   ? "—"
-                  : summary === null
+                  : interviewsByStatus.length === 0
                   ? "…"
-                  : summary.totalInterviews}
-
+                  : getTotalInterviews()}
               </strong>
 
             </div>
 
-            {/* SELECTED */}
+            {/* =================================================
+                SELECTED
+            ================================================= */}
 
             <div className="recruitment-row">
 
@@ -408,20 +606,18 @@ function HRDashboard() {
               </span>
 
               <strong>
-
                 {applicationsStatusError
                   ? "—"
                   : applicationsByStatus.length === 0
                   ? "…"
-                  : getApplicationStatusCount(
-                      "SELECTED"
-                    )}
-
+                  : getApplicationStatusCount("SELECTED")}
               </strong>
 
             </div>
 
-            {/* JOINED */}
+            {/* =================================================
+                JOINED
+            ================================================= */}
 
             <div className="recruitment-row">
 
@@ -437,9 +633,9 @@ function HRDashboard() {
 
           </div>
 
-          {/* ==============================
+          {/* ==================================================
               QUICK ACTIONS
-          ============================== */}
+          ================================================== */}
 
           <div className="hr-panel">
 
