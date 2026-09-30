@@ -131,6 +131,10 @@ public class AuthService {
     // SIGNUP
     // =========================================================
 
+    // =========================================================
+// SIGNUP
+// =========================================================
+
     @Transactional
     public ResponseEntity<ApiResponse<User>> signup(
             SignupDto signupDto) {
@@ -165,25 +169,6 @@ public class AuthService {
 
             User user = new User();
 
-            System.out.println("===== SIGNUP REQUEST =====");
-            System.out.println(
-                    "Name       : "
-                            + signupDto.getUserName()
-            );
-            System.out.println(
-                    "Email      : "
-                            + signupDto.getEmail()
-            );
-            System.out.println(
-                    "Role       : "
-                            + signupDto.getRole()
-            );
-            System.out.println(
-                    "Department : "
-                            + signupDto.getDepartment()
-            );
-            System.out.println("==========================");
-
             user.setUserName(
                     signupDto.getUserName()
             );
@@ -198,9 +183,12 @@ public class AuthService {
                     )
             );
 
-            user.setRole(
-                    signupDto.getRole()
-            );
+            // =================================================
+            // PUBLIC SIGNUP ALWAYS CREATES CANDIDATE
+            // Do NOT take role from frontend
+            // =================================================
+
+            user.setRole("CANDIDATE");
 
             user.setDepartment(
                     signupDto.getDepartment()
@@ -214,43 +202,31 @@ public class AuthService {
             // =================================================
             // CREATE CANDIDATE PROFILE
             // =================================================
-            //
-            // Only users with the CANDIDATE role get a
-            // Candidate profile.
-            //
-            // The Candidate profile is linked to the User
-            // through the same email address.
-            // =================================================
 
-            if (signupDto.getRole() != null
-                    && signupDto.getRole()
-                    .equalsIgnoreCase("CANDIDATE")) {
+            Candidate candidate =
+                    new Candidate();
 
-                Candidate candidate =
-                        new Candidate();
+            candidate.setName(
+                    signupDto.getUserName()
+            );
 
-                candidate.setName(
-                        signupDto.getUserName()
-                );
+            candidate.setEmail(
+                    signupDto.getEmail()
+            );
 
-                candidate.setEmail(
-                        signupDto.getEmail()
-                );
+            candidate.setStatus(
+                    "ACTIVE"
+            );
 
-                candidate.setStatus(
-                        "ACTIVE"
-                );
+            candidate.setApplicationDate(
+                    LocalDateTime.now()
+            );
 
-                candidate.setApplicationDate(
-                        LocalDateTime.now()
-                );
+            candidate.setSource(
+                    "SIGNUP"
+            );
 
-                candidate.setSource(
-                        "SIGNUP"
-                );
-
-                candidateRepository.save(candidate);
-            }
+            candidateRepository.save(candidate);
 
             // =================================================
             // RESPONSE

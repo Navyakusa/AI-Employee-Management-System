@@ -26,14 +26,18 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final EmailNotificationService emailNotificationService;
+    private final NotificationSseService notificationSseService;
 
     public NotificationService(
             NotificationRepository notificationRepository,
-            UserRepository userRepository, EmailNotificationService emailNotificationService
+            UserRepository userRepository,
+            EmailNotificationService emailNotificationService,
+            NotificationSseService notificationSseService
     ) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.emailNotificationService = emailNotificationService;
+        this.notificationSseService = notificationSseService;
     }
 
     // =========================================================
@@ -101,10 +105,9 @@ public class NotificationService {
                             new RuntimeException("User not found")
                     );
 
-            int updatedCount =
-                    notificationRepository.markAllAsRead(
-                            user.getUserId()
-                    );
+            notificationRepository.markAllAsRead(
+                    user.getUserId()
+            );
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
@@ -138,21 +141,52 @@ public class NotificationService {
             String type
     ) {
 
-        Notification notification = Notification.builder()
-                .userId(userId)
-                .message(message)
-                .type(type)
-                .readStatus(false)
-                .createdAt(LocalDateTime.now())
-                .build();
+        Notification notification =
+                Notification.builder()
+                        .userId(userId)
+                        .message(message)
+                        .type(type)
+                        .readStatus(false)
+                        .createdAt(LocalDateTime.now())
+                        .build();
 
         Notification savedNotification =
                 notificationRepository.save(notification);
 
-        // Send email only after the surrounding transaction commits.
-        // This avoids sending emails for rolled-back operations.
+        // =====================================================
+        // SEND EMAIL + SSE AFTER TRANSACTION COMMIT
+        // =====================================================
 
-        Runnable emailTask = () -> {
+        Runnable notificationTask = () -> {
+
+            // -------------------------------------------------
+            // SSE
+            // -------------------------------------------------
+
+            try {
+
+                notificationSseService.sendNotification(
+                        userId,
+                        savedNotification
+                );
+
+                log.info(
+                        "SSE notification sent for notification ID: {}",
+                        savedNotification.getNotificationId()
+                );
+
+            } catch (Exception e) {
+
+                log.error(
+                        "SSE notification failed for notification ID: {}",
+                        savedNotification.getNotificationId(),
+                        e
+                );
+            }
+
+            // -------------------------------------------------
+            // EMAIL
+            // -------------------------------------------------
 
             try {
 
@@ -192,17 +226,34 @@ public class NotificationService {
 
                                 @Override
                                 public void afterCommit() {
-                                    emailTask.run();
+
+                                    notificationTask.run();
                                 }
                             }
                     );
 
         } else {
 
-            emailTask.run();
+            notificationTask.run();
         }
 
         return savedNotification;
+    }
+
+    // =========================================================
+    // GET USER ID BY EMAIL
+    // Used by SSE connection
+    // =========================================================
+
+    public Long getUserIdByEmail(String email) {
+
+        User user = userRepository
+                .findByEmailIgnoreCase(email)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found")
+                );
+
+        return user.getUserId();
     }
 
     // =========================================================
@@ -230,31 +281,25 @@ public class NotificationService {
                                     user.getUserId()
                             );
 
-            ApiResponse<List<Notification>> response =
+            return ResponseEntity.ok(
                     new ApiResponse<>(
                             true,
                             "Notifications fetched successfully",
                             notifications
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.OK
+                    )
             );
 
         } catch (Exception e) {
 
-            ApiResponse<List<Notification>> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    e.getMessage(),
+                                    null
+                            )
                     );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.BAD_REQUEST
-            );
         }
     }
 
@@ -289,27 +334,24 @@ public class NotificationService {
 
             // =================================================
             // SECURITY CHECK
-            // User can only modify their own notification
             // =================================================
 
             if (!notification.getUserId()
                     .equals(user.getUserId())) {
 
-                ApiResponse<Notification> response =
-                        new ApiResponse<>(
-                                false,
-                                "You are not allowed to access this notification",
-                                null
+                return ResponseEntity
+                        .status(HttpStatus.FORBIDDEN)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "You are not allowed to access this notification",
+                                        null
+                                )
                         );
-
-                return new ResponseEntity<>(
-                        response,
-                        HttpStatus.FORBIDDEN
-                );
             }
 
             // =================================================
-            // EXPLICIT DATABASE UPDATE
+            // DATABASE UPDATE
             // =================================================
 
             int updatedCount =
@@ -320,47 +362,38 @@ public class NotificationService {
 
             if (updatedCount == 0) {
 
-                ApiResponse<Notification> response =
-                        new ApiResponse<>(
-                                false,
-                                "Notification could not be marked as read",
-                                null
+                return ResponseEntity
+                        .status(HttpStatus.BAD_REQUEST)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Notification could not be marked as read",
+                                        null
+                                )
                         );
-
-                return new ResponseEntity<>(
-                        response,
-                        HttpStatus.BAD_REQUEST
-                );
             }
 
-            // Keep returned object consistent with database
             notification.setReadStatus(true);
 
-            ApiResponse<Notification> response =
+            return ResponseEntity.ok(
                     new ApiResponse<>(
                             true,
                             "Notification marked as read",
                             notification
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.OK
+                    )
             );
 
         } catch (Exception e) {
 
-            ApiResponse<Notification> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    e.getMessage(),
+                                    null
+                            )
                     );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.BAD_REQUEST
-            );
         }
     }
 
@@ -452,7 +485,10 @@ public class NotificationService {
                                     )
                             );
 
-            // User can delete only their own notification
+            // =================================================
+            // SECURITY CHECK
+            // =================================================
+
             if (!notification.getUserId()
                     .equals(user.getUserId())) {
 

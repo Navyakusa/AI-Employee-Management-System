@@ -4,9 +4,13 @@ import com.ems.common.ApiResponse;
 import com.ems.dto.NotificationStatsDto;
 import com.ems.entity.Notification;
 import com.ems.service.NotificationService;
+import com.ems.service.NotificationSseService;
+
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
@@ -16,16 +20,39 @@ import java.util.List;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final NotificationSseService notificationSseService;
 
     public NotificationController(
-            NotificationService notificationService
+            NotificationService notificationService,
+            NotificationSseService notificationSseService
     ) {
         this.notificationService = notificationService;
+        this.notificationSseService = notificationSseService;
     }
 
-    // =========================
+    // =========================================================
+    // SSE NOTIFICATION STREAM
+    // =========================================================
+
+    @GetMapping(
+            value = "/stream",
+            produces = MediaType.TEXT_EVENT_STREAM_VALUE
+    )
+    public SseEmitter streamNotifications(
+            Authentication authentication
+    ) {
+
+        String email = authentication.getName();
+
+        Long userId =
+                notificationService.getUserIdByEmail(email);
+
+        return notificationSseService.connect(userId);
+    }
+
+    // =========================================================
     // GET MY NOTIFICATIONS
-    // =========================
+    // =========================================================
 
     @GetMapping("/my")
     public ResponseEntity<ApiResponse<List<Notification>>>
@@ -39,9 +66,9 @@ public class NotificationController {
                 );
     }
 
-    // =========================
+    // =========================================================
     // GET UNREAD COUNT
-    // =========================
+    // =========================================================
 
     @GetMapping("/unread-count")
     public ResponseEntity<ApiResponse<Long>>
@@ -55,9 +82,9 @@ public class NotificationController {
                 );
     }
 
-    // =========================
+    // =========================================================
     // MARK ONE AS READ
-    // =========================
+    // =========================================================
 
     @PutMapping("/{notificationId}/read")
     public ResponseEntity<ApiResponse<Notification>>
@@ -73,9 +100,9 @@ public class NotificationController {
                 );
     }
 
-    // =========================
+    // =========================================================
     // MARK ALL AS READ
-    // =========================
+    // =========================================================
 
     @PutMapping("/read-all")
     public ResponseEntity<ApiResponse<Void>>
@@ -88,6 +115,11 @@ public class NotificationController {
                         authentication
                 );
     }
+
+    // =========================================================
+    // NOTIFICATION STATS
+    // =========================================================
+
     @GetMapping("/stats")
     public ResponseEntity<ApiResponse<NotificationStatsDto>>
     getNotificationStats(
@@ -95,8 +127,15 @@ public class NotificationController {
     ) {
 
         return notificationService
-                .getNotificationStats(authentication);
+                .getNotificationStats(
+                        authentication
+                );
     }
+
+    // =========================================================
+    // DELETE NOTIFICATION
+    // =========================================================
+
     @DeleteMapping("/{notificationId}")
     public ResponseEntity<ApiResponse<Void>>
     deleteNotification(
