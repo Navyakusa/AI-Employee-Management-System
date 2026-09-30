@@ -6,13 +6,25 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class NotificationSseService {
 
-    private final Map<Long, SseEmitter> emitters =
+    /*
+     * One user can have multiple SSE connections.
+     *
+     * Example:
+     *
+     * User 1 -> Browser Tab 1
+     *         -> Browser Tab 2
+     *
+     * User 2 -> Browser Tab 1
+     */
+    private final Map<Long, Set<SseEmitter>> emitters =
             new ConcurrentHashMap<>();
+
 
     // =========================================================
     // CONNECT USER TO SSE
@@ -23,22 +35,48 @@ public class NotificationSseService {
         SseEmitter emitter =
                 new SseEmitter(30 * 60 * 1000L);
 
-        emitters.put(userId, emitter);
+        emitters
+                .computeIfAbsent(
+                        userId,
+                        key -> ConcurrentHashMap.newKeySet()
+                )
+                .add(emitter);
 
-        emitter.onCompletion(
-                () -> emitters.remove(userId)
+
+        // =====================================================
+        // CONNECTION COMPLETED
+        // =====================================================
+
+        emitter.onCompletion(() ->
+                removeEmitter(userId, emitter)
         );
 
-        emitter.onTimeout(
-                () -> {
-                    emitters.remove(userId);
-                    emitter.complete();
-                }
-        );
 
-        emitter.onError(
-                error -> emitters.remove(userId)
-        );
+        // =====================================================
+        // CONNECTION TIMEOUT
+        // =====================================================
+
+        emitter.onTimeout(() -> {
+
+            removeEmitter(userId, emitter);
+
+            emitter.complete();
+        });
+
+
+        // =====================================================
+        // CONNECTION ERROR
+        // =====================================================
+
+        emitter.onError(error -> {
+
+            removeEmitter(userId, emitter);
+        });
+
+
+        // =====================================================
+        // SEND CONNECTION EVENT
+        // =====================================================
 
         try {
 
@@ -50,15 +88,17 @@ public class NotificationSseService {
 
         } catch (IOException e) {
 
-            emitters.remove(userId);
+            removeEmitter(userId, emitter);
+
             emitter.completeWithError(e);
         }
 
         return emitter;
     }
 
+
     // =========================================================
-    // SEND NOTIFICATION TO USER
+    // SEND NOTIFICATION TO ALL USER CONNECTIONS
     // =========================================================
 
     public void sendNotification(
@@ -66,25 +106,72 @@ public class NotificationSseService {
             Notification notification
     ) {
 
-        SseEmitter emitter =
+        Set<SseEmitter> userEmitters =
                 emitters.get(userId);
 
-        if (emitter == null) {
+        if (userEmitters == null ||
+                userEmitters.isEmpty()) {
+
             return;
         }
 
-        try {
 
-            emitter.send(
-                    SseEmitter.event()
-                            .name("notification")
-                            .data(notification)
-            );
+        /*
+         * Copy the set before iterating.
+         *
+         * This avoids concurrent modification problems
+         * when a connection closes while we are sending.
+         */
+        for (SseEmitter emitter :
+                Set.copyOf(userEmitters)) {
 
-        } catch (Exception e) {
+            try {
+
+                emitter.send(
+                        SseEmitter.event()
+                                .name("notification")
+                                .data(notification)
+                );
+
+            } catch (Exception e) {
+
+                removeEmitter(
+                        userId,
+                        emitter
+                );
+
+                emitter.complete();
+            }
+        }
+    }
+
+
+    // =========================================================
+    // REMOVE ONE CONNECTION
+    // =========================================================
+
+    private void removeEmitter(
+            Long userId,
+            SseEmitter emitter
+    ) {
+
+        Set<SseEmitter> userEmitters =
+                emitters.get(userId);
+
+        if (userEmitters == null) {
+            return;
+        }
+
+        userEmitters.remove(emitter);
+
+
+        /*
+         * If the user has no active connections anymore,
+         * remove the user entry completely.
+         */
+        if (userEmitters.isEmpty()) {
 
             emitters.remove(userId);
-            emitter.complete();
         }
     }
 }
