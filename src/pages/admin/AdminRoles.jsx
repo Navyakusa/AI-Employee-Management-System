@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
 import {
   ShieldCheck,
   Plus,
@@ -11,66 +12,15 @@ import {
 import AdminSidebar from "./AdminSidebar";
 import AdminNavbar from "./AdminNavbar";
 
+import apiClient from "../../services/apiClient";
+
 import "./AdminRoles.css";
 
 function AdminRoles() {
-  const defaultRoles = [
-    {
-      id: 1,
-      name: "Super Admin",
-      description: "Full access to all system modules and settings.",
-      users: 1,
-      status: "Active",
-    },
-    {
-      id: 2,
-      name: "HR Manager",
-      description:
-        "Manage recruitment, employees, interviews, offers and HR operations.",
-      users: 3,
-      status: "Active",
-    },
-    {
-      id: 3,
-      name: "Recruiter",
-      description:
-        "Manage candidates, resumes, shortlisting and interview scheduling.",
-      users: 5,
-      status: "Active",
-    },
-    {
-      id: 4,
-      name: "Hiring Manager",
-      description:
-        "Review shortlisted candidates and provide hiring decisions.",
-      users: 2,
-      status: "Active",
-    },
-    {
-      id: 5,
-      name: "Interviewer",
-      description:
-        "View assigned interviews and submit candidate evaluations.",
-      users: 4,
-      status: "Active",
-    },
-    {
-      id: 6,
-      name: "Employee",
-      description:
-        "Access profile, attendance, leave and performance information.",
-      users: 15,
-      status: "Active",
-    },
-  ];
-
-  const [roles, setRoles] = useState(() => {
-    const savedRoles = localStorage.getItem("adminRoles");
-
-    return savedRoles
-      ? JSON.parse(savedRoles)
-      : defaultRoles;
-  });
+  // ==============================
+  // STATE
+  // ==============================
+  const [roles, setRoles] = useState([]);
 
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -78,12 +28,82 @@ function AdminRoles() {
 
   const [editingRole, setEditingRole] = useState(null);
 
+  const [loading, setLoading] = useState(true);
+
+  const [error, setError] = useState("");
+
+  const [saving, setSaving] = useState(false);
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     status: "Active",
   });
 
+  // ==============================
+  // MAP BACKEND ROLE TO UI ROLE
+  // ==============================
+  const mapBackendRole = (role) => ({
+    id: role.roleId,
+    name: role.roleName || "",
+    description: role.description || "",
+    users: role.assignedUsers ?? 0,
+    status: role.active ? "Active" : "Inactive",
+  });
+
+  // ==============================
+  // FETCH ALL ROLES
+  // GET /api/roles/all
+  // ==============================
+  const fetchRoles = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await apiClient.get("/roles/all");
+
+      const data = response.data;
+
+      if (Array.isArray(data)) {
+        const mappedRoles = data.map(mapBackendRole);
+
+        setRoles(mappedRoles);
+      } else {
+        setRoles([]);
+        setError("Unable to load roles.");
+      }
+    } catch (error) {
+      console.error("Error fetching roles:", error);
+
+      if (error.response?.status === 401) {
+        setError(
+          "Your session has expired. Please login again."
+        );
+      } else if (error.response?.status === 403) {
+        setError(
+          "You are not authorized to access roles."
+        );
+      } else {
+        setError(
+          error.response?.data?.message ||
+            "Unable to load roles."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==============================
+  // LOAD ROLES WHEN PAGE OPENS
+  // ==============================
+  useEffect(() => {
+    fetchRoles();
+  }, []);
+
+  // ==============================
+  // FILTER ROLES
+  // ==============================
   const filteredRoles = useMemo(() => {
     const value = searchTerm.toLowerCase().trim();
 
@@ -93,20 +113,18 @@ function AdminRoles() {
 
     return roles.filter(
       (role) =>
-        role.name.toLowerCase().includes(value) ||
-        role.description.toLowerCase().includes(value)
+        role.name
+          .toLowerCase()
+          .includes(value) ||
+        role.description
+          .toLowerCase()
+          .includes(value)
     );
   }, [roles, searchTerm]);
 
-  const saveRoles = (updatedRoles) => {
-    setRoles(updatedRoles);
-
-    localStorage.setItem(
-      "adminRoles",
-      JSON.stringify(updatedRoles)
-    );
-  };
-
+  // ==============================
+  // OPEN CREATE MODAL
+  // ==============================
   const openCreateModal = () => {
     setEditingRole(null);
 
@@ -119,6 +137,9 @@ function AdminRoles() {
     setShowModal(true);
   };
 
+  // ==============================
+  // OPEN EDIT MODAL
+  // ==============================
   const openEditModal = (role) => {
     setEditingRole(role);
 
@@ -131,8 +152,16 @@ function AdminRoles() {
     setShowModal(true);
   };
 
+  // ==============================
+  // CLOSE MODAL
+  // ==============================
   const closeModal = () => {
+    if (saving) {
+      return;
+    }
+
     setShowModal(false);
+
     setEditingRole(null);
 
     setFormData({
@@ -142,6 +171,9 @@ function AdminRoles() {
     });
   };
 
+  // ==============================
+  // HANDLE FORM INPUT
+  // ==============================
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -151,7 +183,10 @@ function AdminRoles() {
     }));
   };
 
-  const handleSubmit = (e) => {
+  // ==============================
+  // CREATE / UPDATE ROLE
+  // ==============================
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!formData.name.trim()) {
@@ -159,33 +194,109 @@ function AdminRoles() {
       return;
     }
 
-    if (editingRole) {
-      const updatedRoles = roles.map((role) =>
-        role.id === editingRole.id
-          ? {
-              ...role,
-              ...formData,
-            }
-          : role
+    const payload = {
+      roleName: formData.name.trim(),
+      description: formData.description.trim(),
+      active: formData.status === "Active",
+    };
+
+    try {
+      setSaving(true);
+
+      // ==============================
+      // UPDATE EXISTING ROLE
+      // PUT /api/roles/{id}
+      // ==============================
+      if (editingRole) {
+        const response = await apiClient.put(
+          `/roles/${editingRole.id}`,
+          payload
+        );
+
+        const updatedRole = mapBackendRole(
+          response.data
+        );
+
+        setRoles((previousRoles) =>
+          previousRoles.map((role) =>
+            role.id === editingRole.id
+              ? updatedRole
+              : role
+          )
+        );
+      } else {
+        // ==============================
+        // CREATE NEW ROLE
+        // POST /api/roles/create
+        // ==============================
+        const response = await apiClient.post(
+          "/roles/create",
+          payload
+        );
+
+        const createdRole = mapBackendRole(
+          response.data
+        );
+
+        setRoles((previousRoles) => [
+          createdRole,
+          ...previousRoles,
+        ]);
+      }
+
+      setShowModal(false);
+
+      setEditingRole(null);
+
+      setFormData({
+        name: "",
+        description: "",
+        status: "Active",
+      });
+    } catch (error) {
+      console.error(
+        editingRole
+          ? "Error updating role:"
+          : "Error creating role:",
+        error
       );
 
-      saveRoles(updatedRoles);
-    } else {
-      const newRole = {
-        id: Date.now(),
-        ...formData,
-        users: 0,
-      };
-
-      saveRoles([newRole, ...roles]);
+      if (error.response?.status === 401) {
+        alert(
+          "Your session has expired. Please login again."
+        );
+      } else if (error.response?.status === 403) {
+        alert(
+          "You are not authorized to perform this action."
+        );
+      } else {
+        alert(
+          error.response?.data?.message ||
+            (editingRole
+              ? "Unable to update role."
+              : "Unable to create role.")
+        );
+      }
+    } finally {
+      setSaving(false);
     }
-
-    closeModal();
   };
 
-  const deleteRole = (role) => {
-    if (role.name === "Super Admin") {
-      alert("Super Admin role cannot be deleted.");
+  // ==============================
+  // DELETE ROLE
+  // DELETE /api/roles/{id}
+  // ==============================
+  const deleteRole = async (role) => {
+    if (
+      role.name
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, "_") ===
+      "SUPER_ADMIN"
+    ) {
+      alert(
+        "Super Admin role cannot be deleted."
+      );
       return;
     }
 
@@ -197,22 +308,55 @@ function AdminRoles() {
       return;
     }
 
-    const updatedRoles = roles.filter(
-      (item) => item.id !== role.id
-    );
+    try {
+      await apiClient.delete(
+        `/roles/${role.id}`
+      );
 
-    saveRoles(updatedRoles);
+      setRoles((previousRoles) =>
+        previousRoles.filter(
+          (item) => item.id !== role.id
+        )
+      );
+    } catch (error) {
+      console.error(
+        "Error deleting role:",
+        error
+      );
+
+      if (error.response?.status === 401) {
+        alert(
+          "Your session has expired. Please login again."
+        );
+      } else if (error.response?.status === 403) {
+        alert(
+          "You are not authorized to delete this role."
+        );
+      } else {
+        alert(
+          error.response?.data?.message ||
+            "Unable to delete role."
+        );
+      }
+    }
   };
 
+  // ==============================
+  // ROLE STATISTICS
+  // ==============================
   const activeRoles = roles.filter(
     (role) => role.status === "Active"
   ).length;
 
   const assignedUsers = roles.reduce(
-    (total, role) => total + role.users,
+    (total, role) =>
+      total + Number(role.users || 0),
     0
   );
 
+  // ==============================
+  // UI
+  // ==============================
   return (
     <div className="admin-roles-layout">
       <AdminSidebar />
@@ -237,10 +381,14 @@ function AdminRoles() {
               onClick={openCreateModal}
             >
               <Plus size={18} />
+
               Add Role
             </button>
           </div>
 
+          {/* ==============================
+              ROLE STATISTICS
+          ============================== */}
           <div className="admin-role-stats">
             <div className="admin-role-stat-card">
               <div className="admin-role-stat-icon">
@@ -249,6 +397,7 @@ function AdminRoles() {
 
               <div>
                 <span>Total Roles</span>
+
                 <strong>{roles.length}</strong>
               </div>
             </div>
@@ -260,6 +409,7 @@ function AdminRoles() {
 
               <div>
                 <span>Active Roles</span>
+
                 <strong>{activeRoles}</strong>
               </div>
             </div>
@@ -271,11 +421,15 @@ function AdminRoles() {
 
               <div>
                 <span>Assigned Users</span>
+
                 <strong>{assignedUsers}</strong>
               </div>
             </div>
           </div>
 
+          {/* ==============================
+              ROLES TABLE
+          ============================== */}
           <section className="admin-roles-card">
             <div className="admin-roles-toolbar">
               <input
@@ -283,85 +437,123 @@ function AdminRoles() {
                 placeholder="Search roles..."
                 value={searchTerm}
                 onChange={(e) =>
-                  setSearchTerm(e.target.value)
+                  setSearchTerm(
+                    e.target.value
+                  )
                 }
               />
             </div>
+
+            {/* ERROR */}
+            {error && (
+              <div className="admin-role-empty">
+                {error}
+              </div>
+            )}
 
             <div className="admin-roles-table-wrapper">
               <table className="admin-roles-table">
                 <thead>
                   <tr>
                     <th>Role</th>
+
                     <th>Description</th>
+
                     <th>Users</th>
+
                     <th>Status</th>
+
                     <th>Actions</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {filteredRoles.length > 0 ? (
-                    filteredRoles.map((role) => (
-                      <tr key={role.id}>
-                        <td>
-                          <div className="admin-role-name">
-                            <div className="admin-role-avatar">
-                              <ShieldCheck size={18} />
+                  {loading ? (
+                    <tr>
+                      <td
+                        colSpan="5"
+                        className="admin-role-empty"
+                      >
+                        Loading roles...
+                      </td>
+                    </tr>
+                  ) : filteredRoles.length >
+                    0 ? (
+                    filteredRoles.map(
+                      (role) => (
+                        <tr key={role.id}>
+                          <td>
+                            <div className="admin-role-name">
+                              <div className="admin-role-avatar">
+                                <ShieldCheck
+                                  size={18}
+                                />
+                              </div>
+
+                              <strong>
+                                {role.name}
+                              </strong>
                             </div>
+                          </td>
 
-                            <strong>
-                              {role.name}
-                            </strong>
-                          </div>
-                        </td>
-
-                        <td>
-                          <span className="admin-role-description">
-                            {role.description}
-                          </span>
-                        </td>
-
-                        <td>
-                          {role.users}
-                        </td>
-
-                        <td>
-                          <span
-                            className={`admin-role-status ${
-                              role.status === "Active"
-                                ? "active"
-                                : "inactive"
-                            }`}
-                          >
-                            {role.status}
-                          </span>
-                        </td>
-
-                        <td>
-                          <div className="admin-role-actions">
-                            <button
-                              title="Edit role"
-                              onClick={() =>
-                                openEditModal(role)
+                          <td>
+                            <span className="admin-role-description">
+                              {
+                                role.description
                               }
-                            >
-                              <Pencil size={16} />
-                            </button>
+                            </span>
+                          </td>
 
-                            <button
-                              title="Delete role"
-                              className="delete"
-                              onClick={() =>
-                                deleteRole(role)
-                              }
+                          <td>
+                            {role.users}
+                          </td>
+
+                          <td>
+                            <span
+                              className={`admin-role-status ${
+                                role.status ===
+                                "Active"
+                                  ? "active"
+                                  : "inactive"
+                              }`}
                             >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                              {role.status}
+                            </span>
+                          </td>
+
+                          <td>
+                            <div className="admin-role-actions">
+                              <button
+                                title="Edit role"
+                                onClick={() =>
+                                  openEditModal(
+                                    role
+                                  )
+                                }
+                              >
+                                <Pencil
+                                  size={16}
+                                />
+                              </button>
+
+                              <button
+                                title="Delete role"
+                                className="delete"
+                                onClick={() =>
+                                  deleteRole(
+                                    role
+                                  )
+                                }
+                              >
+                                <Trash2
+                                  size={16}
+                                />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    )
                   ) : (
                     <tr>
                       <td
@@ -379,6 +571,9 @@ function AdminRoles() {
         </main>
       </div>
 
+      {/* ==============================
+          ADD / EDIT ROLE MODAL
+      ============================== */}
       {showModal && (
         <div className="admin-role-modal-overlay">
           <div className="admin-role-modal">
@@ -398,6 +593,7 @@ function AdminRoles() {
               <button
                 className="admin-role-modal-close"
                 onClick={closeModal}
+                disabled={saving}
               >
                 <X size={19} />
               </button>
@@ -413,6 +609,7 @@ function AdminRoles() {
                   value={formData.name}
                   onChange={handleChange}
                   placeholder="Enter role name"
+                  disabled={saving}
                 />
               </div>
 
@@ -421,10 +618,13 @@ function AdminRoles() {
 
                 <textarea
                   name="description"
-                  value={formData.description}
+                  value={
+                    formData.description
+                  }
                   onChange={handleChange}
                   placeholder="Enter role description"
                   rows="4"
+                  disabled={saving}
                 />
               </div>
 
@@ -435,6 +635,7 @@ function AdminRoles() {
                   name="status"
                   value={formData.status}
                   onChange={handleChange}
+                  disabled={saving}
                 >
                   <option value="Active">
                     Active
@@ -451,6 +652,7 @@ function AdminRoles() {
                   type="button"
                   className="cancel"
                   onClick={closeModal}
+                  disabled={saving}
                 >
                   Cancel
                 </button>
@@ -458,10 +660,15 @@ function AdminRoles() {
                 <button
                   type="submit"
                   className="save"
+                  disabled={saving}
                 >
-                  {editingRole
-                    ? "Update Role"
-                    : "Create Role"}
+                  {saving
+                    ? editingRole
+                      ? "Updating..."
+                      : "Creating..."
+                    : editingRole
+                      ? "Update Role"
+                      : "Create Role"}
                 </button>
               </div>
             </form>
