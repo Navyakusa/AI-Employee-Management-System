@@ -82,18 +82,7 @@ public class AuthService {
                 );
             }
 
-            // Check selected role with database role
-            if (loginDto.getRole() == null ||
-                    !user.getRole().equalsIgnoreCase(
-                            loginDto.getRole()
-                    )) {
-
-                throw new InvalidCredentialsException(
-                        "You are not authorized to login as "
-                                + loginDto.getRole()
-                );
-            }
-
+            // Get role from database
             String token =
                     jwtService.generateToken(
                             user.getEmail(),

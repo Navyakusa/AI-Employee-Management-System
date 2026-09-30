@@ -17,6 +17,5 @@ public class LoginDto {
     private String email;
     @NotBlank(message = "Password must be required")
     private String password;
-    @NotBlank(message = "role must be required")
-    private String role;
+
 }
