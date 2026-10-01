@@ -3,16 +3,17 @@ Skill Gap Analysis (Module 17) and Candidate Ranking (Module 18).
 
 Both reuse the matching engine directly -- no separate model or dataset needed.
 """
-from app.ml_utils import parse_skills, normalize_skill
+from app.ml_utils import parse_skills, parse_skill_list, normalize_skill
 from app.matching import score_candidate
 
 
 def skill_gap_analysis(job: dict, resume: dict) -> dict:
     """Returns missing must-have / nice-to-have skills and coverage percentages
     for one job-resume pair."""
-    job_must = {normalize_skill(s) for s in parse_skills(job["must_have_skills"])}
-    job_nice = {normalize_skill(s) for s in parse_skills(job["nice_to_have_skills"])}
-    resume_skills = {normalize_skill(s) for s in parse_skills(resume["skills"])}
+    # parse_skill_list ignores placeholders such as "[]" (no preferred skills).
+    job_must = set(parse_skill_list(job["must_have_skills"]))
+    job_nice = set(parse_skill_list(job["nice_to_have_skills"]))
+    resume_skills = set(parse_skill_list(resume["skills"]))
 
     missing_must = job_must - resume_skills
     missing_nice = job_nice - resume_skills

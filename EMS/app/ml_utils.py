@@ -34,12 +34,22 @@ SKILL_ALIASES = {
     "nextjs": "next",
     "next.js": "next",
     "expressjs": "express",
+    "express js": "express",
+    "react js": "react",
+    "node js": "node",
+    "vue js": "vue",
+    "next js": "next",
     "express.js": "express",
     "aiml": "machine learning",
     "ai/ml": "machine learning",
     "ai ml": "machine learning",
     "ml": "machine learning",
     "ai": "artificial intelligence",
+    "oops": "oop",
+    "html5": "html",
+    "css3": "css",
+    "vscode": "vs code",
+    "visual studio code": "vs code",
 }
 
 
@@ -79,6 +89,27 @@ def parse_skills(text):
         return [s.strip() for s in text.split(",") if s.strip()]
 
     return [s.strip() for s in text.split() if s.strip()]
+
+
+# Values that mean "no skill" -- e.g. Spring sends the literal string "[]"
+# when a job has no preferred skills, which parse_skills() alone turns into a
+# skill called "[]" that no candidate can ever have.
+_EMPTY_SKILL_VALUES = frozenset({"", "[]", "none", "null", "nil", "n/a", "na", "-", "--"})
+
+
+def parse_skill_list(text):
+    """parse_skills() + normalize_skill() + removal of empty/placeholder
+    values. For the screening and skill-gap comparisons only -- the trained
+    matching model keeps using parse_skills() unchanged (see the note at the
+    top of this file)."""
+    result = []
+    for s in parse_skills(text):
+        if str(s).strip(" []'\"").lower() in _EMPTY_SKILL_VALUES:
+            continue
+        skill = normalize_skill(s)
+        if skill and skill not in result:
+            result.append(skill)
+    return result
 
 
 def normalize_skill(skill):

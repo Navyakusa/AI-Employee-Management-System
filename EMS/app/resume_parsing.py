@@ -23,7 +23,6 @@ Important:
 import os
 import re
 import spacy
-from datetime import date
 
 
 # ============================================================================
@@ -71,6 +70,7 @@ _CATEGORY_LABELS = (
     r"frontend|backend|front[- ]end|back[- ]end"
 )
 
+<<<<<<< Updated upstream
 _HYPHEN_LABEL_PATTERN = re.compile(
     rf"^(?:{_CATEGORY_LABELS})\s*-\s*",
     re.IGNORECASE
@@ -92,8 +92,19 @@ _SPLIT_PATTERN = re.compile(
 # ============================================================================
 # FALSE POSITIVE FILTERS
 # ============================================================================
+=======
+_BULLET_PATTERN = re.compile(r"^[-*]\s*")
+_PAREN_SUFFIX_PATTERN = re.compile(r"\s*\([^)]*\)\s*$")
+# Separators between skills: commas, semicolons, pipes, new lines and the
+# bullet characters PDF/DOCX extraction commonly produces (including the
+# private-use "\uf0b7"/"\uf0a7" bullets from Word symbol fonts).
+_SPLIT_PATTERN = re.compile(
+    r"[,;|\n\u2022\u00b7\u25aa\u25ab\u25cf\u25cb\u25e6\u25a0\u25ba\u25b6\u27a2\u27a4\u2713\u2714\u2023\uf0b7\uf0a7\uf076\uf0d8\uf0fc]"
+)
+>>>>>>> Stashed changes
 
 _LEADING_REJECT_WORDS = frozenset({
+<<<<<<< Updated upstream
     "and",
     "the",
     "a",
@@ -141,6 +152,14 @@ _LEADING_REJECT_WORDS = frozenset({
     "fostering",
     "impactful",
     "proficient",
+=======
+    "and", "the", "a", "an", "of", "to", "in", "on", "for", "with", "as",
+    "is", "are", "using", "based", "this", "that", "from", "by", "at",
+    "implementing", "implemented", "integrating", "integrated", "viewing",
+    "editing", "deleting", "building", "developed", "designed", "created",
+    "added", "built", "mark", "marking", "pause", "paused", "scroll",
+    "scrolling", "missing", "allows", "allowing", "enables", "enabling",
+>>>>>>> Stashed changes
 })
 
 _NONSKILL_WHOLE_WORDS = frozenset({
@@ -284,6 +303,7 @@ _BARE_CATEGORY_LABELS = frozenset({
     "proficiencies",
 })
 
+<<<<<<< Updated upstream
 
 # ============================================================================
 # KNOWN SKILLS
@@ -537,20 +557,82 @@ _SOFT_SKILL_PHRASES = (
 # ============================================================================
 # SKILLS SECTION HEADERS
 # ============================================================================
+=======
+# ---------------------------------------------------------------------------
+# Header-based skills section scanner. This is a NECESSARY complement to the
+# NER model, not just a nice-to-have: real-world testing found the model
+# sometimes labels the actual technical-skills content as "Degree" or another
+# field entirely (the label assignment itself is unreliable, not just the
+# span boundaries), and separately sometimes extends a "Skills" span past the
+# real skills into an unrelated "Declaration" section, swallowing the
+# candidate's own name and location along with it. Scanning the raw text
+# directly for a recognizable skills-section header, independent of whatever
+# label the NER model assigns to that text, is far more robust for finding
+# the actual skills content, and for correctly stopping before an unrelated
+# section begins.
+# ---------------------------------------------------------------------------
+>>>>>>> Stashed changes
+
+# One list of section names, used by every part of this module (header
+# detection, the stop check, and _restore_section_breaks), so adding a new
+# heading here makes it work everywhere at once.
+#
+# Headings under which the content is a list of technical skills. Includes
+# the many ways real resumes title this section ("Tech Stack", "Programming
+# Skills", "Relevant Coursework" -- the last is where freshers usually list
+# DBMS / OOPS / Computer Networks / Operating Systems).
+_SKILL_SECTION_NAMES = (
+    "technical skills", "technical skill set", "key skills", "core skills",
+    "professional skills", "relevant skills", "soft skills", "programming skills",
+    "computer skills", "it skills", "software skills", "skills and tools",
+    "skills & tools", "skills and technologies", "skills & technologies",
+    "tools and technologies", "tools & technologies", "technical proficiency",
+    "technical proficiencies", "technical expertise", "technical knowledge",
+    "technical summary", "tech stack", "technology stack", "skill set", "skillset",
+    "skills", "areas of expertise", "core competencies", "competencies",
+    "expertise", "relevant coursework", "coursework", "core subjects",
+    "relevant courses", "areas of interest",
+)
+
+# Headings that START A DIFFERENT section (the skills scan stops at these).
+# "Languages" is listed here as a standalone heading (spoken languages), but
+# _restore_section_breaks never splits it out of a line, because inside a
+# skills section "Languages: Python, Java" is a sub-label.
+_OTHER_SECTION_NAMES = (
+    "work experience", "professional experience", "employment history",
+    "experience", "academic details", "academic background",
+    "academic qualifications", "educational qualifications",
+    "educational background", "education", "qualifications",
+    "academic projects", "personal projects", "key projects", "major projects",
+    "mini projects", "projects", "certifications", "certification",
+    "certificates", "courses and certifications", "achievements",
+    "accomplishments", "awards", "internships", "internship", "declaration",
+    "hobbies", "interests", "extra-curricular activities",
+    "extracurricular activities", "co-curricular activities", "activities",
+    "personal details", "personal information", "personal profile",
+    "career objective", "objective", "professional summary", "profile summary",
+    "summary", "profile", "about me", "publications", "strengths", "references",
+    "workshops", "trainings", "training", "languages known",
+    "positions of responsibility", "volunteer experience", "volunteering",
+    "contact details", "contact information",
+)
+
+
+def _names_alternation(names) -> str:
+    """Regex alternation for a list of section names, longest first, with
+    any run of whitespace allowed between words."""
+    return "|".join(
+        r"\s+".join(re.escape(w) for w in name.split())
+        for name in sorted(set(names), key=len, reverse=True)
+    )
+
 
 _SKILLS_HEADER_PATTERN = re.compile(
-    r"^\s*(?:"
-    r"(?:technical|key|core|professional|relevant)\s+skills?\b"
-    r"|skills?\s*(?:set|&\s*(?:expertise|competencies)|and\s+(?:expertise|competencies))\b"
-    r"|skill\s*set\b"
-    r"|areas?\s+of\s+expertise\b"
-    r"|expertise\b"
-    r"|(?:technical|key|core|professional|relevant)\s+competenc(?:y|ies)\b"
-    r"|(?:technical|key|core|professional|relevant)\s+proficienc(?:y|ies)\b"
-    r")\s*:?\s*",
+    r"^\s*(?:" + _names_alternation(_SKILL_SECTION_NAMES) + r")(?![A-Za-z])\s*:?\s*",
     re.IGNORECASE,
 )
 
+<<<<<<< Updated upstream
 
 _INLINE_SKILLS_HEADER_PATTERN = re.compile(
     r"\b(?:"
@@ -939,6 +1021,20 @@ def _capture_skill_text_after_match(
 ) -> str:
 
     remainder = text[match_end:]
+=======
+# Lines matching any of these mark the START of a DIFFERENT section -- the
+# skills-section scan stops as soon as one of these appears, so it doesn't
+# run on into unrelated content (education, a declaration statement, personal
+# details like date of birth, etc.). The line must contain ONLY the heading.
+_SECTION_STOP_PATTERN = re.compile(
+    r"^\s*(?:" + _names_alternation(_OTHER_SECTION_NAMES) + r"|"
+    r"languages?|date\s+of\s+birth|dob|father'?s\s+name|mother'?s\s+name|"
+    r"marital\s+status|nationality|gender)\s*:?\s*$",
+    re.IGNORECASE,
+)
+
+_MAX_SECTION_LINES = 20  # safety cap so a missing stop-header can't run away
+>>>>>>> Stashed changes
 
     stop = re.search(
         r"\b(?:"
@@ -981,6 +1077,7 @@ def _capture_skill_text_after_match(
 # ============================================================================
 
 def _find_skills_sections_by_header(full_text: str) -> list:
+<<<<<<< Updated upstream
     """
     Find Technical Skills independently from NER.
 
@@ -1021,12 +1118,24 @@ def _find_skills_sections_by_header(full_text: str) -> list:
     sections = []
 
     lines = full_text.split("\n")
+=======
+    """Scans the raw resume text line-by-line for a skills-section header
+    (e.g. "SKILLS", "TECHNICAL SKILLS", "Skills:") and captures everything
+    after it up to the next recognized section header or a line-count cap.
+    Returns a list of captured text blocks (one per header found -- a resume
+    could have both a general "Skills" section and a separate "Technical
+    Skills" section). Completely independent of the NER model's own entity
+    labels, so it works even when the model mislabels the content."""
+    lines = full_text.split("\n")
+    sections = []
+>>>>>>> Stashed changes
 
     i = 0
 
     while i < len(lines):
 
         stripped = lines[i].strip()
+<<<<<<< Updated upstream
 
         match = _SKILLS_HEADER_PATTERN.match(
             stripped
@@ -1342,6 +1451,35 @@ def _find_skills_sections_by_header(full_text: str) -> list:
             )
 
     return unique_sections
+=======
+        m = _SKILLS_HEADER_PATTERN.match(stripped)
+        if m:
+            captured = []
+            # A PDF-extraction artifact sometimes merges the header and its
+            # first item onto one line ("TECHNICAL SKILLS Programming: Python")
+            # instead of a clean line break -- capture whatever follows the
+            # header on that SAME line too, rather than requiring the header
+            # to be the only thing on the line.
+            trailing = stripped[m.end():].strip()
+            if trailing:
+                captured.append(trailing)
+
+            j = i + 1
+            while j < len(lines) and len(captured) < _MAX_SECTION_LINES:
+                line = lines[j].strip()
+                if _SECTION_STOP_PATTERN.match(line):
+                    break
+                if line:
+                    captured.append(line)
+                j += 1
+            if captured:
+                sections.append("\n".join(captured))
+            i = j
+        else:
+            i += 1
+
+    return sections
+>>>>>>> Stashed changes
 
 
 # ============================================================================
@@ -1358,11 +1496,16 @@ _EMAIL_PATTERN = re.compile(
 # ============================================================================
 
 _EDUCATION_HEADER_PATTERN = re.compile(
+<<<<<<< Updated upstream
     r"^\s*(?:"
     r"academic\s+(?:details|background|qualifications?)\b"
     r"|education\b"
     r"|qualifications?\b"
     r")\s*:?\s*",
+=======
+    r"^\s*(?:academic\s+(?:details|background|qualifications?)\b|educational\s+qualifications?\b|education\b|qualifications?\b)"
+    r"\s*:?\s*",
+>>>>>>> Stashed changes
     re.IGNORECASE,
 )
 
@@ -1761,6 +1904,7 @@ def extract_degree_fallback(
 
     if not education_text:
         return []
+<<<<<<< Updated upstream
 
     matches = [
         match.strip(
@@ -1778,6 +1922,22 @@ def extract_degree_fallback(
             if match
         )
     )
+=======
+    matches = []
+    for m in _DEGREE_PATTERN.findall(education_text):
+        cleaned = m.strip(" .-")
+        # A degree line often carries the institution's years on the same
+        # line ("B.Tech CSE Malla Reddy University 2022 - 2026") -- keep only
+        # the part before the first year so the value stays a degree name.
+        year_match = _YEAR_PATTERN.search(cleaned)
+        if year_match and year_match.start() > 0:
+            cleaned = cleaned[:year_match.start()].strip(" ,.-|\u2013\u2014")
+        # Safety cap: a real degree name is never paragraph-length; anything
+        # longer means a section boundary was missed upstream.
+        if cleaned and len(cleaned) <= 120:
+            matches.append(cleaned)
+    return sorted(set(matches))
+>>>>>>> Stashed changes
 
 
 # ============================================================================
@@ -1870,6 +2030,7 @@ def extract_name_fallback(
     return None
 
 
+<<<<<<< Updated upstream
 # ============================================================================
 # DATE HELPERS
 # ============================================================================
@@ -2681,9 +2842,54 @@ def extract_individual_skills(
             "\n"
         )
 
+=======
+def extract_individual_skills(raw_skill_blocks: list, known_locations: list = None,
+                              allow_runon_lists: bool = False) -> list:
+    """This dataset annotates Skills as large multi-line blocks, not individual
+    entities -- this splits them into a clean, deduplicated list of individual
+    skills, ready to feed into matching/skill-gap.
+
+    known_locations: location strings the SAME document's NER pass already
+    found (e.g. ["Hyderabad"]) -- used to catch cases where the Skills span
+    also swallowed an address line ("Telangana Hyderabad"), by cross-checking
+    against the model's own location detection rather than a hardcoded list of
+    place names (which wouldn't generalize beyond one country/region).
+
+    IMPORTANT: the underlying NER model's "Skills" entity boundary is not always
+    reliable -- on many real resumes it bleeds into project-description
+    sentences, locations, and even repo names (e.g. "and mark tasks as
+    complete", "telangana hyderabad", "github aiml integration-flask" have all
+    been observed coming through as "skills"). The filters below are a
+    heuristic cleanup layer that catches the most common patterns of this kind
+    of noise -- they meaningfully reduce it, but can't guarantee perfect
+    precision, since the root cause is the NER model's span boundaries, not
+    this splitting logic. A future retrain with more diverse resume formats is
+    the real long-term fix.
+    """
+    individual_skills = set()
+
+    # Only combine the (small, per-call) known_locations with the module-level
+    # state-name set -- this is the one piece of per-call work that's
+    # unavoidable, since known_locations differs per resume.
+    location_words = set(_STATE_WORDS)
+    for loc in (known_locations or []):
+        location_words.update(w.lower() for w in re.findall(r"[A-Za-z]+", loc))
+
+    for block in raw_skill_blocks:
+        # Truncate the block at the first line that looks like an unrelated
+        # section header (PROJECTS, CERTIFICATIONS, etc.) BEFORE splitting
+        # into individual pieces -- the raw NER "Skills" span has been
+        # observed running past the actual skills content into these
+        # unrelated sections, and this stops that regardless of source
+        # (whether the block came from the NER model directly or from the
+        # header-scanner).
+        block = _split_sublabels(block)
+        block_lines = block.split("\n")
+>>>>>>> Stashed changes
         truncated_lines = []
 
         for line in block_lines:
+<<<<<<< Updated upstream
 
             stripped = line.strip()
 
@@ -2799,6 +3005,65 @@ def extract_individual_skills(
 
             if len(words) > _MAX_WORDS:
                 continue
+=======
+            if _SECTION_STOP_PATTERN.match(line.strip()):
+                break
+            truncated_lines.append(line)
+        block = "\n".join(truncated_lines)
+
+        pieces = _SPLIT_PATTERN.split(block)
+        for piece in pieces:
+            piece = piece.strip()
+            piece = _BULLET_PATTERN.sub("", piece)              # strip "- " / "* " bullet markers
+            piece = _COLON_LABEL_PATTERN.sub("", piece)          # strip "Frontend:" / "Languages:" etc. (any label)
+            piece = _HYPHEN_LABEL_PATTERN.sub("", piece)         # strip "Languages-" etc. (curated list only)
+            piece = _PAREN_SUFFIX_PATTERN.sub("", piece)         # strip "(2 years)" etc.
+            piece = piece.strip(" .")
+
+            if not piece:
+                continue
+
+            words = piece.split()
+
+            # A long, separator-less run under a skills header is almost
+            # always a list whose line breaks were lost -- recover the known
+            # skills from it instead of discarding the whole thing.
+            if allow_runon_lists and (len(piece) >= 40 or len(words) > _MAX_WORDS):
+                for skill in _split_runon_skill_list(piece):
+                    if not any(w.lower() in location_words for w in skill.split()):
+                        individual_skills.add(skill)
+                continue
+
+            if len(piece) >= 40:
+                continue
+
+            # A PDF text-extraction artifact: some fonts/PDF generators cause
+            # short strings to come out with every letter separated by a
+            # space ("G i t" instead of "Git"). Detected as ALL "words" being
+            # single characters -- safe to collapse, since a genuine multi-
+            # word skill like "VS Code" has real multi-character words and
+            # would never trigger this.
+            if len(words) >= 2 and all(len(w) == 1 for w in words):
+                piece = "".join(words)
+                words = [piece]
+
+            if len(words) > _MAX_WORDS:
+                continue
+            if words and words[0].lower() in _LEADING_REJECT_WORDS:
+                continue
+            if piece.lower() in _NONSKILL_WHOLE_WORDS:
+                continue
+            if piece.lower() in _ALL_SECTION_NAMES:
+                continue  # a section heading ("Relevant Coursework") is not itself a skill
+            if piece.lower() in _BARE_CATEGORY_LABELS:
+                continue  # a section header leaked through as its own piece (no colon/hyphen to strip)
+            if words and all(w.lower() in _SPOKEN_LANGUAGE_WORDS for w in words):
+                continue  # a spoken-language list (e.g. "Telugu English Hindi"), not technical skills
+            if words and any(w.lower() in location_words for w in words):
+                continue  # contains a word the model itself tagged as a Location elsewhere
+
+            individual_skills.add(piece)
+>>>>>>> Stashed changes
 
             if (
                 words
@@ -2884,6 +3149,7 @@ def extract_individual_skills(
     )
 
 
+<<<<<<< Updated upstream
 # ============================================================================
 # WHITESPACE
 # ============================================================================
@@ -3140,6 +3406,274 @@ def parse_resume(
         field: []
         for field in _LABEL_TO_FIELD.values()
     }
+=======
+# ---------------------------------------------------------------------------
+# Section-break restoration. EVERY section scanner in this module (skills,
+# education, projects, the stop-header check) works LINE BY LINE: a header is
+# only recognised when it sits on its own line. That assumption breaks when
+# the line breaks are gone -- either because an upstream caller collapsed all
+# whitespace to single spaces (the Spring backend's text-cleaning step did
+# exactly this, turning the whole resume into ONE line), or because PDF
+# extraction glued a header onto the previous line ("... 2022 - 2026 TECHNICAL
+# SKILLS Python, Java ..."). When that happens the skills scanner finds
+# nothing, and the Education scan / degree regex runs straight through the
+# Technical Skills content -- producing "skills": [] and an education value
+# that contains the skills list.
+#
+# _restore_section_breaks() puts each recognisable section header back on its
+# own line BEFORE any scanning happens. To avoid splitting ordinary sentences
+# ("improved my communication skills", "Experience with React"), a phrase is
+# only treated as a header when it is written the way headers are written:
+#   * ALL CAPS ("TECHNICAL SKILLS", "EDUCATION"), or
+#   * followed by a colon ("Skills:", "Education:"), or
+#   * Title Case, when the surrounding words show it is a section boundary
+#     (see _looks_like_header for the exact rule).
+# Spoken/programming "Languages" is deliberately NOT included: inside a skills
+# section "Languages: Python, Java" is a sub-label, not a new section.
+# ---------------------------------------------------------------------------
+
+_SECTION_HEADER_PHRASES = _SKILL_SECTION_NAMES + _OTHER_SECTION_NAMES
+_ALL_SECTION_NAMES = frozenset(n.lower() for n in _SECTION_HEADER_PHRASES)
+
+# Words that, placed directly before "Skills", make it part of a phrase in a
+# sentence or soft-skills list ("Communication Skills") rather than a heading.
+_SKILLS_MODIFIER_WORDS = frozenset({
+    "communication", "interpersonal", "leadership", "analytical",
+    "problem-solving", "presentation", "management", "organizational",
+    "organisational", "writing", "people", "language", "social",
+    "negotiation", "listening", "time", "team", "teamwork", "my", "our", "his",
+    "her", "their", "strong", "good", "excellent", "great",
+})
+
+_SECTION_HEADER_FINDER = re.compile(
+    r"(?<![A-Za-z])(" + _names_alternation(_SECTION_HEADER_PHRASES) + r")(?![A-Za-z])(\s*:)?",
+    re.IGNORECASE,
+)
+
+
+def _neighbour_tokens(text: str, start: int, end: int):
+    """The whitespace-separated token just before `start` and just after
+    `end` (empty string when there is none)."""
+    before = text[:start].rstrip().rsplit(None, 1)
+    after = text[end:].lstrip().split(None, 1)
+    return (before[-1] if before else ""), (after[0] if after else "")
+
+
+def _looks_like_header(phrase: str, has_colon: bool, prev_tok: str, next_tok: str) -> bool:
+    """Decides whether a section-name phrase found in running text is really
+    a heading. Headings are written differently from sentence text:
+      * ALL CAPS                      -> heading ("TECHNICAL SKILLS")
+      * followed by a colon           -> heading ("Skills:")
+      * lowercase                     -> sentence ("good communication skills")
+      * Title Case, several words     -> heading ("Key Skills", "Work Experience")
+      * Title Case, one word          -> heading only when the words around
+        it look like a section boundary: the previous word does not start
+        with a lowercase letter (not mid-sentence) and the next word starts
+        with a capital, digit or bullet ("... 2020-2024 Skills • Python").
+        "Experience with React" or "Communication Skills" are left alone."""
+    words = phrase.split()
+    letters = [c for c in phrase if c.isalpha()]
+    if letters and all(c.isupper() for c in letters):
+        return True
+    if has_colon:
+        return True
+    if not all(w[0].isupper() for w in words):
+        return False
+    if len(words) > 1:
+        return True
+
+    if prev_tok and prev_tok[0].islower():
+        return False
+    if words[0].lower() == "skills" and prev_tok.lower().strip(",.;:") in _SKILLS_MODIFIER_WORDS:
+        return False
+    if not next_tok:
+        return True
+    first = next_tok[0]
+    return first.isupper() or first.isdigit() or not first.isalnum()
+
+
+def _restore_section_breaks(text: str) -> str:
+    """Puts recognisable section headings back on their own line, so the
+    line-based scanners below work even when the caller sent the resume as
+    ONE line (the Spring backend currently collapses all line breaks) or
+    when PDF extraction glued a heading onto the previous line. Text whose
+    headings are already on their own lines is effectively unchanged."""
+    def _replace(m):
+        phrase, colon = m.group(1), m.group(2)
+        prev_tok, next_tok = _neighbour_tokens(m.string, m.start(), m.end())
+        if not _looks_like_header(phrase, bool(colon), prev_tok, next_tok):
+            return m.group(0)
+        return "\n" + re.sub(r"\s+", " ", phrase) + (":" if colon else "") + "\n"
+
+    return _SECTION_HEADER_FINDER.sub(_replace, text)
+
+
+# Skills sub-labels ("Languages:", "Web:", "Core Subjects:") end up in the
+# middle of a line when line breaks are lost, glued to the LAST item of the
+# previous list: "Python, Java, C Web: HTML". Stripping the label would then
+# also strip "C". _split_sublabels() finds the text between the previous
+# separator and each colon ("C Web"), and splits off the longest trailing run
+# made only of label words ("Web") -- leaving "C" as its own item. A segment
+# made entirely of label words ("Web Technologies") is left as it is.
+_LABEL_WORDS = frozenset({
+    "programming", "languages", "language", "web", "technologies", "technology",
+    "development", "frontend", "front-end", "front", "end", "backend", "back-end",
+    "back", "database", "databases", "db", "dbs", "tools", "tool", "frameworks",
+    "framework", "libraries", "library", "core", "subjects", "subject",
+    "coursework", "courses", "cloud", "devops", "others", "other", "concepts",
+    "ide", "ides", "platforms", "platform", "version", "control", "operating",
+    "systems", "data", "visualization", "visualisation", "analytics", "testing",
+    "mobile", "scripting", "markup", "styling", "os", "soft", "skills", "skill",
+    "technical", "software", "packages", "utilities", "deployment", "servers",
+    "methodologies", "design", "&", "and", "query", "misc", "miscellaneous",
+    "office", "interests", "areas", "relevant", "hardware", "networking",
+    "editors", "vcs", "environment", "environments", "stack", "tech",
+    "applications", "familiar", "with", "known", "proficient", "in",
+    "intermediate", "beginner", "advanced", "basic", "basics",
+})
+
+_SUBLABEL_SEGMENT = re.compile(r"([^,;|\n\u2022:]+?)(\s*:)")
+
+
+def _split_sublabels(block: str) -> str:
+    def _fix(m):
+        segment, colon = m.group(1), m.group(2)
+        tokens = segment.split()
+        if len(tokens) < 2:
+            return m.group(0)
+        for k in range(len(tokens)):
+            if all(t.lower() in _LABEL_WORDS for t in tokens[k:]):
+                if k == 0:
+                    return m.group(0)            # whole segment is a label
+                lead = segment[:len(segment) - len(segment.lstrip())]
+                return lead + " ".join(tokens[:k]) + "\n" + " ".join(tokens[k:]) + colon
+        return m.group(0)
+    return _SUBLABEL_SEGMENT.sub(_fix, block)
+
+
+# ---------------------------------------------------------------------------
+# Run-on skill lists. When a skills section was written one-skill-per-line or
+# as bullets, and the line breaks were then lost, the section arrives as ONE
+# space-separated run with no commas ("Python Java DSA HTML CSS ... VS Code").
+# The normal comma/bullet splitter sees that as a single 70-character "skill"
+# and (correctly) rejects it as too long -- so every skill was dropped. For
+# that case only, the run is matched greedily against a curated vocabulary of
+# common technical skills (longest phrase first, so "VS Code" and "Spring
+# Boot" stay whole). Unknown words are simply skipped rather than guessed.
+# This is only applied to text found under a skills HEADER, never to free
+# text, so it cannot pull skills out of project descriptions or sentences.
+# ---------------------------------------------------------------------------
+
+_KNOWN_SKILL_PHRASES = frozenset({
+    # languages
+    "python", "java", "c", "c++", "c#", "javascript", "typescript", "go", "golang",
+    "rust", "kotlin", "swift", "php", "ruby", "r", "scala", "dart", "matlab",
+    "sql", "pl/sql", "html", "html5", "css", "css3", "bash", "shell scripting",
+    # web / frameworks / libraries
+    "react", "reactjs", "react.js", "react js", "react native", "redux",
+    "angular", "angularjs", "vue", "vuejs", "vue.js", "next.js", "nextjs",
+    "node", "nodejs", "node.js", "node js", "express", "expressjs", "express.js",
+    "django", "flask", "fastapi", "spring", "spring boot", "springboot",
+    "hibernate", "jpa", "bootstrap", "tailwind", "tailwind css", "tailwindcss",
+    "jquery", "flutter", "laravel", ".net", "asp.net", "material ui",
+    # data / ml
+    "pandas", "numpy", "scikit-learn", "sklearn", "tensorflow", "pytorch",
+    "keras", "opencv", "matplotlib", "seaborn", "nltk", "spacy",
+    "machine learning", "deep learning", "nlp", "computer vision",
+    "artificial intelligence", "data analysis", "data science", "power bi",
+    "tableau", "excel", "ms excel",
+    # databases
+    "mysql", "postgresql", "postgres", "mongodb", "sqlite", "oracle", "redis",
+    "firebase", "dynamodb", "cassandra", "supabase",
+    # tools / cloud / platforms
+    "git", "github", "gitlab", "bitbucket", "docker", "kubernetes", "jenkins",
+    "aws", "azure", "gcp", "linux", "jira", "postman", "figma", "canva",
+    "vs code", "vscode", "visual studio code", "intellij", "eclipse",
+    "jupyter", "jupyter notebook", "google colab", "netlify", "vercel", "heroku",
+    # concepts
+    "dsa", "data structures", "algorithms", "data structures and algorithms",
+    "oop", "oops", "dbms", "operating systems", "computer networks",
+    "rest api", "rest apis", "restful apis", "graphql", "microservices",
+    "ci/cd", "agile", "scrum", "computer networks", "cn", "software engineering",
+    "cloud computing", "data visualization", "data visualisation", "ms office",
+    "microsoft excel", "advanced excel", "ms word", "powerpoint", "selenium",
+    "junit", "maven", "android", "android studio", "unix", "windows",
+    "html/css", "rest", "json", "xml", "ajax", "sass", "webpack", "vite",
+    "spring mvc", "servlets", "jsp", "jdbc", "thymeleaf", "streamlit",
+    "huggingface", "langchain", "openai", "llm", "llms", "generative ai",
+    "big data", "hadoop", "spark", "pyspark", "kafka", "airflow", "snowflake",
+    "terraform", "ansible", "nginx", "apache", "tomcat", "graphql",
+})
+_MAX_SKILL_PHRASE_WORDS = max(len(p.split()) for p in _KNOWN_SKILL_PHRASES)
+
+
+def _split_runon_skill_list(piece: str) -> list:
+    """Greedy longest-match of a separator-less skills run against
+    _KNOWN_SKILL_PHRASES. Returns the matched skills in their original
+    casing; words that aren't known skills are skipped."""
+    tokens = [t.strip(".:;|()[]") for t in piece.split()]
+    tokens = [t for t in tokens if t]
+    found, i = [], 0
+    while i < len(tokens):
+        for size in range(min(_MAX_SKILL_PHRASE_WORDS, len(tokens) - i), 0, -1):
+            phrase = " ".join(tokens[i:i + size])
+            if phrase.lower() in _KNOWN_SKILL_PHRASES:
+                found.append(phrase)
+                i += size
+                break
+        else:
+            # "HTML/CSS"-style combined token -> check each part
+            if "/" in tokens[i] and tokens[i].lower() not in _KNOWN_SKILL_PHRASES:
+                found.extend(part for part in tokens[i].split("/")
+                             if part.lower() in _KNOWN_SKILL_PHRASES)
+            i += 1
+    return found
+
+
+# Words in the vocabulary that are also ordinary English / non-skill words
+# ("C" grade, "Go", "Spring 2024", "Express delivery", "R" as an initial).
+# The whole-resume fallback scan below never uses these -- they are only
+# trusted when they appear inside an actual skills section.
+_AMBIGUOUS_SKILL_WORDS = frozenset({
+    "c", "r", "go", "spring", "express", "swift", "dart", "rust", "rest",
+    "node", "react", "excel", "oracle", "windows", "android", "apache",
+    "agile", "scrum", "cn", "ms word", "powerpoint", "json", "xml", "unix",
+    "algorithms", "vite", "spark", "openai",
+})
+
+_SAFE_DOC_SCAN_PATTERN = re.compile(
+    r"(?<![\w+#.])(" + "|".join(
+        re.escape(p).replace(r"\ ", r"\s+")
+        for p in sorted(_KNOWN_SKILL_PHRASES - _AMBIGUOUS_SKILL_WORDS, key=len, reverse=True)
+    ) + r")(?![\w+#])",
+    re.IGNORECASE,
+)
+
+
+def _scan_known_skills_in_text(text: str) -> list:
+    """Last-resort fallback for resumes with NO recognisable skills heading
+    at all: finds unambiguous known skill names anywhere in the text (e.g.
+    in project descriptions). Only used when the heading scan found nothing,
+    so normal resumes are unaffected."""
+    return sorted({re.sub(r"\s+", " ", m.group(1)) for m in _SAFE_DOC_SCAN_PATTERN.finditer(text)})
+
+
+def _normalize_whitespace(text: str) -> str:
+    """PDF extraction sometimes produces highly irregular spacing -- e.g.
+    'Telugu                 English                  Hindi' with a dozen
+    spaces between words, a real artifact observed in production. This can
+    make exact-pattern matching (section headers, degree keywords, etc.)
+    behave unpredictably. Collapses runs of horizontal whitespace into a
+    single space while preserving newlines, since the line-based section
+    scanning throughout this module depends on them."""
+    return "\n".join(re.sub(r"[ \t]+", " ", line) for line in text.split("\n"))
+
+
+def parse_resume(text: str) -> dict:
+    text = _normalize_whitespace(text)
+    text = _restore_section_breaks(text)
+    doc = nlp(text)
+>>>>>>> Stashed changes
 
     for label, field in _LABEL_TO_FIELD.items():
 
@@ -3172,6 +3706,7 @@ def parse_resume(
         )
     )
 
+<<<<<<< Updated upstream
     if header_scanned_sections:
 
         raw_profile[
@@ -3341,6 +3876,21 @@ def parse_resume(
     )
 
     if experience_fallback:
+=======
+    cleaned_from_ner = extract_individual_skills(raw_profile["skills_raw"], known_locations=raw_profile["location"])
+    cleaned_from_headers = extract_individual_skills(header_scanned_sections, known_locations=raw_profile["location"],
+                                                     allow_runon_lists=True)
+
+    skills = set(cleaned_from_ner) | set(cleaned_from_headers)
+
+    # No skills heading anywhere in the resume -> fall back to scanning the
+    # whole text for unambiguous known skill names, instead of relying on the
+    # NER model alone (which on its own often finds only one or two skills).
+    if not header_scanned_sections:
+        skills |= set(_scan_known_skills_in_text(text))
+
+    raw_profile["skills_cleaned"] = sorted(skills)
+>>>>>>> Stashed changes
 
         raw_profile[
             "years_of_experience"
@@ -3428,6 +3978,7 @@ def parse_resume(
                 name_fallback
             ]
 
+<<<<<<< Updated upstream
     # =========================================================================
     # DEGREE
     # =========================================================================
@@ -3496,6 +4047,12 @@ def parse_resume(
             "name"
         ]
     )
+=======
+    # Designation: drop anything that's actually a project title (see
+    # filter_out_project_titles for why this cross-check exists).
+    raw_profile["designation"] = filter_out_project_titles(raw_profile["designation"], text)
+    raw_profile["designation"] = filter_out_language_lists(raw_profile["designation"])
+>>>>>>> Stashed changes
 
     return raw_profile
 
@@ -3548,6 +4105,7 @@ def build_resume_dict_from_text(
         else ""
     )
 
+<<<<<<< Updated upstream
     years_experience = None
 
     if profile.get(
@@ -3600,3 +4158,27 @@ def build_resume_dict_from_text(
         "years_experience":
             years_experience,
     }
+=======
+    seniority/industry can't be reliably extracted by the current NER model (its
+    label set doesn't include them) -- pass them in explicitly if known, otherwise
+    they're left as None and the matching engine treats them as "unknown" rather
+    than guessing (seniority_diff defaults to 2, industry_match defaults to False)."""
+    profile = parse_resume(resume_text)
+    skills = profile["skills_cleaned"]
+    skills_str = "[" + " ".join(f"'{s}'" for s in skills) + "]"
+    role = profile["designation"][0] if profile["designation"] else ""
+
+    return {
+        "resume_id": resume_id or "PARSED_FROM_TEXT",
+        "role": role,
+        "seniority": seniority,
+        "industry": industry,
+        "skills": skills_str,
+        # Using the raw resume text itself as the "summary" so the text_similarity
+        # feature still has real content to compare against, instead of coming back
+        # as 0 the way it would with an empty summary/experience_bullets.
+        "summary": resume_text,
+        "experience_bullets": "",
+        "years_experience": None,
+    }
+>>>>>>> Stashed changes
