@@ -44,7 +44,7 @@ from app.schemas import (
     ResumeParseRequest, ResumeParseResponse,
     EmployeeInput, AttritionResponse,
     JobPostingInput, SalaryResponse,
-    CandidateDecisionRequest, CandidateDecisionResponse,
+    CandidateDecisionRequest, CandidateDecisionResponse,ChatbotRequest, ChatbotResponse
 )
 
 logger = logging.getLogger("uvicorn")
@@ -64,6 +64,7 @@ from app.attrition import predict_attrition_risk
 from app.salary import predict_salary_range
 from app.decision import recommend_candidate_decision
 from app.file_extraction import extract_resume_text
+from app.Chatbot import get_chatbot_response
 
 logger.info(f"All models loaded in {time.time() - _t0:.2f}s")
 # ---------------------------------------------------------------------------
@@ -469,3 +470,42 @@ def recommend_candidate_decision_endpoint(payload: CandidateDecisionRequest):
     result["job_id"] = job_id
     result["resume_id"] = resume_id
     return result
+# ---------------------------------------------------------------------------
+# AI CHATBOT
+# ---------------------------------------------------------------------------
+
+@app.post(
+    "/chat",
+    response_model=ChatbotResponse,
+    tags=["chatbot"]
+)
+def chatbot_endpoint(payload: ChatbotRequest):
+
+    try:
+
+        response = get_chatbot_response(
+            message=payload.message,
+            conversation_history=payload.conversation_history
+        )
+
+        return ChatbotResponse(
+            response=response
+        )
+
+    except ValueError as exc:
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc)
+        )
+
+    except Exception as exc:
+
+        logger.exception(
+            "Chatbot request failed"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Chatbot service failed."
+        )

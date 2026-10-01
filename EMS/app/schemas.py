@@ -288,3 +288,20 @@ class SalaryResponse(BaseModel):
     estimated_range_lpa: str
     lower_bound_lpa: float
     upper_bound_lpa: float
+# ============================================================
+# ============================================================
+# CHATBOT
+# ============================================================
+
+class ChatbotMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatbotRequest(BaseModel):
+    message: str
+    conversation_history: list[ChatbotMessage] = []
+
+
+class ChatbotResponse(BaseModel):
+    response: str
