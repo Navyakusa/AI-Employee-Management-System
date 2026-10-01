@@ -1,0 +1,254 @@
+/* =========================================================
+   HIRING MANAGER NAVBAR
+   ========================================================= */
+
+.hiring-manager-navbar {
+  height: 88px;
+
+  background: #ffffff;
+
+  border-bottom: 1px solid #e5e7eb;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  padding: 0 32px;
+
+  position: sticky;
+
+  top: 0;
+
+  z-index: 50;
+}
+
+
+/* =========================================================
+   SEARCH
+   ========================================================= */
+
+.hiring-manager-navbar-search {
+  width: 340px;
+
+  height: 42px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 0 14px;
+
+  border: 1px solid #dbe2ea;
+
+  border-radius: 10px;
+
+  background: #ffffff;
+
+  color: #94a3b8;
+}
+
+.hiring-manager-navbar-search input {
+  width: 100%;
+
+  border: none;
+
+  outline: none;
+
+  font-size: 14px;
+
+  color: #111827;
+
+  background: transparent;
+}
+
+
+/* =========================================================
+   ACTIONS
+   ========================================================= */
+
+.hiring-manager-navbar-actions {
+  display: flex;
+
+  align-items: center;
+
+  gap: 20px;
+}
+
+
+/* =========================================================
+   NOTIFICATION
+   ========================================================= */
+
+.hiring-manager-notification-button {
+  width: 42px;
+
+  height: 42px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 10px;
+
+  background: #ffffff;
+
+  cursor: pointer;
+
+  color: #111827;
+}
+
+.hiring-manager-notification-button:hover {
+  background: #f8fafc;
+}
+
+
+/* =========================================================
+   PROFILE
+   ========================================================= */
+
+.hiring-manager-profile-wrapper {
+  position: relative;
+}
+
+.hiring-manager-profile {
+  border: none;
+
+  background: transparent;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  cursor: pointer;
+}
+
+.hiring-manager-profile-avatar {
+  width: 42px;
+
+  height: 42px;
+
+  border-radius: 50%;
+
+  background: #eef2ff;
+
+  color: #5547f5;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  font-weight: 700;
+
+  font-size: 13px;
+}
+
+.hiring-manager-profile-info {
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: flex-start;
+}
+
+.hiring-manager-profile-info strong {
+  font-size: 13px;
+
+  color: #111827;
+}
+
+.hiring-manager-profile-info span {
+  font-size: 11px;
+
+  color: #94a3b8;
+}
+
+
+/* =========================================================
+   PROFILE DROPDOWN
+   ========================================================= */
+
+.hiring-manager-profile-dropdown {
+  position: absolute;
+
+  top: 52px;
+
+  right: 0;
+
+  width: 180px;
+
+  background: #ffffff;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 10px;
+
+  box-shadow:
+    0 12px 30px rgba(15, 23, 42, 0.12);
+
+  padding: 8px;
+
+  z-index: 100;
+}
+
+.hiring-manager-profile-dropdown button {
+  width: 100%;
+
+  border: none;
+
+  background: transparent;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 10px 12px;
+
+  border-radius: 8px;
+
+  cursor: pointer;
+
+  font-size: 13px;
+
+  color: #334155;
+}
+
+.hiring-manager-profile-dropdown button:hover {
+  background: #f8fafc;
+}
+
+.hiring-manager-profile-dropdown .logout {
+  color: #dc2626;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 700px) {
+  .hiring-manager-navbar {
+    padding: 0 15px;
+  }
+
+  .hiring-manager-navbar-search {
+    width: 220px;
+  }
+
+  .hiring-manager-profile-info {
+    display: none;
+  }
+}

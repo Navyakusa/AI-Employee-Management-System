@@ -1,0 +1,546 @@
+/* =========================================================
+   HIRING MANAGER SETTINGS
+   ========================================================= */
+
+.hiring-manager-settings-content {
+  padding: 42px 34px 60px;
+  background: #f5f7fb;
+  min-height: calc(100vh - 90px);
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.hiring-manager-settings-header {
+  margin-bottom: 28px;
+}
+
+.hiring-manager-settings-label {
+  margin: 0 0 7px;
+  color: #58708f;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.hiring-manager-settings-header h1 {
+  margin: 0;
+  color: #111827;
+  font-size: 34px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.hiring-manager-settings-header > p:last-child {
+  margin: 10px 0 0;
+  color: #60758f;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   ERROR
+   ========================================================= */
+
+.hm-settings-error {
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #b91c1c;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   CARD
+   ========================================================= */
+
+.hm-settings-card {
+  margin-bottom: 22px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   CARD HEADER
+   ========================================================= */
+
+.hm-settings-card-header {
+  padding: 24px 26px;
+
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
+  border-bottom: 1px solid #eef2f7;
+}
+
+.hm-settings-header-icon {
+  width: 42px;
+  height: 42px;
+
+  border-radius: 11px;
+
+  background: #eef0ff;
+  color: #5547f5;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+}
+
+.hm-settings-card-header h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.hm-settings-card-header p {
+  margin: 5px 0 0;
+  color: #718096;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   NOTIFICATION OPTIONS
+   ========================================================= */
+
+.hm-settings-options {
+  padding: 0 26px;
+}
+
+.hm-settings-option {
+  min-height: 76px;
+  padding: 18px 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+
+  border-bottom: 1px solid #eef2f7;
+  box-sizing: border-box;
+}
+
+.hm-settings-option:last-child {
+  border-bottom: none;
+}
+
+.hm-settings-option-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.hm-settings-option-icon {
+  width: 38px;
+  height: 38px;
+
+  border-radius: 10px;
+
+  background: #f1f3ff;
+  color: #5547f5;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+}
+
+.hm-settings-option-info strong {
+  display: block;
+  margin-bottom: 4px;
+
+  color: #172033;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.hm-settings-option-info span {
+  display: block;
+
+  color: #718096;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   TOGGLE
+   ========================================================= */
+
+.hm-settings-toggle {
+  width: 46px;
+  height: 25px;
+
+  padding: 3px;
+
+  border: none;
+  border-radius: 999px;
+
+  background: #cbd5e1;
+
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+
+  flex-shrink: 0;
+}
+
+.hm-settings-toggle span {
+  width: 19px;
+  height: 19px;
+
+  border-radius: 50%;
+
+  background: #ffffff;
+
+  display: block;
+
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+
+  transition: transform 0.2s ease;
+}
+
+.hm-settings-toggle.active {
+  background: #5547f5;
+}
+
+.hm-settings-toggle.active span {
+  transform: translateX(21px);
+}
+
+.hm-settings-toggle:focus-visible {
+  outline: 3px solid rgba(85, 71, 245, 0.2);
+  outline-offset: 2px;
+}
+
+
+/* =========================================================
+   SAVE ROW
+   ========================================================= */
+
+.hm-settings-save-row {
+  margin: 4px 0 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.hm-settings-saved {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  color: #15803d;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.hm-settings-save-button {
+  min-height: 44px;
+
+  padding: 0 20px;
+
+  border: none;
+  border-radius: 9px;
+
+  background: #5547f5;
+  color: #ffffff;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.hm-settings-save-button:hover {
+  background: #493be6;
+  box-shadow: 0 5px 14px rgba(85, 71, 245, 0.22);
+}
+
+.hm-settings-save-button:active {
+  transform: translateY(1px);
+}
+
+.hm-settings-save-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+
+/* =========================================================
+   SECURITY
+   ========================================================= */
+
+.hm-settings-password-grid {
+  padding: 24px 26px;
+
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 18px;
+}
+
+.hm-settings-password-field {
+  min-width: 0;
+}
+
+.hm-settings-password-field label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hm-settings-password-input {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+}
+
+.hm-settings-password-input input {
+  width: 100%;
+  height: 44px;
+
+  padding: 0 45px 0 13px;
+
+  border: 1px solid #d8e0ea;
+  border-radius: 8px;
+
+  background: #ffffff;
+  color: #172033;
+
+  font-size: 14px;
+
+  outline: none;
+  box-sizing: border-box;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.hm-settings-password-input input::placeholder {
+  color: #9aa7b8;
+}
+
+.hm-settings-password-input input:focus {
+  border-color: #5547f5;
+
+  box-shadow:
+    0 0 0 3px rgba(85, 71, 245, 0.1);
+}
+
+.hm-settings-password-input button {
+  position: absolute;
+  right: 4px;
+
+  width: 36px;
+  height: 36px;
+
+  border: none;
+  border-radius: 7px;
+
+  background: transparent;
+  color: #64748b;
+
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hm-settings-password-input button:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+
+/* =========================================================
+   PASSWORD MESSAGE
+   ========================================================= */
+
+.hm-settings-password-message {
+  margin: 0;
+  padding: 0 26px 20px;
+
+  color: #b45309;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   SECURITY ACTIONS
+   ========================================================= */
+
+.hm-settings-security-actions {
+  padding: 0 26px 24px;
+
+  display: flex;
+  justify-content: flex-end;
+}
+
+.hm-settings-password-button {
+  min-height: 42px;
+
+  padding: 0 18px;
+
+  border: 1px solid #d9d5ff;
+  border-radius: 8px;
+
+  background: #f5f3ff;
+  color: #5547f5;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.hm-settings-password-button:hover {
+  background: #ede9fe;
+  border-color: #c7c0ff;
+}
+
+
+/* =========================================================
+   LOADING
+   ========================================================= */
+
+.hm-settings-loading {
+  min-height: 120px;
+
+  padding: 30px;
+
+  box-sizing: border-box;
+
+  color: #64748b;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1100px) {
+  .hm-settings-password-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .hiring-manager-settings-content {
+    padding: 30px 20px 50px;
+  }
+}
+
+@media (max-width: 650px) {
+  .hiring-manager-settings-header h1 {
+    font-size: 28px;
+  }
+
+  .hm-settings-card-header {
+    padding: 20px;
+  }
+
+  .hm-settings-options {
+    padding: 0 20px;
+  }
+
+  .hm-settings-option {
+    align-items: flex-start;
+  }
+
+  .hm-settings-option-info {
+    align-items: flex-start;
+  }
+
+  .hm-settings-option-info span {
+    max-width: 250px;
+  }
+
+  .hm-settings-password-grid {
+    padding: 20px;
+  }
+
+  .hm-settings-security-actions {
+    padding: 0 20px 20px;
+  }
+
+  .hm-settings-password-message {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .hm-settings-save-row {
+    align-items: flex-end;
+    flex-direction: column;
+  }
+
+  .hm-settings-save-button {
+    width: 100%;
+  }
+}

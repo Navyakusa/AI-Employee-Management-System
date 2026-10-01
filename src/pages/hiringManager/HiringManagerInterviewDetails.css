@@ -1,0 +1,296 @@
+/* =========================================================
+   HIRING MANAGER - INTERVIEW DETAILS
+   ========================================================= */
+
+.hm-interview-details-page-card {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  padding: 28px;
+  box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+/* =========================================================
+   TOP
+   ========================================================= */
+
+.hm-interview-details-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.hm-interview-details-candidate {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-width: 0;
+}
+
+.hm-interview-details-avatar {
+  width: 58px;
+  height: 58px;
+  min-width: 58px;
+  border-radius: 50%;
+  background: #eef2ff;
+  color: #5547f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.hm-interview-details-candidate h2 {
+  margin: 0 0 5px;
+  color: #111827;
+  font-size: 20px;
+}
+
+.hm-interview-details-candidate p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+/* =========================================================
+   STATUS
+   ========================================================= */
+
+.hm-interview-status {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.hm-interview-status.scheduled {
+  color: #4f46e5;
+  background: #eef2ff;
+}
+
+.hm-interview-status.completed {
+  color: #047857;
+  background: #ecfdf5;
+}
+
+/* =========================================================
+   SECTION
+   ========================================================= */
+
+.hm-interview-details-section {
+  padding: 24px 0;
+  border-bottom: 1px solid #eef0f4;
+}
+
+.hm-interview-details-section:last-of-type {
+  border-bottom: none;
+}
+
+.hm-interview-details-section h3 {
+  margin: 0 0 17px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.hm-interview-details-section h3 svg {
+  color: #5547f5;
+  flex-shrink: 0;
+}
+
+.hm-interview-details-section > p {
+  margin: 0 0 14px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* =========================================================
+   INFO GRID
+   ========================================================= */
+
+.hm-interview-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.hm-interview-info-item {
+  min-height: 72px;
+  background: #f8fafc;
+  border: 1px solid #edf0f4;
+  border-radius: 12px;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+.hm-interview-info-item > svg {
+  color: #5547f5;
+  flex-shrink: 0;
+}
+
+.hm-interview-info-item span {
+  display: block;
+  margin-bottom: 5px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.hm-interview-info-item strong {
+  display: block;
+  color: #111827;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+/* =========================================================
+   PANEL BOX
+   ========================================================= */
+
+.hm-interview-panel-box {
+  min-height: 76px;
+  background: #f8fafc;
+  border: 1px solid #edf0f4;
+  border-radius: 12px;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  box-sizing: border-box;
+}
+
+.hm-interview-panel-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #5547f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hm-interview-panel-box span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.hm-interview-panel-box strong {
+  color: #111827;
+  font-size: 14px;
+}
+
+/* =========================================================
+   NOTES
+   ========================================================= */
+
+.hm-interview-notes-box {
+  min-height: 100px;
+  padding: 17px;
+  background: #f8fafc;
+  border: 1px solid #edf0f4;
+  border-radius: 12px;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  box-sizing: border-box;
+}
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.hm-interview-join-button {
+  min-height: 42px;
+  border: 1px solid #5547f5;
+  background: #5547f5;
+  color: #ffffff;
+  border-radius: 9px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 650;
+  transition: 0.2s ease;
+}
+
+.hm-interview-join-button:hover {
+  background: #4638e8;
+  border-color: #4638e8;
+}
+
+/* =========================================================
+   ACTIONS
+   ========================================================= */
+
+.hm-interview-details-actions {
+  padding-top: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 800px) {
+  .hm-interview-details-page-card {
+    padding: 20px;
+  }
+
+  .hm-interview-details-top {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hm-interview-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hm-interview-details-actions {
+    justify-content: stretch;
+  }
+
+  .hm-interview-details-actions .hm-interview-join-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .hm-interview-details-page-card {
+    padding: 16px;
+  }
+
+  .hm-interview-details-avatar {
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+  }
+
+  .hm-interview-details-candidate h2 {
+    font-size: 18px;
+  }
+}

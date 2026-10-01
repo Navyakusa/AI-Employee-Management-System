@@ -22,7 +22,7 @@ import {
   markAllNotificationsAsRead,
 } from "./HiringManagerApi";
 
-import "./HiringManagerDashboard.css";
+import "./HiringManagerNotifications.css";
 
 function HiringManagerNotifications() {
   const [notifications, setNotifications] = useState([]);

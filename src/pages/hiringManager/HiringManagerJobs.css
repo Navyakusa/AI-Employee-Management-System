@@ -1,0 +1,514 @@
+/* ============================================================
+   HIRING MANAGER - ASSIGNED JOBS
+   ============================================================ */
+
+
+/* ============================================================
+   MAIN SECTION
+   ============================================================ */
+
+.hiring-manager-jobs-section {
+  margin-top: 24px;
+}
+
+
+/* ============================================================
+   TOOLBAR
+   ============================================================ */
+
+.hiring-manager-jobs-toolbar {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 16px;
+
+  margin-bottom: 22px;
+}
+
+
+/* ============================================================
+   SEARCH
+   ============================================================ */
+
+.hiring-manager-jobs-search {
+  width: 340px;
+
+  height: 42px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 0 14px;
+
+  background: #ffffff;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 10px;
+
+  color: #94a3b8;
+
+  box-sizing: border-box;
+}
+
+.hiring-manager-jobs-search:focus-within {
+  border-color: #5547f5;
+
+  box-shadow:
+    0 0 0 3px rgba(85, 71, 245, 0.08);
+}
+
+.hiring-manager-jobs-search input {
+  width: 100%;
+
+  border: none;
+
+  outline: none;
+
+  background: transparent;
+
+  font-size: 14px;
+
+  color: #111827;
+}
+
+.hiring-manager-jobs-search input::placeholder {
+  color: #94a3b8;
+}
+
+
+/* ============================================================
+   STATUS FILTER
+   ============================================================ */
+
+.hiring-manager-job-filter {
+  min-width: 150px;
+
+  height: 42px;
+
+  padding: 0 13px;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 10px;
+
+  background: #ffffff;
+
+  color: #334155;
+
+  font-size: 13px;
+
+  outline: none;
+
+  cursor: pointer;
+}
+
+.hiring-manager-job-filter:focus {
+  border-color: #5547f5;
+
+  box-shadow:
+    0 0 0 3px rgba(85, 71, 245, 0.08);
+}
+
+
+/* ============================================================
+   JOB GRID
+   ============================================================ */
+
+.hiring-manager-jobs-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 20px;
+
+  align-items: stretch;
+}
+
+
+/* ============================================================
+   JOB CARD
+   ============================================================ */
+
+.hiring-manager-job-card {
+  background: #ffffff;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 16px;
+
+  padding: 22px;
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+
+  display: flex;
+
+  flex-direction: column;
+
+  min-width: 0;
+}
+
+.hiring-manager-job-card:hover {
+  transform: translateY(-3px);
+
+  border-color: #d8d5ff;
+
+  box-shadow:
+    0 10px 25px rgba(15, 23, 42, 0.08);
+}
+
+
+/* ============================================================
+   CARD TOP
+   ============================================================ */
+
+.hiring-manager-job-card-top {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 12px;
+
+  margin-bottom: 18px;
+}
+
+
+/* ============================================================
+   JOB ICON
+   ============================================================ */
+
+.hiring-manager-job-icon {
+  width: 46px;
+
+  height: 46px;
+
+  border-radius: 12px;
+
+  background: #eef2ff;
+
+  color: #5547f5;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  flex-shrink: 0;
+}
+
+
+/* ============================================================
+   JOB STATUS
+   ============================================================ */
+
+.hiring-manager-job-status {
+  font-size: 11px;
+
+  font-weight: 700;
+
+  padding: 6px 10px;
+
+  border-radius: 20px;
+
+  white-space: nowrap;
+}
+
+.hiring-manager-job-status.active {
+  background: #dcfce7;
+
+  color: #15803d;
+}
+
+.hiring-manager-job-status.closed {
+  background: #f1f5f9;
+
+  color: #64748b;
+}
+
+
+/* ============================================================
+   JOB TITLE
+   ============================================================ */
+
+.hiring-manager-job-card h3 {
+  margin: 0 0 6px;
+
+  font-size: 17px;
+
+  line-height: 1.4;
+
+  color: #111827;
+
+  word-break: break-word;
+}
+
+
+/* ============================================================
+   DEPARTMENT
+   ============================================================ */
+
+.hiring-manager-job-department {
+  margin: 0 0 18px;
+
+  color: #64748b;
+
+  font-size: 13px;
+
+  line-height: 1.4;
+}
+
+
+/* ============================================================
+   JOB INFORMATION
+   ============================================================ */
+
+.hiring-manager-job-info {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 10px;
+
+  margin-bottom: 20px;
+
+  flex: 1;
+}
+
+.hiring-manager-job-info div {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  color: #64748b;
+
+  font-size: 13px;
+
+  min-width: 0;
+}
+
+.hiring-manager-job-info svg {
+  flex-shrink: 0;
+
+  color: #94a3b8;
+}
+
+.hiring-manager-job-info span {
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+}
+
+
+/* ============================================================
+   VIEW JOB BUTTON
+   ============================================================ */
+
+.hiring-manager-view-job-button {
+  width: 100%;
+
+  height: 40px;
+
+  border: none;
+
+  border-radius: 9px;
+
+  background: #5547f5;
+
+  color: #ffffff;
+
+  font-weight: 600;
+
+  font-size: 13px;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.hiring-manager-view-job-button:hover {
+  background: #4338ca;
+}
+
+.hiring-manager-view-job-button:active {
+  transform: translateY(1px);
+}
+
+
+/* ============================================================
+   NO JOBS / EMPTY STATE
+   ============================================================ */
+
+.hiring-manager-no-jobs {
+  grid-column: 1 / -1;
+
+  min-height: 240px;
+
+  background: #ffffff;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 16px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  text-align: center;
+
+  padding: 40px 20px;
+
+  color: #94a3b8;
+
+  box-sizing: border-box;
+}
+
+.hiring-manager-no-jobs svg {
+  color: #5547f5;
+
+  margin-bottom: 10px;
+}
+
+.hiring-manager-no-jobs h3 {
+  margin: 5px 0 7px;
+
+  color: #111827;
+
+  font-size: 17px;
+}
+
+.hiring-manager-no-jobs p {
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 13px;
+
+  line-height: 1.5;
+
+  max-width: 420px;
+}
+
+
+/* ============================================================
+   LOADING STATE
+   ============================================================ */
+
+.hiring-manager-jobs-section
+  .hiring-manager-no-jobs h3 {
+  font-size: 16px;
+}
+
+
+/* ============================================================
+   RESPONSIVE - TABLET
+   ============================================================ */
+
+@media (max-width: 1100px) {
+  .hiring-manager-jobs-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+/* ============================================================
+   RESPONSIVE - SMALL TABLET
+   ============================================================ */
+
+@media (max-width: 800px) {
+  .hiring-manager-jobs-toolbar {
+    flex-direction: column;
+
+    align-items: stretch;
+  }
+
+  .hiring-manager-jobs-search {
+    width: 100%;
+  }
+
+  .hiring-manager-job-filter {
+    width: 100%;
+  }
+}
+
+
+/* ============================================================
+   RESPONSIVE - MOBILE
+   ============================================================ */
+
+@media (max-width: 700px) {
+  .hiring-manager-jobs-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hiring-manager-job-card {
+    padding: 18px;
+  }
+}
+
+
+/* ============================================================
+   RESPONSIVE - SMALL MOBILE
+   ============================================================ */
+
+@media (max-width: 450px) {
+  .hiring-manager-jobs-toolbar {
+    gap: 10px;
+  }
+
+  .hiring-manager-job-card-top {
+    align-items: flex-start;
+  }
+
+  .hiring-manager-job-icon {
+    width: 42px;
+
+    height: 42px;
+  }
+
+  .hiring-manager-job-card h3 {
+    font-size: 16px;
+  }
+}
+/* ============================================================
+   ERROR MESSAGE
+   ============================================================ */
+
+.hiring-manager-jobs-error {
+  background: #fee2e2;
+
+  color: #991b1b;
+
+  padding: 14px 18px;
+
+  border-radius: 10px;
+
+  margin-bottom: 20px;
+
+  border: 1px solid #fecaca;
+
+  font-size: 13px;
+
+  line-height: 1.5;
+}

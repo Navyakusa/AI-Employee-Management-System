@@ -1,0 +1,1046 @@
+/* =========================================================
+   HIRING MANAGER - VIEW JOB DETAILS
+   COMPLETE FIXED LAYOUT
+   ========================================================= */
+
+/*
+   IMPORTANT
+   ----------
+   The current HiringManagerJobDetails.jsx uses:
+
+   .hr-layout
+   .hr-main-content
+   .hr-content
+
+   The sidebar is fixed at the left.
+
+   Therefore this CSS explicitly creates the correct
+   space for the sidebar and prevents content overlap.
+*/
+
+
+/* =========================================================
+   GLOBAL BOX SIZING
+   ========================================================= */
+
+.hr-layout,
+.hr-layout *,
+.hr-layout *::before,
+.hr-layout *::after {
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   PAGE LAYOUT
+   ========================================================= */
+
+.hr-layout {
+  width: 100%;
+  min-height: 100vh;
+
+  display: block;
+
+  background: #f6f8fc;
+
+  margin: 0;
+  padding: 0;
+}
+
+
+/* =========================================================
+   MAIN CONTENT AREA
+   ========================================================= */
+
+/*
+   Sidebar width = 284px
+*/
+
+.hr-main-content {
+  width: calc(100% - 284px);
+  min-width: 0;
+  min-height: 100vh;
+
+  margin-left: 284px;
+
+  padding: 0;
+
+  background: #f6f8fc;
+
+  overflow-x: hidden;
+}
+
+
+/* =========================================================
+   PAGE CONTENT
+   ========================================================= */
+
+.hr-content {
+  width: 100%;
+  min-width: 0;
+
+  margin: 0;
+  padding: 30px 32px 50px;
+
+  background: #f6f8fc;
+
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   VIEW JOB MAIN WRAPPER
+   ========================================================= */
+
+.hiring-manager-job-details {
+  width: 100%;
+  max-width: 1500px;
+
+  margin: 0 auto;
+
+  padding: 0;
+
+  box-sizing: border-box;
+
+  min-height: auto;
+
+  overflow: visible;
+}
+
+
+/* =========================================================
+   BACK BUTTON
+   ========================================================= */
+
+.hiring-manager-job-details .back-button {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  padding: 9px 15px;
+
+  margin: 0 0 20px;
+
+  border: 1px solid #dfe5ef;
+
+  border-radius: 9px;
+
+  background: #ffffff;
+
+  color: #334155;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  line-height: 1;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.hiring-manager-job-details .back-button:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+}
+
+
+/* =========================================================
+   JOB HEADER
+   ========================================================= */
+
+.job-details-header {
+  width: 100%;
+
+  min-width: 0;
+
+  margin: 0 0 20px;
+
+  padding: 24px 26px;
+
+  background: #ffffff;
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 16px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+
+/* =========================================================
+   HEADER LEFT
+   ========================================================= */
+
+.job-details-header-left {
+  min-width: 0;
+
+  flex: 1 1 auto;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 15px;
+}
+
+
+/* =========================================================
+   JOB ICON
+   ========================================================= */
+
+.job-icon-large {
+  width: 56px;
+  height: 56px;
+
+  min-width: 56px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 13px;
+
+  background: #eef2ff;
+
+  color: #5547f5;
+}
+
+
+/* =========================================================
+   JOB TITLE
+   ========================================================= */
+
+.job-details-header h1 {
+  margin: 0 0 6px;
+
+  color: #111827;
+
+  font-size: 27px;
+
+  line-height: 1.25;
+
+  font-weight: 700;
+
+  word-break: break-word;
+}
+
+
+/* =========================================================
+   DEPARTMENT
+   ========================================================= */
+
+.job-details-department {
+  margin: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 7px;
+
+  color: #64748b;
+
+  font-size: 14px;
+
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   STATUS
+   ========================================================= */
+
+.job-status {
+  flex: 0 0 auto;
+
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 7px 14px;
+
+  border-radius: 999px;
+
+  font-size: 13px;
+
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+.status-active {
+  color: #047857;
+
+  background: #ecfdf5;
+}
+
+.status-closed {
+  color: #64748b;
+
+  background: #f1f5f9;
+}
+
+
+/* =========================================================
+   SUMMARY CARDS
+   ========================================================= */
+
+.job-summary-grid {
+  width: 100%;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+
+  gap: 16px;
+
+  margin-bottom: 20px;
+}
+
+
+/* =========================================================
+   SUMMARY CARD
+   ========================================================= */
+
+.job-summary-card {
+  width: 100%;
+  min-width: 0;
+
+  min-height: 92px;
+
+  padding: 17px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 12px;
+
+  background: #ffffff;
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 14px;
+
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.03);
+}
+
+
+/* =========================================================
+   SUMMARY CARD ICON
+   ========================================================= */
+
+.job-summary-card > svg {
+  width: 40px;
+  height: 40px;
+
+  min-width: 40px;
+
+  padding: 10px;
+
+  box-sizing: border-box;
+
+  border-radius: 11px;
+
+  color: #5547f5;
+
+  background: #eef2ff;
+
+  flex-shrink: 0;
+}
+
+
+/* =========================================================
+   SUMMARY LABEL
+   ========================================================= */
+
+.job-summary-card span {
+  display: block;
+
+  margin-bottom: 4px;
+
+  color: #64748b;
+
+  font-size: 13px;
+
+  line-height: 1.3;
+}
+
+
+/* =========================================================
+   SUMMARY VALUE
+   ========================================================= */
+
+.job-summary-card strong {
+  display: block;
+
+  color: #111827;
+
+  font-size: 15px;
+
+  line-height: 1.35;
+
+  overflow-wrap: anywhere;
+}
+
+
+/* =========================================================
+   MAIN DETAILS GRID
+   ========================================================= */
+
+.job-details-grid {
+  width: 100%;
+  min-width: 0;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1.65fr)
+    minmax(300px, 0.85fr);
+
+  gap: 20px;
+
+  align-items: start;
+
+  margin: 0;
+}
+
+
+/* =========================================================
+   LEFT / RIGHT COLUMNS
+   ========================================================= */
+
+.job-details-main,
+.job-details-side {
+  min-width: 0;
+
+  width: 100%;
+}
+
+.job-details-main {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 20px;
+}
+
+.job-details-side {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 20px;
+}
+
+
+/* =========================================================
+   DETAIL CARD
+   ========================================================= */
+
+.details-card {
+  width: 100%;
+
+  min-width: 0;
+
+  padding: 22px;
+
+  background: #ffffff;
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 15px;
+
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   DETAIL CARD HEADER
+   ========================================================= */
+
+.details-card-header {
+  display: flex;
+
+  align-items: center;
+
+  gap: 9px;
+
+  padding-bottom: 13px;
+
+  margin-bottom: 15px;
+
+  border-bottom: 1px solid #eef0f4;
+}
+
+.details-card-header svg {
+  color: #5547f5;
+
+  flex-shrink: 0;
+}
+
+.details-card-header h2 {
+  margin: 0;
+
+  color: #111827;
+
+  font-size: 17px;
+
+  line-height: 1.3;
+
+  font-weight: 700;
+}
+
+
+/* =========================================================
+   JOB DESCRIPTION
+   ========================================================= */
+
+.job-description {
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 14px;
+
+  line-height: 1.7;
+
+  overflow-wrap: anywhere;
+}
+
+
+/* =========================================================
+   SKILLS
+   ========================================================= */
+
+.skills-container {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 9px;
+}
+
+.skill-tag {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 7px 11px;
+
+  background: #eef2ff;
+
+  color: #4f46e5;
+
+  border-radius: 20px;
+
+  font-size: 13px;
+
+  font-weight: 600;
+
+  line-height: 1.2;
+}
+
+
+/* =========================================================
+   MUTED TEXT
+   ========================================================= */
+
+.muted-text {
+  margin: 0;
+
+  color: #94a3b8;
+
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   DETAIL ROW
+   ========================================================= */
+
+.detail-row {
+  width: 100%;
+
+  min-width: 0;
+
+  display: flex;
+
+  align-items: flex-start;
+
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding: 11px 0;
+
+  border-bottom: 1px solid #eef2f6;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+
+  padding-bottom: 0;
+}
+
+.detail-row:first-child {
+  padding-top: 0;
+}
+
+
+/* =========================================================
+   DETAIL ROW LABEL
+   ========================================================= */
+
+.detail-row > span {
+  min-width: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 6px;
+
+  color: #64748b;
+
+  font-size: 13px;
+
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   DETAIL ROW VALUE
+   ========================================================= */
+
+.detail-row > strong {
+  max-width: 60%;
+
+  color: #111827;
+
+  font-size: 13px;
+
+  font-weight: 600;
+
+  line-height: 1.5;
+
+  text-align: right;
+
+  overflow-wrap: anywhere;
+}
+
+
+/* =========================================================
+   CANDIDATE OVERVIEW
+   ========================================================= */
+
+.candidate-overview {
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: flex-start;
+
+  gap: 5px;
+}
+
+.candidate-number {
+  color: #111827;
+
+  font-size: 30px;
+
+  font-weight: 700;
+
+  line-height: 1.2;
+}
+
+.candidate-overview p {
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 13px;
+
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   BOTTOM ACTIONS
+   ========================================================= */
+
+.job-details-actions {
+  width: 100%;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: flex-end;
+
+  gap: 12px;
+
+  margin-top: 20px;
+}
+
+
+/* =========================================================
+   SECONDARY BUTTON
+   ========================================================= */
+
+.secondary-button {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  padding: 10px 16px;
+
+  border: 1px solid #dfe5ef;
+
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  color: #334155;
+
+  font-size: 14px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.secondary-button:hover {
+  background: #f8fafc;
+
+  border-color: #cbd5e1;
+}
+
+
+/* =========================================================
+   PRIMARY BUTTON
+   ========================================================= */
+
+.hiring-manager-job-details .primary-button {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  padding: 10px 17px;
+
+  border: none;
+
+  border-radius: 8px;
+
+  background: #5547f5;
+
+  color: #ffffff;
+
+  font-size: 14px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.hiring-manager-job-details .primary-button:hover {
+  background: #4338ca;
+
+  transform: translateY(-1px);
+}
+
+
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
+
+.hiring-manager-job-details .empty-state {
+  width: 100%;
+
+  padding: 55px 30px;
+
+  background: #ffffff;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 16px;
+
+  text-align: center;
+
+  color: #64748b;
+}
+
+.hiring-manager-job-details .empty-state > svg {
+  color: #5547f5;
+
+  margin-bottom: 15px;
+}
+
+.hiring-manager-job-details .empty-state h2 {
+  margin: 0 0 9px;
+
+  color: #111827;
+
+  font-size: 22px;
+}
+
+.hiring-manager-job-details .empty-state p {
+  max-width: 520px;
+
+  margin: 0 auto 20px;
+
+  color: #64748b;
+
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   IMPORTANT - PREVENT OVERFLOW
+   ========================================================= */
+
+.hr-main-content,
+.hr-content,
+.hiring-manager-job-details,
+.job-details-header,
+.job-summary-grid,
+.job-details-grid,
+.job-details-main,
+.job-details-side,
+.details-card {
+  max-width: 100%;
+}
+
+
+/* =========================================================
+   RESPONSIVE - TABLET
+   ========================================================= */
+
+@media (max-width: 1200px) {
+
+  .hr-content {
+    padding: 28px 24px 45px;
+  }
+
+  .job-details-grid {
+    grid-template-columns:
+      minmax(0, 1.4fr)
+      minmax(280px, 0.9fr);
+  }
+
+  .job-summary-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE - SMALL TABLET
+   ========================================================= */
+
+@media (max-width: 1000px) {
+
+  .job-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .job-details-side {
+    display: grid;
+
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
+    gap: 16px;
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE - MOBILE
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+  /*
+     Sidebar is hidden by HiringManagerSidebar.css
+     at this breakpoint.
+  */
+
+  .hr-main-content {
+    width: 100%;
+
+    margin-left: 0;
+  }
+
+  .hr-content {
+    padding: 24px 20px 40px;
+  }
+
+  .job-details-header {
+    padding: 20px;
+
+    align-items: flex-start;
+
+    flex-direction: column;
+  }
+
+  .job-status {
+    align-self: flex-start;
+  }
+
+  .job-summary-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE - PHONE
+   ========================================================= */
+
+@media (max-width: 650px) {
+
+  .hr-content {
+    padding: 20px 15px 35px;
+  }
+
+  .job-details-header {
+    padding: 18px;
+  }
+
+  .job-details-header-left {
+    align-items: flex-start;
+  }
+
+  .job-icon-large {
+    width: 48px;
+    height: 48px;
+
+    min-width: 48px;
+  }
+
+  .job-details-header h1 {
+    font-size: 23px;
+  }
+
+  .job-summary-grid {
+    grid-template-columns: 1fr;
+
+    gap: 12px;
+  }
+
+  .job-summary-card {
+    min-height: 82px;
+
+    padding: 15px;
+  }
+
+  .job-details-side {
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 16px;
+  }
+
+  .details-card {
+    padding: 18px;
+  }
+
+  .detail-row {
+    gap: 12px;
+  }
+
+  .detail-row > strong {
+    max-width: 55%;
+  }
+
+  .job-details-actions {
+    flex-direction: column;
+
+    align-items: stretch;
+  }
+
+  .job-details-actions .primary-button,
+  .job-details-actions .secondary-button {
+    width: 100%;
+  }
+}
+
+
+/* =========================================================
+   VERY SMALL PHONE
+   ========================================================= */
+
+@media (max-width: 420px) {
+
+  .hr-content {
+    padding: 16px 12px 30px;
+  }
+
+  .job-details-header {
+    padding: 16px;
+  }
+
+  .job-details-header-left {
+    gap: 11px;
+  }
+
+  .job-details-header h1 {
+    font-size: 21px;
+  }
+
+  .job-details-department {
+    font-size: 13px;
+  }
+
+  .job-summary-card {
+    padding: 14px;
+  }
+
+  .details-card {
+    padding: 16px;
+  }
+
+  .details-card-header h2 {
+    font-size: 16px;
+  }
+}

@@ -1,0 +1,301 @@
+/* =========================================================
+   HIRING MANAGER - RESUME REVIEW
+   ========================================================= */
+
+.hm-resume-main-card {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  padding: 28px;
+  box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+/* =========================================================
+   PROFILE
+   ========================================================= */
+
+.hm-resume-profile-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.hm-resume-avatar {
+  width: 64px;
+  height: 64px;
+  min-width: 64px;
+  border-radius: 50%;
+  background: #eef2ff;
+  color: #5547f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  font-weight: 750;
+}
+
+.hm-resume-profile-top h2 {
+  margin: 0 0 5px;
+  color: #111827;
+  font-size: 21px;
+}
+
+.hm-resume-profile-top p {
+  margin: 3px 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+/* =========================================================
+   SECTION
+   ========================================================= */
+
+.hm-resume-section {
+  padding: 24px 0;
+  border-bottom: 1px solid #eef0f4;
+}
+
+.hm-resume-section:last-of-type {
+  border-bottom: none;
+}
+
+.hm-resume-section h3 {
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.hm-resume-section h3 svg {
+  color: #5547f5;
+}
+
+.hm-resume-section h4 {
+  margin: 0 0 8px;
+  color: #111827;
+  font-size: 15px;
+}
+
+.hm-resume-section p {
+  margin: 7px 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.hm-resume-section strong {
+  color: #334155;
+}
+
+/* =========================================================
+   CANDIDATE INFORMATION
+   ========================================================= */
+
+.hm-resume-section > div {
+  box-sizing: border-box;
+}
+
+.hm-resume-section > div > strong {
+  color: #334155;
+  font-size: 13px;
+}
+
+.hm-resume-section > div > strong svg {
+  color: #5547f5;
+}
+
+.hm-resume-section > div > p {
+  margin-top: 7px;
+}
+
+/* =========================================================
+   AI MATCH ANALYSIS
+   ========================================================= */
+
+.hm-resume-ai-score {
+  margin-top: 18px;
+  padding: 20px;
+  border-radius: 14px;
+  background: #f8f7ff;
+  border: 1px solid #e5e1ff;
+}
+
+.hm-resume-ai-score strong {
+  color: #5547f5;
+  font-size: 28px;
+}
+
+.hm-resume-ai-score span {
+  color: #64748b;
+  font-size: 13px;
+}
+
+/* =========================================================
+   GENERIC MATCH VALUES
+   ========================================================= */
+
+.hm-resume-match-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+  margin-top: 18px;
+}
+
+.hm-resume-match-grid > div {
+  padding: 15px;
+  background: #f8fafc;
+  border: 1px solid #edf0f4;
+  border-radius: 12px;
+}
+
+.hm-resume-match-grid strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #334155;
+  font-size: 13px;
+}
+
+.hm-resume-match-grid p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+/* =========================================================
+   AI EXPLANATION
+   ========================================================= */
+
+.hm-resume-section h4 + p {
+  background: #f8fafc;
+  border: 1px solid #edf0f4;
+  border-radius: 12px;
+  padding: 16px;
+  color: #475569;
+}
+
+/* =========================================================
+   APPLICATION
+   ========================================================= */
+
+.hm-resume-section p strong {
+  color: #334155;
+}
+
+/* =========================================================
+   ACTIONS
+   ========================================================= */
+
+.hm-resume-actions {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hm-resume-primary-button,
+.hm-resume-secondary-button {
+  min-height: 43px;
+  padding: 0 17px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 650;
+  transition: 0.2s ease;
+}
+
+.hm-resume-primary-button {
+  border: 1px solid #5547f5;
+  background: #5547f5;
+  color: #ffffff;
+}
+
+.hm-resume-primary-button:hover {
+  background: #4638e8;
+}
+
+.hm-resume-secondary-button {
+  border: 1px solid #d9d6ff;
+  background: #ffffff;
+  color: #5547f5;
+}
+
+.hm-resume-secondary-button:hover {
+  background: #f5f3ff;
+}
+
+/* =========================================================
+   RESUME ERROR / EMPTY
+   ========================================================= */
+
+.hm-resume-main-card .empty-state {
+  min-height: 300px;
+  padding: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.hm-resume-main-card .empty-state svg {
+  color: #5547f5;
+}
+
+.hm-resume-main-card .empty-state h3 {
+  margin: 0 0 8px;
+  color: #111827;
+}
+
+.hm-resume-main-card .empty-state p {
+  max-width: 550px;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .hm-resume-match-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .hm-resume-main-card {
+    padding: 20px;
+  }
+
+  .hm-resume-match-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hm-resume-profile-top {
+    align-items: flex-start;
+  }
+
+  .hm-resume-actions {
+    justify-content: stretch;
+  }
+
+  .hm-resume-actions button,
+  .hm-resume-primary-button,
+  .hm-resume-secondary-button {
+    width: 100%;
+  }
+}

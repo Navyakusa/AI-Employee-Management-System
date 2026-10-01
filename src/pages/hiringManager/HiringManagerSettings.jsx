@@ -23,7 +23,7 @@ import {
   saveSettings,
 } from "./HiringManagerApi";
 
-import "./HiringManagerDashboard.css";
+import "./HiringManagerSettings.css";
 
 function HiringManagerSettings() {
   const defaultSettings = {
@@ -34,43 +34,29 @@ function HiringManagerSettings() {
     emailNotifications: true,
   };
 
-  const [settings, setSettings] =
-    useState(defaultSettings);
+  const [settings, setSettings] = useState(defaultSettings);
+  const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const [saved, setSaved] =
-    useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
 
-  const [loading, setLoading] =
-    useState(true);
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
 
-  const [saving, setSaving] =
-    useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
 
-  const [error, setError] =
-    useState("");
-
-  const [passwordData, setPasswordData] =
-    useState({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    });
-
-  const [showPasswords, setShowPasswords] =
-    useState({
-      current: false,
-      new: false,
-      confirm: false,
-    });
-
-  const [passwordMessage, setPasswordMessage] =
-    useState("");
-
-  /*
-  ======================================================
-  LOAD SETTINGS
-  ======================================================
-  */
+  /* =====================================================
+     LOAD SETTINGS
+     ===================================================== */
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -78,33 +64,17 @@ function HiringManagerSettings() {
         setLoading(true);
         setError("");
 
-        /*
-        Load frontend-only preferences from localStorage.
-        */
-
-        const storedPreferences =
-          JSON.parse(
-            localStorage.getItem(
-              "hiringManagerSettings"
-            ) || "null"
-          );
+        const storedPreferences = JSON.parse(
+          localStorage.getItem("hiringManagerSettings") || "null"
+        );
 
         let backendSettings = null;
 
         try {
-          backendSettings =
-            await getSettings();
+          backendSettings = await getSettings();
 
-          console.log(
-            "Settings response:",
-            backendSettings
-          );
+          console.log("Settings response:", backendSettings);
         } catch (settingsError) {
-          /*
-          404 means there may not be a Settings
-          record yet. We can still show defaults.
-          */
-
           console.warn(
             "Could not load backend settings:",
             settingsError
@@ -137,15 +107,9 @@ function HiringManagerSettings() {
               ?.decisionNotifications ??
             true,
 
-          /*
-          emailNotifications comes from backend
-          when available.
-          */
-
           emailNotifications:
             backendData.emailNotifications ??
-            storedPreferences
-              ?.emailNotifications ??
+            storedPreferences?.emailNotifications ??
             true,
         };
 
@@ -168,11 +132,9 @@ function HiringManagerSettings() {
     loadSettings();
   }, []);
 
-  /*
-  ======================================================
-  TOGGLE
-  ======================================================
-  */
+  /* =====================================================
+     TOGGLE SETTINGS
+     ===================================================== */
 
   const handleToggle = (name) => {
     setSettings((previous) => ({
@@ -184,11 +146,9 @@ function HiringManagerSettings() {
     setError("");
   };
 
-  /*
-  ======================================================
-  SAVE SETTINGS
-  ======================================================
-  */
+  /* =====================================================
+     SAVE SETTINGS
+     ===================================================== */
 
   const handleSaveSettings = async () => {
     try {
@@ -196,33 +156,15 @@ function HiringManagerSettings() {
       setSaved(false);
       setError("");
 
-      /*
-      Save the preferences that do not currently
-      exist in the backend Settings entity locally.
-      */
-
       localStorage.setItem(
         "hiringManagerSettings",
         JSON.stringify(settings)
       );
 
-      /*
-      Send the backend-supported fields.
-
-      Settings.java currently supports:
-      - organizationName
-      - supportEmail
-      - website
-      - allowUserRegistrations
-      - emailNotifications
-      - maintenanceMode
-      */
-
       let currentBackendSettings = {};
 
       try {
-        const currentResponse =
-          await getSettings();
+        const currentResponse = await getSettings();
 
         currentBackendSettings =
           currentResponse?.data ||
@@ -258,22 +200,15 @@ function HiringManagerSettings() {
           settings.emailNotifications,
 
         maintenanceMode:
-          currentBackendSettings
-            .maintenanceMode ??
+          currentBackendSettings.maintenanceMode ??
           false,
       };
-
-      /*
-      Remove undefined ID when creating a new
-      settings record.
-      */
 
       if (!payload.id) {
         delete payload.id;
       }
 
-      const response =
-        await saveSettings(payload);
+      const response = await saveSettings(payload);
 
       console.log(
         "Saved settings response:",
@@ -296,15 +231,12 @@ function HiringManagerSettings() {
     }
   };
 
-  /*
-  ======================================================
-  PASSWORD CHANGE
-  ======================================================
-  */
+  /* =====================================================
+     PASSWORD CHANGE
+     ===================================================== */
 
   const handlePasswordChange = (event) => {
-    const { name, value } =
-      event.target;
+    const { name, value } = event.target;
 
     setPasswordData((previous) => ({
       ...previous,
@@ -348,11 +280,6 @@ function HiringManagerSettings() {
       return;
     }
 
-    /*
-    Password backend endpoint does not currently
-    exist in the provided backend controller.
-    */
-
     setPasswordMessage(
       "Password validation successful. Backend integration is required to update the password."
     );
@@ -364,78 +291,58 @@ function HiringManagerSettings() {
     });
   };
 
-  /*
-  ======================================================
-  PASSWORD VISIBILITY
-  ======================================================
-  */
+  /* =====================================================
+     PASSWORD VISIBILITY
+     ===================================================== */
 
-  const togglePasswordVisibility = (
-    field
-  ) => {
+  const togglePasswordVisibility = (field) => {
     setShowPasswords((previous) => ({
       ...previous,
       [field]: !previous[field],
     }));
   };
 
-  /*
-  ======================================================
-  NOTIFICATION OPTIONS
-  ======================================================
-  */
+  /* =====================================================
+     NOTIFICATION OPTIONS
+     ===================================================== */
 
   const notificationOptions = [
     {
       key: "shortlistedCandidateNotifications",
-
       title: "Shortlisted Candidates",
-
       description:
         "Receive notifications when candidates are shortlisted for your assigned jobs.",
-
       icon: <UserCheck size={19} />,
     },
 
     {
       key: "interviewNotifications",
-
       title: "Interview Updates",
-
       description:
         "Receive notifications about interview scheduling and status updates.",
-
       icon: <CalendarDays size={19} />,
     },
 
     {
       key: "feedbackNotifications",
-
       title: "Interview Feedback",
-
       description:
         "Receive notifications when interviewer feedback becomes available.",
-
       icon: <MessageSquareText size={19} />,
     },
 
     {
       key: "decisionNotifications",
-
       title: "Candidate Decisions",
-
       description:
         "Receive notifications when candidates are ready for final hiring decisions.",
-
       icon: <Bell size={19} />,
     },
   ];
 
-  /*
-  ======================================================
-  LOADING
-  ======================================================
-  */
+  /* =====================================================
+     LOADING
+     ===================================================== */
 
   if (loading) {
     return (
@@ -447,17 +354,15 @@ function HiringManagerSettings() {
 
           <HiringManagerNavbar />
 
-          <main className="hiring-manager-dashboard-content">
+          <main className="hiring-manager-settings-content">
 
-            <div className="hiring-manager-dashboard-header">
+            <div className="hiring-manager-settings-header">
 
-              <p className="hiring-manager-label">
+              <p className="hiring-manager-settings-label">
                 PREFERENCES
               </p>
 
-              <h1>
-                Settings
-              </h1>
+              <h1>Settings</h1>
 
               <p>
                 Loading your settings...
@@ -467,18 +372,14 @@ function HiringManagerSettings() {
 
             <section className="hm-settings-card">
 
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "30px",
-                  color: "#64748b",
-                }}
-              >
+              <div className="hm-settings-loading">
+
                 <Clock size={20} />
 
-                Loading settings...
+                <span>
+                  Loading settings...
+                </span>
+
               </div>
 
             </section>
@@ -491,11 +392,9 @@ function HiringManagerSettings() {
     );
   }
 
-  /*
-  ======================================================
-  RENDER
-  ======================================================
-  */
+  /* =====================================================
+     MAIN RENDER
+     ===================================================== */
 
   return (
     <div className="hiring-manager-layout">
@@ -506,19 +405,17 @@ function HiringManagerSettings() {
 
         <HiringManagerNavbar />
 
-        <main className="hiring-manager-dashboard-content">
+        <main className="hiring-manager-settings-content">
 
           {/* HEADER */}
 
-          <div className="hiring-manager-dashboard-header">
+          <div className="hiring-manager-settings-header">
 
-            <p className="hiring-manager-label">
+            <p className="hiring-manager-settings-label">
               PREFERENCES
             </p>
 
-            <h1>
-              Settings
-            </h1>
+            <h1>Settings</h1>
 
             <p>
               Manage your Hiring Manager notification
@@ -527,30 +424,19 @@ function HiringManagerSettings() {
 
           </div>
 
-
           {/* ERROR */}
 
           {error && (
-            <div
-              style={{
-                marginBottom: "20px",
-                padding: "14px 18px",
-                borderRadius: "10px",
-                background: "#fef2f2",
-                color: "#b91c1c",
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-              }}
-            >
+            <div className="hm-settings-error">
+
               <AlertCircle size={18} />
 
               <span>
                 {error}
               </span>
+
             </div>
           )}
-
 
           {/* NOTIFICATIONS */}
 
@@ -576,7 +462,6 @@ function HiringManagerSettings() {
               </div>
 
             </div>
-
 
             <div className="hm-settings-options">
 
@@ -608,7 +493,6 @@ function HiringManagerSettings() {
 
                     </div>
 
-
                     <button
                       type="button"
                       className={`hm-settings-toggle ${
@@ -617,9 +501,7 @@ function HiringManagerSettings() {
                           : ""
                       }`}
                       onClick={() =>
-                        handleToggle(
-                          option.key
-                        )
+                        handleToggle(option.key)
                       }
                       aria-label={`Toggle ${option.title}`}
                     >
@@ -634,7 +516,6 @@ function HiringManagerSettings() {
             </div>
 
           </section>
-
 
           {/* EMAIL */}
 
@@ -661,7 +542,6 @@ function HiringManagerSettings() {
 
             </div>
 
-
             <div className="hm-settings-option">
 
               <div className="hm-settings-option-info">
@@ -685,7 +565,6 @@ function HiringManagerSettings() {
 
               </div>
 
-
               <button
                 type="button"
                 className={`hm-settings-toggle ${
@@ -698,6 +577,7 @@ function HiringManagerSettings() {
                     "emailNotifications"
                   )
                 }
+                aria-label="Toggle recruitment email alerts"
               >
                 <span />
               </button>
@@ -706,13 +586,11 @@ function HiringManagerSettings() {
 
           </section>
 
-
-          {/* SAVE SETTINGS */}
+          {/* SAVE */}
 
           <div className="hm-settings-save-row">
 
             {saved && (
-
               <span className="hm-settings-saved">
 
                 <ShieldCheck size={16} />
@@ -720,16 +598,12 @@ function HiringManagerSettings() {
                 Preferences saved
 
               </span>
-
             )}
-
 
             <button
               type="button"
               className="hm-settings-save-button"
-              onClick={
-                handleSaveSettings
-              }
+              onClick={handleSaveSettings}
               disabled={saving}
             >
 
@@ -742,7 +616,6 @@ function HiringManagerSettings() {
             </button>
 
           </div>
-
 
           {/* SECURITY */}
 
@@ -767,7 +640,6 @@ function HiringManagerSettings() {
               </div>
 
             </div>
-
 
             <div className="hm-settings-password-grid">
 
@@ -804,20 +676,18 @@ function HiringManagerSettings() {
                         "current"
                       )
                     }
+                    aria-label="Show or hide current password"
                   >
-
                     {showPasswords.current ? (
                       <EyeOff size={17} />
                     ) : (
                       <Eye size={17} />
                     )}
-
                   </button>
 
                 </div>
 
               </div>
-
 
               {/* NEW PASSWORD */}
 
@@ -852,20 +722,18 @@ function HiringManagerSettings() {
                         "new"
                       )
                     }
+                    aria-label="Show or hide new password"
                   >
-
                     {showPasswords.new ? (
                       <EyeOff size={17} />
                     ) : (
                       <Eye size={17} />
                     )}
-
                   </button>
 
                 </div>
 
               </div>
-
 
               {/* CONFIRM PASSWORD */}
 
@@ -900,14 +768,13 @@ function HiringManagerSettings() {
                         "confirm"
                       )
                     }
+                    aria-label="Show or hide confirm password"
                   >
-
                     {showPasswords.confirm ? (
                       <EyeOff size={17} />
                     ) : (
                       <Eye size={17} />
                     )}
-
                   </button>
 
                 </div>
@@ -916,24 +783,18 @@ function HiringManagerSettings() {
 
             </div>
 
-
             {passwordMessage && (
-
               <p className="hm-settings-password-message">
                 {passwordMessage}
               </p>
-
             )}
-
 
             <div className="hm-settings-security-actions">
 
               <button
                 type="button"
                 className="hm-settings-password-button"
-                onClick={
-                  handleUpdatePassword
-                }
+                onClick={handleUpdatePassword}
               >
 
                 <LockKeyhole size={16} />

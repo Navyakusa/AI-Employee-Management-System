@@ -1,17 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
   BriefcaseBusiness,
   Users,
   CalendarDays,
-  CheckCircle,
+  CheckCircle2,
   ArrowRight,
-  Clock,
-  MapPin,
   FileText,
   AlertCircle,
   RefreshCw,
+  Clock3,
 } from "lucide-react";
 
 import HiringManagerSidebar from "./HiringManagerSidebar";
@@ -19,6 +18,7 @@ import HiringManagerNavbar from "./HiringManagerNavbar";
 
 import { getHiringManagerDashboard } from "./HiringManagerApi";
 
+import "./HiringManagerLayout.css";
 import "./HiringManagerDashboard.css";
 
 function HiringManagerDashboard() {
@@ -28,254 +28,156 @@ function HiringManagerDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  /*
-  ======================================================
-  GET LOGGED-IN HIRING MANAGER
-  ======================================================
-  */
-
-  const getLoggedInUser = () => {
+  const loadDashboard = useCallback(async () => {
     try {
-      const storedUser = localStorage.getItem("loggedInUser");
+      setLoading(true);
+      setError("");
 
-      if (!storedUser) {
-        return null;
-      }
+      const response = await getHiringManagerDashboard();
 
-      return JSON.parse(storedUser);
-    } catch (error) {
-      console.error("Unable to read loggedInUser:", error);
-      return null;
-    }
-  };
+      console.log("Hiring Manager Dashboard:", response);
 
-  /*
-  ======================================================
-  FETCH DASHBOARD
-  ======================================================
-  */
+      const dashboardData =
+        response?.data ??
+        response?.content ??
+        response ??
+        null;
 
-  const loadDashboard = async () => {
-    setLoading(true);
-    setError("");
+      setDashboard(dashboardData);
+    } catch (err) {
+      console.error("Hiring Manager Dashboard Error:", err);
 
-    try {
-      const loggedInUser = getLoggedInUser();
-
-      const email =
-        loggedInUser?.email ||
-        loggedInUser?.userEmail ||
-        "";
-
-      if (!email) {
-        throw new Error(
-          "Hiring Manager email is not available."
-        );
-      }
-
-      const response =
-        await getHiringManagerDashboard();
-
-      console.log(
-        "HIRING MANAGER DASHBOARD RESPONSE:",
-        response
-      );
-
-      /*
-      API response structure:
-
-      {
-        success: true,
-        message: "...",
-        data: {
-          totalJobs: ...,
-          openJobs: ...,
-          totalApplications: ...,
-          totalInterviews: ...,
-          department: "..."
-        }
-      }
-      */
-
-      setDashboard(response?.data || response || null);
-
-    } catch (error) {
-      console.error(
-        "Hiring Manager Dashboard Error:",
-        error
-      );
+      setDashboard(null);
 
       setError(
-        error.message ||
-        "Failed to load dashboard."
+        err?.message ||
+          "Unable to load hiring manager dashboard."
       );
     } finally {
       setLoading(false);
     }
-  };
-
-  /*
-  ======================================================
-  LOAD ON PAGE OPEN
-  ======================================================
-  */
+  }, []);
 
   useEffect(() => {
     loadDashboard();
-  }, []);
+  }, [loadDashboard]);
 
-  /*
-  ======================================================
-  DASHBOARD VALUES
-  ======================================================
-  */
-
-  const totalJobs =
+  const totalJobs = Number(
     dashboard?.totalJobs ??
-    dashboard?.assignedJobs ??
-    0;
+      dashboard?.assignedJobs ??
+      0
+  );
 
-  const openJobs =
-    dashboard?.openJobs ??
-    0;
+  const openJobs = Number(
+    dashboard?.openJobs ?? 0
+  );
 
-  const totalApplications =
+  const totalApplications = Number(
     dashboard?.totalApplications ??
-    dashboard?.shortlistedCandidates ??
-    0;
+      dashboard?.applications ??
+      0
+  );
 
-  const totalInterviews =
+  const totalInterviews = Number(
     dashboard?.totalInterviews ??
-    dashboard?.upcomingInterviews ??
-    0;
+      dashboard?.interviews ??
+      0
+  );
 
-  const pendingDecisions =
-    dashboard?.pendingDecisions ??
-    0;
+  const pendingDecisions = Number(
+    dashboard?.pendingDecisions ?? 0
+  );
 
   const department =
     dashboard?.department ||
     "Hiring Department";
 
-
-  /*
-  ======================================================
-  RENDER
-  ======================================================
-  */
-
   return (
     <div className="hiring-manager-layout">
-
-      {/* SIDEBAR */}
 
       <HiringManagerSidebar />
 
       <div className="hiring-manager-main">
 
-        {/* NAVBAR */}
-
         <HiringManagerNavbar />
 
-        <main className="hiring-manager-dashboard-content">
+        <main className="hm-dashboard-page">
 
-          {/* ==================================================
-              HEADER
-          ================================================== */}
+          {/* PAGE HEADER */}
+          <header className="hm-dashboard-header">
 
-          <div className="hiring-manager-dashboard-header">
-
-            <p className="hiring-manager-label">
-              HIRING MANAGER
-            </p>
-
-            <h1>
-              Dashboard
-            </h1>
-
-            <p>
-              Overview of recruitment activities,
-              candidates and interview progress.
-            </p>
-
-          </div>
-
-
-          {/* ==================================================
-              LOADING
-          ================================================== */}
-
-          {loading && (
-
-            <div className="hm-dashboard-message">
-
-              <RefreshCw
-                size={20}
-                className="hm-dashboard-spinner"
-              />
-
-              <span>
-                Loading dashboard...
+            <div>
+              <span className="hm-dashboard-eyebrow">
+                HIRING MANAGER
               </span>
 
+              <h1>Dashboard</h1>
+
+              <p>
+                Overview of recruitment activities,
+                candidates and interview progress.
+              </p>
             </div>
 
-          )}
+          </header>
 
-
-          {/* ==================================================
-              ERROR
-          ================================================== */}
-
+          {/* ERROR */}
           {!loading && error && (
+            <section className="hm-dashboard-error">
 
-            <div className="hm-dashboard-error">
+              <div className="hm-dashboard-error-left">
 
-              <div className="hm-dashboard-error-content">
-
-                <AlertCircle size={20} />
+                <div className="hm-dashboard-error-icon">
+                  <AlertCircle size={21} />
+                </div>
 
                 <div>
-                  <strong>
+                  <h3>
                     Unable to load dashboard
-                  </strong>
+                  </h3>
 
-                  <p>
-                    {error}
-                  </p>
+                  <p>{error}</p>
                 </div>
 
               </div>
 
               <button
                 type="button"
+                className="hm-dashboard-retry"
                 onClick={loadDashboard}
               >
                 <RefreshCw size={16} />
                 Retry
               </button>
 
-            </div>
-
+            </section>
           )}
 
+          {/* LOADING */}
+          {loading && (
+            <section className="hm-dashboard-loading">
 
-          {/* ==================================================
-              DASHBOARD CONTENT
-          ================================================== */}
+              <RefreshCw
+                size={24}
+                className="hm-dashboard-loading-icon"
+              />
 
-          {!loading && (
+              <span>
+                Loading dashboard...
+              </span>
 
+            </section>
+          )}
+
+          {/* DASHBOARD */}
+          {!loading && !error && (
             <>
 
-              {/* ==================================================
-                  DEPARTMENT
-              ================================================== */}
-
-              <div className="hm-dashboard-department">
+              {/* DEPARTMENT */}
+              <section className="hm-dashboard-department-card">
 
                 <div>
-                  <span>
+                  <span className="hm-dashboard-small-label">
                     Department
                   </span>
 
@@ -284,25 +186,21 @@ function HiringManagerDashboard() {
                   </strong>
                 </div>
 
-                <span className="hm-dashboard-live">
+                <span className="hm-dashboard-overview-badge">
                   Dashboard Overview
                 </span>
 
-              </div>
+              </section>
 
 
-              {/* ==================================================
-                  SUMMARY CARDS
-              ================================================== */}
+              {/* STATISTICS */}
+              <section className="hm-dashboard-stats">
 
-              <section className="hm-dashboard-stats-grid">
-
-                {/* ASSIGNED JOBS */}
-
+                {/* JOBS */}
                 <div className="hm-dashboard-stat-card">
 
                   <div className="hm-dashboard-stat-icon jobs">
-                    <BriefcaseBusiness size={23} />
+                    <BriefcaseBusiness size={22} />
                   </div>
 
                   <div className="hm-dashboard-stat-content">
@@ -325,11 +223,10 @@ function HiringManagerDashboard() {
 
 
                 {/* CANDIDATES */}
-
                 <div className="hm-dashboard-stat-card">
 
                   <div className="hm-dashboard-stat-icon candidates">
-                    <Users size={23} />
+                    <Users size={22} />
                   </div>
 
                   <div className="hm-dashboard-stat-content">
@@ -352,11 +249,10 @@ function HiringManagerDashboard() {
 
 
                 {/* INTERVIEWS */}
-
                 <div className="hm-dashboard-stat-card">
 
                   <div className="hm-dashboard-stat-icon interviews">
-                    <CalendarDays size={23} />
+                    <CalendarDays size={22} />
                   </div>
 
                   <div className="hm-dashboard-stat-content">
@@ -379,11 +275,10 @@ function HiringManagerDashboard() {
 
 
                 {/* DECISIONS */}
-
                 <div className="hm-dashboard-stat-card">
 
                   <div className="hm-dashboard-stat-icon decisions">
-                    <CheckCircle size={23} />
+                    <CheckCircle2 size={22} />
                   </div>
 
                   <div className="hm-dashboard-stat-content">
@@ -407,13 +302,10 @@ function HiringManagerDashboard() {
               </section>
 
 
-              {/* ==================================================
-                  QUICK ACTIONS
-              ================================================== */}
-
+              {/* QUICK ACTIONS */}
               <section className="hm-dashboard-section">
 
-                <div className="hm-dashboard-section-header">
+                <div className="hm-dashboard-section-heading">
 
                   <div>
                     <h2>
@@ -428,13 +320,11 @@ function HiringManagerDashboard() {
                 </div>
 
 
-                <div className="hm-dashboard-actions-grid">
-
-                  {/* JOBS */}
+                <div className="hm-dashboard-actions">
 
                   <button
                     type="button"
-                    className="hm-dashboard-action-card"
+                    className="hm-dashboard-action"
                     onClick={() =>
                       navigate(
                         "/hiring-manager/jobs"
@@ -443,10 +333,10 @@ function HiringManagerDashboard() {
                   >
 
                     <div className="hm-dashboard-action-icon">
-                      <BriefcaseBusiness size={22} />
+                      <BriefcaseBusiness size={21} />
                     </div>
 
-                    <div>
+                    <div className="hm-dashboard-action-text">
 
                       <strong>
                         Assigned Jobs
@@ -463,11 +353,9 @@ function HiringManagerDashboard() {
                   </button>
 
 
-                  {/* CANDIDATES */}
-
                   <button
                     type="button"
-                    className="hm-dashboard-action-card"
+                    className="hm-dashboard-action"
                     onClick={() =>
                       navigate(
                         "/hiring-manager/shortlisted-candidates"
@@ -476,10 +364,10 @@ function HiringManagerDashboard() {
                   >
 
                     <div className="hm-dashboard-action-icon">
-                      <Users size={22} />
+                      <Users size={21} />
                     </div>
 
-                    <div>
+                    <div className="hm-dashboard-action-text">
 
                       <strong>
                         Shortlisted Candidates
@@ -496,11 +384,9 @@ function HiringManagerDashboard() {
                   </button>
 
 
-                  {/* INTERVIEWS */}
-
                   <button
                     type="button"
-                    className="hm-dashboard-action-card"
+                    className="hm-dashboard-action"
                     onClick={() =>
                       navigate(
                         "/hiring-manager/interviews"
@@ -509,10 +395,10 @@ function HiringManagerDashboard() {
                   >
 
                     <div className="hm-dashboard-action-icon">
-                      <CalendarDays size={22} />
+                      <CalendarDays size={21} />
                     </div>
 
-                    <div>
+                    <div className="hm-dashboard-action-text">
 
                       <strong>
                         Interviews
@@ -529,11 +415,9 @@ function HiringManagerDashboard() {
                   </button>
 
 
-                  {/* DECISIONS */}
-
                   <button
                     type="button"
-                    className="hm-dashboard-action-card"
+                    className="hm-dashboard-action"
                     onClick={() =>
                       navigate(
                         "/hiring-manager/decisions"
@@ -542,10 +426,10 @@ function HiringManagerDashboard() {
                   >
 
                     <div className="hm-dashboard-action-icon">
-                      <CheckCircle size={22} />
+                      <CheckCircle2 size={21} />
                     </div>
 
-                    <div>
+                    <div className="hm-dashboard-action-text">
 
                       <strong>
                         Candidate Decisions
@@ -566,14 +450,10 @@ function HiringManagerDashboard() {
               </section>
 
 
-              {/* ==================================================
-                  RECRUITMENT OVERVIEW
-              ================================================== */}
+              {/* OVERVIEW */}
+              <section className="hm-dashboard-bottom-grid">
 
-              <section className="hm-dashboard-overview-grid">
-
-                {/* JOB OVERVIEW */}
-
+                {/* RECRUITMENT OVERVIEW */}
                 <div className="hm-dashboard-panel">
 
                   <div className="hm-dashboard-panel-header">
@@ -593,16 +473,11 @@ function HiringManagerDashboard() {
                   </div>
 
 
-                  <div className="hm-dashboard-overview-item">
+                  <div className="hm-dashboard-overview-row">
 
-                    <div className="hm-dashboard-overview-left">
-
+                    <div>
                       <BriefcaseBusiness size={18} />
-
-                      <span>
-                        Total Jobs
-                      </span>
-
+                      <span>Total Jobs</span>
                     </div>
 
                     <strong>
@@ -612,16 +487,11 @@ function HiringManagerDashboard() {
                   </div>
 
 
-                  <div className="hm-dashboard-overview-item">
+                  <div className="hm-dashboard-overview-row">
 
-                    <div className="hm-dashboard-overview-left">
-
-                      <CheckCircle size={18} />
-
-                      <span>
-                        Open Jobs
-                      </span>
-
+                    <div>
+                      <CheckCircle2 size={18} />
+                      <span>Open Jobs</span>
                     </div>
 
                     <strong>
@@ -631,16 +501,11 @@ function HiringManagerDashboard() {
                   </div>
 
 
-                  <div className="hm-dashboard-overview-item">
+                  <div className="hm-dashboard-overview-row">
 
-                    <div className="hm-dashboard-overview-left">
-
+                    <div>
                       <Users size={18} />
-
-                      <span>
-                        Applications
-                      </span>
-
+                      <span>Applications</span>
                     </div>
 
                     <strong>
@@ -650,16 +515,11 @@ function HiringManagerDashboard() {
                   </div>
 
 
-                  <div className="hm-dashboard-overview-item">
+                  <div className="hm-dashboard-overview-row">
 
-                    <div className="hm-dashboard-overview-left">
-
+                    <div>
                       <CalendarDays size={18} />
-
-                      <span>
-                        Interviews
-                      </span>
-
+                      <span>Interviews</span>
                     </div>
 
                     <strong>
@@ -671,8 +531,7 @@ function HiringManagerDashboard() {
                 </div>
 
 
-                {/* NEXT STEPS */}
-
+                {/* WORKFLOW */}
                 <div className="hm-dashboard-panel">
 
                   <div className="hm-dashboard-panel-header">
@@ -687,14 +546,14 @@ function HiringManagerDashboard() {
                       </p>
                     </div>
 
-                    <Clock size={21} />
+                    <Clock3 size={21} />
 
                   </div>
 
 
                   <button
                     type="button"
-                    className="hm-dashboard-workflow-item"
+                    className="hm-dashboard-workflow"
                     onClick={() =>
                       navigate(
                         "/hiring-manager/shortlisted-candidates"
@@ -702,21 +561,17 @@ function HiringManagerDashboard() {
                     }
                   >
 
-                    <span className="workflow-number">
-                      1
-                    </span>
+                    <span>1</span>
 
                     <div>
-
                       <strong>
                         Review Candidates
                       </strong>
 
-                      <span>
-                        Check shortlisted candidate profiles
-                        and AI matching results.
-                      </span>
-
+                      <small>
+                        Check shortlisted candidate
+                        profiles and AI matching results.
+                      </small>
                     </div>
 
                     <ArrowRight size={17} />
@@ -726,7 +581,7 @@ function HiringManagerDashboard() {
 
                   <button
                     type="button"
-                    className="hm-dashboard-workflow-item"
+                    className="hm-dashboard-workflow"
                     onClick={() =>
                       navigate(
                         "/hiring-manager/interviews"
@@ -734,21 +589,17 @@ function HiringManagerDashboard() {
                     }
                   >
 
-                    <span className="workflow-number">
-                      2
-                    </span>
+                    <span>2</span>
 
                     <div>
-
                       <strong>
                         Review Interviews
                       </strong>
 
-                      <span>
-                        Monitor interview schedules and
-                        completed interviews.
-                      </span>
-
+                      <small>
+                        Monitor interview schedules
+                        and completed interviews.
+                      </small>
                     </div>
 
                     <ArrowRight size={17} />
@@ -758,7 +609,7 @@ function HiringManagerDashboard() {
 
                   <button
                     type="button"
-                    className="hm-dashboard-workflow-item"
+                    className="hm-dashboard-workflow"
                     onClick={() =>
                       navigate(
                         "/hiring-manager/decisions"
@@ -766,21 +617,17 @@ function HiringManagerDashboard() {
                     }
                   >
 
-                    <span className="workflow-number">
-                      3
-                    </span>
+                    <span>3</span>
 
                     <div>
-
                       <strong>
                         Make Decisions
                       </strong>
 
-                      <span>
-                        Approve or reject candidates after
-                        reviewing their results.
-                      </span>
-
+                      <small>
+                        Review candidate results and
+                        complete hiring decisions.
+                      </small>
                     </div>
 
                     <ArrowRight size={17} />
@@ -792,7 +639,6 @@ function HiringManagerDashboard() {
               </section>
 
             </>
-
           )}
 
         </main>

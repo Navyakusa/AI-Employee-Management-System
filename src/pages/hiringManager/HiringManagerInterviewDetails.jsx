@@ -19,7 +19,8 @@ import HiringManagerNavbar from "./HiringManagerNavbar";
 
 import { getInterviewDetails } from "./HiringManagerApi";
 
-import "./HiringManagerDashboard.css";
+import "./HiringManagerInterviewDetails.css";
+import "./HiringManagerLayout.css";
 
 function HiringManagerInterviewDetails() {
   const navigate = useNavigate();

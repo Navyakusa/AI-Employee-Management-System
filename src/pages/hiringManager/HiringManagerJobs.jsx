@@ -14,7 +14,8 @@ import HiringManagerNavbar from "./HiringManagerNavbar";
 
 import { getAssignedJobs } from "./HiringManagerApi";
 
-import "./HiringManagerDashboard.css";
+import "./HiringManagerLayout.css";
+import "./HiringManagerJobs.css";
 
 
 function HiringManagerJobs() {

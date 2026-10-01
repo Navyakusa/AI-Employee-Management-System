@@ -9,6 +9,7 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
+import "./HiringManagerNavbar.css";
 
 function HiringManagerNavbar() {
   const navigate = useNavigate();

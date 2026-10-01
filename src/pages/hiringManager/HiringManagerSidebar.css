@@ -1,0 +1,145 @@
+/* =========================================================
+   HIRING MANAGER SIDEBAR
+   ========================================================= */
+
+.hiring-manager-sidebar {
+  width: 284px;
+
+  height: 100vh;
+
+  position: fixed;
+
+  top: 0;
+  left: 0;
+
+  background: #111827;
+
+  color: #ffffff;
+
+  padding: 24px 15px;
+
+  box-sizing: border-box;
+
+  display: flex;
+
+  flex-direction: column;
+
+  overflow: hidden;
+
+  z-index: 1000;
+}
+
+
+/* =========================================================
+   BRAND
+   ========================================================= */
+
+.hiring-manager-brand {
+  padding: 0 17px 32px;
+}
+
+.hiring-manager-brand-text {
+  font-size: 27px;
+
+  font-weight: 700;
+
+  letter-spacing: -0.5px;
+
+  line-height: 1;
+}
+
+.hiring-manager-brand-text .talent-text {
+  color: #ffffff;
+}
+
+.hiring-manager-brand-text .ai-text {
+  color: #5547f5;
+}
+
+
+/* =========================================================
+   NAVIGATION
+   ========================================================= */
+
+.hiring-manager-nav {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 8px;
+}
+
+.hiring-manager-nav button {
+  width: 100%;
+
+  border: none;
+
+  background: transparent;
+
+  color: #cbd5e1;
+
+  padding: 13px 17px;
+
+  border-radius: 9px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 13px;
+
+  cursor: pointer;
+
+  font-size: 15px;
+
+  font-weight: 500;
+
+  text-align: left;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.hiring-manager-nav button svg {
+  flex-shrink: 0;
+}
+
+.hiring-manager-nav button:hover {
+  background: #1f2937;
+
+  color: #ffffff;
+}
+
+
+/* =========================================================
+   ACTIVE NAVIGATION
+   ========================================================= */
+
+.hiring-manager-nav button.active {
+  background: #5547f5;
+
+  color: #ffffff;
+
+  font-weight: 600;
+
+  box-shadow:
+    0 4px 12px rgba(85, 71, 245, 0.25);
+}
+
+.hiring-manager-nav button.active:hover {
+  background: #5547f5;
+
+  color: #ffffff;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .hiring-manager-sidebar {
+    display: none;
+  }
+}

@@ -22,7 +22,8 @@ import HiringManagerNavbar from "./HiringManagerNavbar";
 
 import { getCandidateReview } from "./HiringManagerApi";
 
-import "./HiringManagerDashboard.css";
+import "./HiringManagerLayout.css";
+import "./HiringManagerResumeReview.css";
 
 const HiringManagerResumeReview = () => {
   const navigate = useNavigate();
