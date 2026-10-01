@@ -5,7 +5,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class ChatbotRequestDto {
+public class PythonChatResponseDto {
 
-    private String message;
+    private String response;
 }

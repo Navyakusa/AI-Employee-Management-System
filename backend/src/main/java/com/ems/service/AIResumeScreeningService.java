@@ -332,17 +332,21 @@ public class AIResumeScreeningService {
                         + resumeProfile.get("skills"));
                 System.out.println("=================================");
 
+                Object pythonSkills = resumeProfile.get("skills");
+
+                System.out.println("=================================");
+                System.out.println("FINAL PYTHON SKILLS");
+                System.out.println("extracted_resume_profile.skills = " + pythonSkills);
+                System.out.println("=================================");
+
                 screening.setSkills(
-                        objectToString(
-                                firstPresent(
-                                        resumeProfile,
-                                        "skills_cleaned",
-                                        "skills",
-                                        "skill",
-                                        "extracted_skills"
-                                )
-                        )
+                        objectToString(pythonSkills)
                 );
+
+                System.out.println("=================================");
+                System.out.println("AIResumeScreening.skills BEFORE SAVE");
+                System.out.println(screening.getSkills());
+                System.out.println("=================================");
 
                 screening.setExperience(
                         objectToString(

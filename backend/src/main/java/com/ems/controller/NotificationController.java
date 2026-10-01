@@ -30,6 +30,7 @@ public class NotificationController {
         this.notificationSseService = notificationSseService;
     }
 
+
     // =========================================================
     // SSE NOTIFICATION STREAM
     // =========================================================
@@ -42,13 +43,75 @@ public class NotificationController {
             Authentication authentication
     ) {
 
+        System.out.println("=================================");
+        System.out.println("SSE REQUEST RECEIVED");
+        System.out.println("=================================");
+
+        if (authentication == null) {
+
+            System.out.println(
+                    "SSE AUTHENTICATION = NULL"
+            );
+
+            throw new RuntimeException(
+                    "Authentication is required for notification stream"
+            );
+        }
+
         String email = authentication.getName();
+
+        System.out.println(
+                "SSE AUTHENTICATED EMAIL = "
+                        + email
+        );
+
+
+        // =====================================================
+        // GET USER ID
+        // =====================================================
 
         Long userId =
                 notificationService.getUserIdByEmail(email);
 
-        return notificationSseService.connect(userId);
+        System.out.println(
+                "SSE USER ID = "
+                        + userId
+        );
+
+
+        if (userId == null) {
+
+            throw new RuntimeException(
+                    "User ID not found for email: "
+                            + email
+            );
+        }
+
+
+        // =====================================================
+        // CREATE SSE CONNECTION
+        // =====================================================
+
+        System.out.println(
+                "CALLING notificationSseService.connect()"
+        );
+
+        SseEmitter emitter =
+                notificationSseService.connect(userId);
+
+        System.out.println(
+                "notificationSseService.connect() COMPLETED"
+        );
+
+        System.out.println(
+                "SSE STREAM RETURNING TO CLIENT"
+        );
+
+        System.out.println("=================================");
+
+        return emitter;
     }
+
 
     // =========================================================
     // GET MY NOTIFICATIONS
@@ -61,10 +124,9 @@ public class NotificationController {
     ) {
 
         return notificationService
-                .getMyNotifications(
-                        authentication
-                );
+                .getMyNotifications(authentication);
     }
+
 
     // =========================================================
     // GET UNREAD COUNT
@@ -77,10 +139,9 @@ public class NotificationController {
     ) {
 
         return notificationService
-                .getUnreadCount(
-                        authentication
-                );
+                .getUnreadCount(authentication);
     }
+
 
     // =========================================================
     // MARK ONE AS READ
@@ -100,6 +161,7 @@ public class NotificationController {
                 );
     }
 
+
     // =========================================================
     // MARK ALL AS READ
     // =========================================================
@@ -111,10 +173,9 @@ public class NotificationController {
     ) {
 
         return notificationService
-                .markAllAsRead(
-                        authentication
-                );
+                .markAllAsRead(authentication);
     }
+
 
     // =========================================================
     // NOTIFICATION STATS
@@ -127,10 +188,9 @@ public class NotificationController {
     ) {
 
         return notificationService
-                .getNotificationStats(
-                        authentication
-                );
+                .getNotificationStats(authentication);
     }
+
 
     // =========================================================
     // DELETE NOTIFICATION
