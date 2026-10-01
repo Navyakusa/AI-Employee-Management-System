@@ -301,6 +301,7 @@ class ChatbotMessage(BaseModel):
 class ChatbotRequest(BaseModel):
     message: str
     conversation_history: list[ChatbotMessage] = []
+    job_context: Optional[str] = None
 
 
 class ChatbotResponse(BaseModel):

@@ -485,7 +485,8 @@ def chatbot_endpoint(payload: ChatbotRequest):
 
         response = get_chatbot_response(
             message=payload.message,
-            conversation_history=payload.conversation_history
+            conversation_history=payload.conversation_history,
+            job_context=payload.job_context
         )
 
         return ChatbotResponse(
