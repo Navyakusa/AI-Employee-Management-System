@@ -527,6 +527,7 @@ def recommend_candidate_decision_endpoint(payload: CandidateDecisionRequest):
     result["job_id"] = job_id
     result["resume_id"] = resume_id
     return result
+
 # ---------------------------------------------------------------------------
 # AI CHATBOT
 # ---------------------------------------------------------------------------
@@ -543,7 +544,8 @@ def chatbot_endpoint(payload: ChatbotRequest):
         response = get_chatbot_response(
             message=payload.message,
             conversation_history=payload.conversation_history,
-            job_context=payload.job_context
+            job_context=payload.job_context,
+            role=payload.role
         )
 
         return ChatbotResponse(

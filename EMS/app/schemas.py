@@ -302,6 +302,7 @@ class ChatbotRequest(BaseModel):
     message: str
     conversation_history: list[ChatbotMessage] = []
     job_context: Optional[str] = None
+    role: str = "PUBLIC"
 
 
 class ChatbotResponse(BaseModel):
