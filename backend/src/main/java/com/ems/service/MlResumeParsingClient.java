@@ -1,5 +1,6 @@
 package com.ems.service;
 
+import com.ems.dto.ResumeParseRequestDto;
 import com.ems.dto.ResumeParseResponseDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,53 +11,86 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 @Service
 public class MlResumeParsingClient {
 
     private final ObjectMapper objectMapper;
+    private final String mlServiceBaseUrl;
+    private final HttpClient httpClient;
 
-    public MlResumeParsingClient() {
+    public MlResumeParsingClient(
+            @Value("${ml.service.base-url}") String mlServiceBaseUrl
+    ) {
+
+        // Create ObjectMapper directly
         this.objectMapper = new ObjectMapper();
+
+        this.mlServiceBaseUrl = mlServiceBaseUrl;
+
+        this.httpClient =
+                HttpClient.newBuilder()
+                        .version(HttpClient.Version.HTTP_1_1)
+                        .connectTimeout(Duration.ofSeconds(10))
+                        .build();
     }
 
-    public ResumeParseResponseDto parseResume(String resumeText) {
+    // =========================================================
+    // PARSE RESUME
+    // =========================================================
+
+    public ResumeParseResponseDto parseResume(
+            String resumeText
+    ) {
 
         try {
 
-            if (resumeText == null) {
-                throw new RuntimeException("Resume text is null");
+            if (resumeText == null
+                    || resumeText.isBlank()) {
+
+                throw new RuntimeException(
+                        "Resume text is empty"
+                );
             }
 
-            if (resumeText.isBlank()) {
-                throw new RuntimeException("Resume text is empty");
-            }
+            // =================================================
+            // Create request DTO
+            // =================================================
 
-            // Create request body
-            ResumeParseRequestBody requestBody =
-                    new ResumeParseRequestBody(resumeText);
+            ResumeParseRequestDto requestDto =
+                    new ResumeParseRequestDto(
+                            resumeText
+                    );
 
-            // Convert request body into JSON
+            // =================================================
+            // Convert DTO → JSON
+            // =================================================
+
             String jsonBody =
-                    objectMapper.writeValueAsString(requestBody);
+                    objectMapper.writeValueAsString(
+                            requestDto
+                    );
 
-            System.out.println("=================================");
-            System.out.println("CALLING PYTHON RESUME PARSER");
-            System.out.println("JSON SENT:");
-            System.out.println(jsonBody);
-            System.out.println("=================================");
+            // =================================================
+            // Python API URL
+            // =================================================
 
-            HttpClient client =
-                    HttpClient.newBuilder()
-                            .version(HttpClient.Version.HTTP_1_1)
-                            .build();
+            String url =
+                    mlServiceBaseUrl
+                            + "/parse-resume";
+
+            // =================================================
+            // HTTP Request
+            // =================================================
 
             HttpRequest httpRequest =
                     HttpRequest.newBuilder()
                             .uri(
-                                    URI.create(
-                                            "http://127.0.0.1:8000/parse-resume"
-                                    )
+                                    URI.create(url)
+                            )
+                            .timeout(
+                                    Duration.ofSeconds(30)
                             )
                             .header(
                                     "Content-Type",
@@ -74,15 +108,12 @@ public class MlResumeParsingClient {
                             )
                             .build();
 
-            System.out.println(
-                    "Content-Length = "
-                            + jsonBody.getBytes(
-                            StandardCharsets.UTF_8
-                    ).length
-            );
+            // =================================================
+            // Call Python ML service
+            // =================================================
 
             HttpResponse<String> response =
-                    client.send(
+                    httpClient.send(
                             httpRequest,
                             HttpResponse.BodyHandlers.ofString(
                                     StandardCharsets.UTF_8
@@ -90,14 +121,13 @@ public class MlResumeParsingClient {
                     );
 
             System.out.println(
-                    "Python HTTP status = "
+                    "Python Resume Parser HTTP status = "
                             + response.statusCode()
             );
 
-            System.out.println(
-                    "Python response = "
-                            + response.body()
-            );
+            // =================================================
+            // Check response
+            // =================================================
 
             if (response.statusCode() < 200
                     || response.statusCode() >= 300) {
@@ -110,23 +140,19 @@ public class MlResumeParsingClient {
                 );
             }
 
-            // Convert Python JSON response into Java DTO
+            // =================================================
+            // JSON → Response DTO
+            // =================================================
+
             ResumeParseResponseDto result =
                     objectMapper.readValue(
                             response.body(),
                             ResumeParseResponseDto.class
                     );
 
-            System.out.println("=================================");
-            System.out.println("MAPPED RESUME PARSE RESPONSE");
-            System.out.println(result);
-            System.out.println("=================================");
-
             return result;
 
         } catch (Exception e) {
-
-            e.printStackTrace();
 
             throw new RuntimeException(
                     "Python resume parsing call failed: "
@@ -134,10 +160,5 @@ public class MlResumeParsingClient {
                     e
             );
         }
-    }
-
-    private record ResumeParseRequestBody(
-            String resume_text
-    ) {
     }
 }

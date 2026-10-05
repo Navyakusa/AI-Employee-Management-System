@@ -5,19 +5,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class ResumeNlpProcessingService {
 
-    // Process cleaned resume text
-    public String processText(String cleanedText) {
+    public String processText(String text) {
 
-        // Check if cleaned text is empty
-        if (cleanedText == null || cleanedText.isBlank()) {
+        if (text == null || text.isBlank()) {
             return "";
         }
 
-        // Convert text to a consistent format
-        String processedText = cleanedText
+        // Preserve line breaks.
+        // Only normalize spaces and tabs.
+        return text
                 .trim()
-                .replaceAll("\\s+", " ");
-
-        return processedText;
+                .replaceAll("[ \\t]+", " ");
     }
 }

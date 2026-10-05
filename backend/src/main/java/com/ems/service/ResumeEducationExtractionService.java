@@ -8,26 +8,32 @@ import java.util.regex.Pattern;
 @Service
 public class ResumeEducationExtractionService {
 
-    // Extract education information from processed resume text
-    public String extractEducation(String processedText) {
+    private static final Pattern EDUCATION_PATTERN = Pattern.compile(
+            "\\b(bachelor|b\\.tech|btech|b\\.e|be|master|m\\.tech|mtech|m\\.e|me|mba|phd|doctorate|diploma)\\b",
+            Pattern.CASE_INSENSITIVE
+    );
 
-        // Check if resume text is empty
-        if (processedText == null || processedText.isBlank()) {
+    public String extractEducation(String text) {
+
+        if (text == null || text.isBlank()) {
             return "";
         }
 
-        // Education keywords
-        Pattern educationPattern = Pattern.compile(
-                "(bachelor|b\\.tech|btech|b\\.e|be|master|m\\.tech|mtech|m\\.e|me|mba|phd|doctorate|diploma)",
-                Pattern.CASE_INSENSITIVE
-        );
+        Matcher matcher = EDUCATION_PATTERN.matcher(text);
 
-        Matcher matcher = educationPattern.matcher(processedText);
+        StringBuilder education = new StringBuilder();
 
-        if (matcher.find()) {
-            return matcher.group(1);
+        while (matcher.find()) {
+
+            String value = matcher.group();
+
+            if (education.length() > 0) {
+                education.append(", ");
+            }
+
+            education.append(value);
         }
 
-        return "";
+        return education.toString();
     }
 }

@@ -721,7 +721,14 @@ public class SecurityConfig {
                                 .requestMatchers(
                                         "/api/hiring-manager/**"
                                 ).hasRole("HIRING_MANAGER")
+// =================================================
+// CHATBOT
+// =================================================
 
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/chatbot/chat"
+                                        ).permitAll()
                                 // =================================================
                                 // EVERYTHING ELSE
                                 // =================================================

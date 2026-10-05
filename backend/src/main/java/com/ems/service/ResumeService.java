@@ -2,6 +2,7 @@ package com.ems.service;
 
 import com.ems.common.ApiResponse;
 import com.ems.dto.ResumeManagementDto;
+import com.ems.dto.ResumeParseResponseDto;
 import com.ems.dto.ResumeRequestDto;
 import com.ems.dto.ResumeResponseDto;
 import com.ems.dto.ResumeStatsDto;
@@ -67,6 +68,13 @@ public class ResumeService {
 
     @Autowired
     private StructuredCandidateProfileService structuredCandidateProfileService;
+
+    // ============================================================
+    // NEW: ML Resume Parsing Client
+    // ============================================================
+
+    @Autowired
+    private MlResumeParsingClient mlResumeParsingClient;
 
     private static final String UPLOAD_DIR = "uploads/resumes";
 
@@ -184,25 +192,107 @@ public class ResumeService {
                             cleanedText
                     );
 
-            // 14. Extract skills
-            String extractedSkills =
-                    resumeSkillExtractionService.extractSkills(
-                            processedText
-                    );
 
-            // 15. Extract experience
-            String extractedExperience =
+            // ========================================================
+            // 14. AI RESUME PARSING
+            // ========================================================
+
+            String extractedSkills = "";
+            String extractedEducation = "";
+            String extractedExperience = "";
+
+            try {
+
+                ResumeParseResponseDto aiResult =
+                        mlResumeParsingClient.parseResume(
+                                processedText
+                        );
+
+                if (aiResult != null) {
+
+                    // ------------------------------------------------
+                    // Skills from AI
+                    // ------------------------------------------------
+
+                    if (aiResult.getSkillsCleaned() != null
+                            && !aiResult.getSkillsCleaned().isEmpty()) {
+
+                        extractedSkills =
+                                String.join(
+                                        ", ",
+                                        aiResult.getSkillsCleaned()
+                                );
+                    }
+
+                    // ------------------------------------------------
+                    // Education from AI
+                    // ------------------------------------------------
+
+                    if (aiResult.getDegree() != null
+                            && !aiResult.getDegree().isEmpty()) {
+
+                        extractedEducation =
+                                String.join(
+                                        ", ",
+                                        aiResult.getDegree()
+                                );
+                    }
+                }
+
+            } catch (Exception e) {
+
+                // AI service failed.
+                // We will use Java extraction as fallback.
+
+                System.err.println(
+                        "AI resume parsing failed. "
+                                + "Using fallback extraction."
+                );
+            }
+
+
+            // ========================================================
+            // 15. FALLBACK SKILL EXTRACTION
+            // ========================================================
+
+            if (extractedSkills == null
+                    || extractedSkills.isBlank()) {
+
+                extractedSkills =
+                        resumeSkillExtractionService.extractSkills(
+                                processedText
+                        );
+            }
+
+
+            // ========================================================
+            // 16. EXPERIENCE EXTRACTION
+            // ========================================================
+
+            extractedExperience =
                     resumeExperienceExtractionService.extractExperience(
                             processedText
                     );
 
-            // 16. Extract education
-            String extractedEducation =
-                    resumeEducationExtractionService.extractEducation(
-                            processedText
-                    );
 
-            // 17. Create Resume entity
+            // ========================================================
+            // 17. FALLBACK EDUCATION EXTRACTION
+            // ========================================================
+
+            if (extractedEducation == null
+                    || extractedEducation.isBlank()) {
+
+                extractedEducation =
+                        resumeEducationExtractionService.extractEducation(
+                                processedText
+                        );
+            }
+
+
+            // ========================================================
+            // 18. Create Resume entity
+            // ========================================================
+
             Resume resume = resumeMapper.toEntity(request);
 
             resume.setFileName(fileName);
@@ -214,16 +304,28 @@ public class ResumeService {
             resume.setExtractedExperience(extractedExperience);
             resume.setExtractedEducation(extractedEducation);
 
-            // 18. Save resume
+
+            // ========================================================
+            // 19. Save resume
+            // ========================================================
+
             Resume savedResume =
                     resumeRepository.save(resume);
 
-            // 19. Create structured candidate profile
+
+            // ========================================================
+            // 20. Create structured candidate profile
+            // ========================================================
+
             structuredCandidateProfileService.createProfile(
                     savedResume
             );
 
-            // 20. Convert entity to response DTO
+
+            // ========================================================
+            // 21. Convert entity to response DTO
+            // ========================================================
+
             ResumeResponseDto responseDto =
                     resumeMapper.toResponseDto(savedResume);
 
@@ -236,7 +338,9 @@ public class ResumeService {
 
         } catch (IOException e) {
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(new ApiResponse<>(
                             false,
                             "Failed to upload or process resume",
@@ -245,7 +349,9 @@ public class ResumeService {
 
         } catch (Exception e) {
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(new ApiResponse<>(
                             false,
                             "Failed to process resume",
@@ -281,7 +387,9 @@ public class ResumeService {
 
         } catch (Exception e) {
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(new ApiResponse<>(
                             false,
                             "Failed to create resume",
@@ -295,7 +403,8 @@ public class ResumeService {
     // Get All Resumes
     // ============================================================
 
-    public ResponseEntity<ApiResponse<List<ResumeResponseDto>>> getAllResumes() {
+    public ResponseEntity<ApiResponse<List<ResumeResponseDto>>>
+    getAllResumes() {
 
         try {
 
@@ -315,7 +424,9 @@ public class ResumeService {
 
         } catch (Exception e) {
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(new ApiResponse<>(
                             false,
                             "Failed to retrieve resumes",
@@ -339,7 +450,9 @@ public class ResumeService {
 
             if (resume == null) {
 
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                return ResponseEntity.status(
+                                HttpStatus.NOT_FOUND
+                        )
                         .body(new ApiResponse<>(
                                 false,
                                 "Resume not found",
@@ -360,7 +473,9 @@ public class ResumeService {
 
         } catch (Exception e) {
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(new ApiResponse<>(
                             false,
                             "Failed to retrieve resume",
@@ -385,7 +500,9 @@ public class ResumeService {
 
             if (existingResume == null) {
 
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                return ResponseEntity.status(
+                                HttpStatus.NOT_FOUND
+                        )
                         .body(new ApiResponse<>(
                                 false,
                                 "Resume not found",
@@ -413,7 +530,9 @@ public class ResumeService {
 
         } catch (Exception e) {
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(new ApiResponse<>(
                             false,
                             "Failed to update resume",
@@ -427,7 +546,8 @@ public class ResumeService {
     // Delete Resume
     // ============================================================
 
-    public ResponseEntity<ApiResponse<String>> deleteResume(Long id) {
+    public ResponseEntity<ApiResponse<String>> deleteResume(
+            Long id) {
 
         try {
 
@@ -436,7 +556,9 @@ public class ResumeService {
 
             if (resume == null) {
 
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                return ResponseEntity.status(
+                                HttpStatus.NOT_FOUND
+                        )
                         .body(new ApiResponse<>(
                                 false,
                                 "Resume not found",
@@ -456,7 +578,9 @@ public class ResumeService {
 
         } catch (Exception e) {
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
                     .body(new ApiResponse<>(
                             false,
                             "Failed to delete resume",
@@ -507,13 +631,33 @@ public class ResumeService {
                     .toAbsolutePath()
                     .normalize();
 
-            System.out.println("========== RESUME VIEW ==========");
-            System.out.println("Resume ID: " + resume.getId());
-            System.out.println("DB Path: " + resume.getFilePath());
-            System.out.println("Absolute Path: " + filePath);
-            System.out.println("Exists: " + Files.exists(filePath));
-            System.out.println("Readable: " + Files.isReadable(filePath));
-            System.out.println("=================================");
+            System.out.println(
+                    "========== RESUME VIEW =========="
+            );
+
+            System.out.println(
+                    "Resume ID: " + resume.getId()
+            );
+
+            System.out.println(
+                    "DB Path: " + resume.getFilePath()
+            );
+
+            System.out.println(
+                    "Absolute Path: " + filePath
+            );
+
+            System.out.println(
+                    "Exists: " + Files.exists(filePath)
+            );
+
+            System.out.println(
+                    "Readable: " + Files.isReadable(filePath)
+            );
+
+            System.out.println(
+                    "================================="
+            );
 
             if (!Files.exists(filePath)) {
 
@@ -584,7 +728,9 @@ public class ResumeService {
                     .contentType(
                             MediaType.parseMediaType(contentType)
                     )
-                    .contentLength(Files.size(filePath))
+                    .contentLength(
+                            Files.size(filePath)
+                    )
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
                             "inline; filename=\"" +
@@ -682,7 +828,9 @@ public class ResumeService {
                     .contentType(
                             MediaType.parseMediaType(contentType)
                     )
-                    .contentLength(Files.size(filePath))
+                    .contentLength(
+                            Files.size(filePath)
+                    )
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
                             "attachment; filename=\"" +

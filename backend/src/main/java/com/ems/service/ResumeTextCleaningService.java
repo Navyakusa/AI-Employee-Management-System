@@ -5,20 +5,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class ResumeTextCleaningService {
 
-    // Clean extracted resume text
-    public String cleanText(String extractedText) {
+    public String cleanText(String text) {
 
-        // Check if extracted text is empty
-        if (extractedText == null || extractedText.isBlank()) {
+        if (text == null || text.isBlank()) {
             return "";
         }
 
-        // 1. Remove extra spaces
-        String cleanedText = extractedText
-                .replaceAll("\\s+", " ")
+        // Preserve line breaks.
+        // Only normalize spaces and tabs.
+        return text
+                .replaceAll("[ \\t]+", " ")
                 .trim();
-
-        // 2. Return cleaned resume text
-        return cleanedText;
     }
 }

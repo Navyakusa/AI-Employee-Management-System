@@ -2,59 +2,84 @@ package com.ems.service;
 
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class ResumeSkillExtractionService {
 
-    // Extract skills from processed resume text
-    public String extractSkills(String processedText) {
+    private final List<String> skills = Arrays.asList(
 
-        // Check if resume text is empty
-        if (processedText == null || processedText.isBlank()) {
+            // Programming Languages
+            "java",
+            "python",
+            "javascript",
+            "typescript",
+            "c",
+
+            // Web Technologies
+            "html",
+            "css",
+            "react",
+            "angular",
+            "node.js",
+            "bootstrap",
+
+            // Java / Backend
+            "spring",
+            "spring boot",
+            "flask",
+
+            // Databases
+            "sql",
+            "postgresql",
+            "mysql",
+            "mongodb",
+            "dbms",
+
+            // Cloud / DevOps
+            "docker",
+            "kubernetes",
+            "git",
+            "github",
+            "aws",
+            "azure",
+
+            // AI / ML
+            "machine learning",
+            "artificial intelligence",
+            "nlp",
+
+            // Other Technologies
+            "oops",
+            "power bi",
+            "figma"
+    );
+
+    public String extractSkills(String text) {
+
+        if (text == null || text.isBlank()) {
             return "";
         }
 
-        // List of skills to look for
-        List<String> knownSkills = List.of(
-                "java",
-                "python",
-                "javascript",
-                "typescript",
-                "spring",
-                "spring boot",
-                "react",
-                "angular",
-                "node.js",
-                "sql",
-                "postgresql",
-                "mysql",
-                "mongodb",
-                "docker",
-                "kubernetes",
-                "git",
-                "github",
-                "aws",
-                "azure",
-                "machine learning",
-                "artificial intelligence",
-                "nlp"
-        );
+        String lowerText = text.toLowerCase();
 
-        List<String> extractedSkills = new ArrayList<>();
+        return skills.stream()
+                .filter(skill -> containsWholeSkill(lowerText, skill))
+                .collect(Collectors.joining(", "));
+    }
 
-        String text = processedText.toLowerCase();
+    private boolean containsWholeSkill(String text, String skill) {
 
-        // Check each known skill
-        for (String skill : knownSkills) {
+        String escapedSkill = java.util.regex.Pattern
+                .quote(skill.toLowerCase());
 
-            if (text.contains(skill.toLowerCase())) {
-                extractedSkills.add(skill);
-            }
-        }
+        String regex = "(?<!\\w)" + escapedSkill + "(?!\\w)";
 
-        // Return skills as comma-separated text
-        return String.join(", ", extractedSkills);
+        return java.util.regex.Pattern
+                .compile(regex, java.util.regex.Pattern.CASE_INSENSITIVE)
+                .matcher(text)
+                .find();
     }
 }
