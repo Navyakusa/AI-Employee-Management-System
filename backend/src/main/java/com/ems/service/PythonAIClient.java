@@ -123,7 +123,7 @@ public class PythonAIClient {
 // =========================================================
 
     public PythonChatResponseDto chat(
-            ChatbotRequestDto request) {
+            PythonChatbotRequestDto request) {
 
         try {
 

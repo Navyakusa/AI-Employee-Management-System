@@ -1,12 +1,20 @@
 package com.ems.service;
 
 import com.ems.dto.ChatbotRequestDto;
+
 import com.ems.dto.PythonChatResponseDto;
+import com.ems.dto.PythonChatbotRequestDto;
 import com.ems.entity.Job;
 import com.ems.repository.JobRepository;
+
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,9 +31,7 @@ public class ChatbotService {
         this.jobRepository = jobRepository;
     }
 
-    public String getChatbotResponse(
-            ChatbotRequestDto request
-    ) {
+    public String getChatbotResponse(ChatbotRequestDto request) {
 
         if (request == null ||
                 request.getMessage() == null ||
@@ -34,39 +40,52 @@ public class ChatbotService {
             return "Please enter a message.";
         }
 
-        /*
-         * =========================================================
-         * BUILD CURRENT OPEN JOB CONTEXT
-         * =========================================================
-         */
+        // ---------------------------------------------------------
+        // 1. Determine user role from JWT / Spring Security
+        // ---------------------------------------------------------
+
+        String userRole = getCurrentUserRole();
+
+        System.out.println("=================================");
+        System.out.println("CHATBOT USER ROLE = " + userRole);
+        System.out.println("=================================");
+
+        // ---------------------------------------------------------
+        // 2. Build job context
+        // ---------------------------------------------------------
+
         String jobContext = buildJobContext();
 
-        /*
-         * =========================================================
-         * CREATE REQUEST FOR PYTHON
-         * =========================================================
-         */
-        ChatbotRequestDto pythonRequest = new ChatbotRequestDto();
+        // ---------------------------------------------------------
+        // 3. Create Java -> Python request
+        // ---------------------------------------------------------
 
-        pythonRequest.setMessage(
-                request.getMessage()
-        );
+        PythonChatbotRequestDto pythonRequest =
+                new PythonChatbotRequestDto();
+
+        pythonRequest.setMessage(request.getMessage());
 
         pythonRequest.setConversation_history(
                 request.getConversation_history()
         );
 
-        pythonRequest.setJob_context(
-                jobContext
-        );
+        pythonRequest.setJob_context(jobContext);
 
-        /*
-         * =========================================================
-         * CALL PYTHON CHATBOT
-         * =========================================================
-         */
+        // IMPORTANT:
+        // Role comes from backend security context,
+        // NOT from frontend.
+        pythonRequest.setRole(userRole);
+
+        // ---------------------------------------------------------
+        // 4. Call Python ML service
+        // ---------------------------------------------------------
+
         PythonChatResponseDto response =
                 pythonAIClient.chat(pythonRequest);
+
+        // ---------------------------------------------------------
+        // 5. Validate Python response
+        // ---------------------------------------------------------
 
         if (response == null ||
                 response.getResponse() == null ||
@@ -79,11 +98,77 @@ public class ChatbotService {
     }
 
 
-    /*
-     * =============================================================
-     * BUILD JOB CONTEXT
-     * =============================================================
-     */
+    // =========================================================
+    // GET CURRENT USER ROLE
+    // =========================================================
+
+    private String getCurrentUserRole() {
+
+        Authentication authentication =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
+
+        // No authentication
+        if (authentication == null ||
+                !authentication.isAuthenticated() ||
+                authentication instanceof AnonymousAuthenticationToken) {
+
+            return "PUBLIC";
+        }
+
+        // Allowed application roles
+        Set<String> allowedRoles = Set.of(
+                "CANDIDATE",
+                "EMPLOYEE",
+                "RECRUITER",
+                "HIRING_MANAGER",
+                "EMPLOYER",
+                "INTERVIEWER",
+                "HR",
+                "SUPER_ADMIN"
+        );
+
+        for (GrantedAuthority authority :
+                authentication.getAuthorities()) {
+
+            String authorityName =
+                    authority.getAuthority();
+
+            if (authorityName == null) {
+                continue;
+            }
+
+            // ROLE_HR -> HR
+            if (authorityName.startsWith("ROLE_")) {
+
+                String role =
+                        authorityName.substring(5)
+                                .toUpperCase();
+
+                if (allowedRoles.contains(role)) {
+                    return role;
+                }
+            }
+
+            // Also support authorities without ROLE_ prefix
+            String role =
+                    authorityName.toUpperCase();
+
+            if (allowedRoles.contains(role)) {
+                return role;
+            }
+        }
+
+        // Authenticated but no recognized application role
+        return "PUBLIC";
+    }
+
+
+    // =========================================================
+    // BUILD JOB CONTEXT
+    // =========================================================
+
     private String buildJobContext() {
 
         List<Job> openJobs =
