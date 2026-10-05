@@ -3803,6 +3803,59 @@ def parse_resume(text: str) -> dict:
                     normalized_skill,
                 )
 
+    # ------------------------------------------------------------------------
+    # FINAL FALLBACK: recover explicit technical skills from the original resume
+    # text when the NER/header parser returned only a very small subset.
+    #
+    # This is important for resumes whose PDF extraction or NER boundaries are
+    # imperfect. For example, a Technical Skills section may be present in the
+    # raw resume but the NER span may contain only one item such as
+    # "Machine Learning". The known-skill vocabulary is deterministic and is
+    # therefore safe to use as a fallback for explicit skill names.
+    # ------------------------------------------------------------------------
+    if len(skill_map) < 3:
+
+        fallback_skills = _scan_known_skills_in_text(text)
+
+        # Ambiguous one-word technologies (especially C) are recovered only
+        # when the resume itself contains a recognizable skills/coursework
+        # section. This avoids treating ordinary words such as "go" or
+        # "spring" in normal sentences as skills.
+        has_skill_context = bool(
+            re.search(
+                r"\b(?:technical\s+skills?|skills?|skill\s+set|"
+                r"programming\s+skills?|relevant\s+coursework|"
+                r"core\s+subjects?|computer\s+science\s+fundamentals?)\b",
+                text,
+                re.IGNORECASE,
+            )
+        )
+
+        if has_skill_context:
+            context_terms = (
+                "c", "c++", "c#", "r", "go", "golang", "spring",
+                "express", "swift", "dart", "rust", "rest", "node",
+                "react", "excel", "oracle", "windows", "android",
+                "apache", "agile", "scrum", "cn", "algorithms",
+                "vite", "spark", "openai", "json", "xml", "unix",
+            )
+
+            for term in context_terms:
+                if re.search(
+                    rf"(?<![A-Za-z0-9+#.]){re.escape(term)}(?![A-Za-z0-9+#.])",
+                    text,
+                    re.IGNORECASE,
+                ):
+                    fallback_skills.append(term)
+
+        for skill in fallback_skills:
+            normalized_skill = _normalize_skill_token(skill)
+            if normalized_skill:
+                skill_map.setdefault(
+                    normalized_skill.lower(),
+                    normalized_skill,
+                )
+
     final_skills = sorted(
         skill_map.values(),
         key=str.lower,
