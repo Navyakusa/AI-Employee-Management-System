@@ -70,7 +70,7 @@ _CATEGORY_LABELS = (
     r"frontend|backend|front[- ]end|back[- ]end"
 )
 
-<<<<<<< Updated upstream
+
 _HYPHEN_LABEL_PATTERN = re.compile(
     rf"^(?:{_CATEGORY_LABELS})\s*-\s*",
     re.IGNORECASE
@@ -92,7 +92,7 @@ _SPLIT_PATTERN = re.compile(
 # ============================================================================
 # FALSE POSITIVE FILTERS
 # ============================================================================
-=======
+
 _BULLET_PATTERN = re.compile(r"^[-*]\s*")
 _PAREN_SUFFIX_PATTERN = re.compile(r"\s*\([^)]*\)\s*$")
 # Separators between skills: commas, semicolons, pipes, new lines and the
@@ -101,10 +101,9 @@ _PAREN_SUFFIX_PATTERN = re.compile(r"\s*\([^)]*\)\s*$")
 _SPLIT_PATTERN = re.compile(
     r"[,;|\n\u2022\u00b7\u25aa\u25ab\u25cf\u25cb\u25e6\u25a0\u25ba\u25b6\u27a2\u27a4\u2713\u2714\u2023\uf0b7\uf0a7\uf076\uf0d8\uf0fc]"
 )
->>>>>>> Stashed changes
+
 
 _LEADING_REJECT_WORDS = frozenset({
-<<<<<<< Updated upstream
     "and",
     "the",
     "a",
@@ -152,14 +151,12 @@ _LEADING_REJECT_WORDS = frozenset({
     "fostering",
     "impactful",
     "proficient",
-=======
     "and", "the", "a", "an", "of", "to", "in", "on", "for", "with", "as",
     "is", "are", "using", "based", "this", "that", "from", "by", "at",
     "implementing", "implemented", "integrating", "integrated", "viewing",
     "editing", "deleting", "building", "developed", "designed", "created",
     "added", "built", "mark", "marking", "pause", "paused", "scroll",
     "scrolling", "missing", "allows", "allowing", "enables", "enabling",
->>>>>>> Stashed changes
 })
 
 _NONSKILL_WHOLE_WORDS = frozenset({
@@ -303,7 +300,6 @@ _BARE_CATEGORY_LABELS = frozenset({
     "proficiencies",
 })
 
-<<<<<<< Updated upstream
 
 # ============================================================================
 # KNOWN SKILLS
@@ -557,7 +553,6 @@ _SOFT_SKILL_PHRASES = (
 # ============================================================================
 # SKILLS SECTION HEADERS
 # ============================================================================
-=======
 # ---------------------------------------------------------------------------
 # Header-based skills section scanner. This is a NECESSARY complement to the
 # NER model, not just a nice-to-have: real-world testing found the model
@@ -571,7 +566,6 @@ _SOFT_SKILL_PHRASES = (
 # the actual skills content, and for correctly stopping before an unrelated
 # section begins.
 # ---------------------------------------------------------------------------
->>>>>>> Stashed changes
 
 # One list of section names, used by every part of this module (header
 # detection, the stop check, and _restore_section_breaks), so adding a new
@@ -632,7 +626,7 @@ _SKILLS_HEADER_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-<<<<<<< Updated upstream
+
 
 _INLINE_SKILLS_HEADER_PATTERN = re.compile(
     r"\b(?:"
@@ -1015,13 +1009,6 @@ def _looks_like_section_heading(line: str) -> bool:
 # SKILL TEXT AFTER INLINE HEADER
 # ============================================================================
 
-def _capture_skill_text_after_match(
-    text: str,
-    match_end: int,
-) -> str:
-
-    remainder = text[match_end:]
-=======
 # Lines matching any of these mark the START of a DIFFERENT section -- the
 # skills-section scan stops as soon as one of these appears, so it doesn't
 # run on into unrelated content (education, a declaration statement, personal
@@ -1034,8 +1021,13 @@ _SECTION_STOP_PATTERN = re.compile(
 )
 
 _MAX_SECTION_LINES = 20  # safety cap so a missing stop-header can't run away
->>>>>>> Stashed changes
 
+def _capture_skill_text_after_match(
+    text: str,
+    match_end: int,
+) -> str:
+
+    remainder = text[match_end:]
     stop = re.search(
         r"\b(?:"
         r"participation\s*(?:&|and)\s*certifications?"
@@ -1077,7 +1069,6 @@ _MAX_SECTION_LINES = 20  # safety cap so a missing stop-header can't run away
 # ============================================================================
 
 def _find_skills_sections_by_header(full_text: str) -> list:
-<<<<<<< Updated upstream
     """
     Find Technical Skills independently from NER.
 
@@ -1118,7 +1109,7 @@ def _find_skills_sections_by_header(full_text: str) -> list:
     sections = []
 
     lines = full_text.split("\n")
-=======
+
     """Scans the raw resume text line-by-line for a skills-section header
     (e.g. "SKILLS", "TECHNICAL SKILLS", "Skills:") and captures everything
     after it up to the next recognized section header or a line-count cap.
@@ -1128,14 +1119,12 @@ def _find_skills_sections_by_header(full_text: str) -> list:
     labels, so it works even when the model mislabels the content."""
     lines = full_text.split("\n")
     sections = []
->>>>>>> Stashed changes
 
     i = 0
 
     while i < len(lines):
 
         stripped = lines[i].strip()
-<<<<<<< Updated upstream
 
         match = _SKILLS_HEADER_PATTERN.match(
             stripped
@@ -1451,35 +1440,6 @@ def _find_skills_sections_by_header(full_text: str) -> list:
             )
 
     return unique_sections
-=======
-        m = _SKILLS_HEADER_PATTERN.match(stripped)
-        if m:
-            captured = []
-            # A PDF-extraction artifact sometimes merges the header and its
-            # first item onto one line ("TECHNICAL SKILLS Programming: Python")
-            # instead of a clean line break -- capture whatever follows the
-            # header on that SAME line too, rather than requiring the header
-            # to be the only thing on the line.
-            trailing = stripped[m.end():].strip()
-            if trailing:
-                captured.append(trailing)
-
-            j = i + 1
-            while j < len(lines) and len(captured) < _MAX_SECTION_LINES:
-                line = lines[j].strip()
-                if _SECTION_STOP_PATTERN.match(line):
-                    break
-                if line:
-                    captured.append(line)
-                j += 1
-            if captured:
-                sections.append("\n".join(captured))
-            i = j
-        else:
-            i += 1
-
-    return sections
->>>>>>> Stashed changes
 
 
 # ============================================================================
@@ -1496,19 +1456,14 @@ _EMAIL_PATTERN = re.compile(
 # ============================================================================
 
 _EDUCATION_HEADER_PATTERN = re.compile(
-<<<<<<< Updated upstream
     r"^\s*(?:"
     r"academic\s+(?:details|background|qualifications?)\b"
+    r"|educational\s+qualifications?\b"
     r"|education\b"
     r"|qualifications?\b"
     r")\s*:?\s*",
-=======
-    r"^\s*(?:academic\s+(?:details|background|qualifications?)\b|educational\s+qualifications?\b|education\b|qualifications?\b)"
-    r"\s*:?\s*",
->>>>>>> Stashed changes
     re.IGNORECASE,
 )
-
 
 _COLLEGE_LINE_PATTERN = re.compile(
     r"[^,\n]*\b(?:university|college|institute|polytechnic|vidyalaya|school)\b[^,\n]*",
@@ -1904,7 +1859,7 @@ def extract_degree_fallback(
 
     if not education_text:
         return []
-<<<<<<< Updated upstream
+
 
     matches = [
         match.strip(
@@ -1922,7 +1877,6 @@ def extract_degree_fallback(
             if match
         )
     )
-=======
     matches = []
     for m in _DEGREE_PATTERN.findall(education_text):
         cleaned = m.strip(" .-")
@@ -1937,7 +1891,6 @@ def extract_degree_fallback(
         if cleaned and len(cleaned) <= 120:
             matches.append(cleaned)
     return sorted(set(matches))
->>>>>>> Stashed changes
 
 
 # ============================================================================
@@ -2030,7 +1983,6 @@ def extract_name_fallback(
     return None
 
 
-<<<<<<< Updated upstream
 # ============================================================================
 # DATE HELPERS
 # ============================================================================
@@ -2842,7 +2794,6 @@ def extract_individual_skills(
             "\n"
         )
 
-=======
 def extract_individual_skills(raw_skill_blocks: list, known_locations: list = None,
                               allow_runon_lists: bool = False) -> list:
     """This dataset annotates Skills as large multi-line blocks, not individual
@@ -2885,11 +2836,11 @@ def extract_individual_skills(raw_skill_blocks: list, known_locations: list = No
         # header-scanner).
         block = _split_sublabels(block)
         block_lines = block.split("\n")
->>>>>>> Stashed changes
+
         truncated_lines = []
 
         for line in block_lines:
-<<<<<<< Updated upstream
+
 
             stripped = line.strip()
 
@@ -3005,7 +2956,6 @@ def extract_individual_skills(raw_skill_blocks: list, known_locations: list = No
 
             if len(words) > _MAX_WORDS:
                 continue
-=======
             if _SECTION_STOP_PATTERN.match(line.strip()):
                 break
             truncated_lines.append(line)
@@ -3063,7 +3013,6 @@ def extract_individual_skills(raw_skill_blocks: list, known_locations: list = No
                 continue  # contains a word the model itself tagged as a Location elsewhere
 
             individual_skills.add(piece)
->>>>>>> Stashed changes
 
             if (
                 words
@@ -3148,8 +3097,6 @@ def extract_individual_skills(raw_skill_blocks: list, known_locations: list = No
         individual_skills
     )
 
-
-<<<<<<< Updated upstream
 # ============================================================================
 # WHITESPACE
 # ============================================================================
@@ -3406,7 +3353,6 @@ def parse_resume(
         field: []
         for field in _LABEL_TO_FIELD.values()
     }
-=======
 # ---------------------------------------------------------------------------
 # Section-break restoration. EVERY section scanner in this module (skills,
 # education, projects, the stop-header check) works LINE BY LINE: a header is
@@ -3673,7 +3619,13 @@ def parse_resume(text: str) -> dict:
     text = _normalize_whitespace(text)
     text = _restore_section_breaks(text)
     doc = nlp(text)
->>>>>>> Stashed changes
+    raw_profile = {
+        field: []
+        for field in _LABEL_TO_FIELD.values()
+    }
+
+    raw_profile.setdefault("skills_raw", [])
+    raw_profile.setdefault("skills_cleaned", [])
 
     for label, field in _LABEL_TO_FIELD.items():
 
@@ -3706,7 +3658,6 @@ def parse_resume(text: str) -> dict:
         )
     )
 
-<<<<<<< Updated upstream
     if header_scanned_sections:
 
         raw_profile[
@@ -3876,22 +3827,6 @@ def parse_resume(text: str) -> dict:
     )
 
     if experience_fallback:
-=======
-    cleaned_from_ner = extract_individual_skills(raw_profile["skills_raw"], known_locations=raw_profile["location"])
-    cleaned_from_headers = extract_individual_skills(header_scanned_sections, known_locations=raw_profile["location"],
-                                                     allow_runon_lists=True)
-
-    skills = set(cleaned_from_ner) | set(cleaned_from_headers)
-
-    # No skills heading anywhere in the resume -> fall back to scanning the
-    # whole text for unambiguous known skill names, instead of relying on the
-    # NER model alone (which on its own often finds only one or two skills).
-    if not header_scanned_sections:
-        skills |= set(_scan_known_skills_in_text(text))
-
-    raw_profile["skills_cleaned"] = sorted(skills)
->>>>>>> Stashed changes
-
         raw_profile[
             "years_of_experience"
         ] = experience_fallback
@@ -3978,7 +3913,6 @@ def parse_resume(text: str) -> dict:
                 name_fallback
             ]
 
-<<<<<<< Updated upstream
     # =========================================================================
     # DEGREE
     # =========================================================================
@@ -4047,12 +3981,12 @@ def parse_resume(text: str) -> dict:
             "name"
         ]
     )
-=======
+
     # Designation: drop anything that's actually a project title (see
     # filter_out_project_titles for why this cross-check exists).
     raw_profile["designation"] = filter_out_project_titles(raw_profile["designation"], text)
     raw_profile["designation"] = filter_out_language_lists(raw_profile["designation"])
->>>>>>> Stashed changes
+
 
     return raw_profile
 
@@ -4105,7 +4039,7 @@ def build_resume_dict_from_text(
         else ""
     )
 
-<<<<<<< Updated upstream
+
     years_experience = None
 
     if profile.get(
@@ -4158,27 +4092,3 @@ def build_resume_dict_from_text(
         "years_experience":
             years_experience,
     }
-=======
-    seniority/industry can't be reliably extracted by the current NER model (its
-    label set doesn't include them) -- pass them in explicitly if known, otherwise
-    they're left as None and the matching engine treats them as "unknown" rather
-    than guessing (seniority_diff defaults to 2, industry_match defaults to False)."""
-    profile = parse_resume(resume_text)
-    skills = profile["skills_cleaned"]
-    skills_str = "[" + " ".join(f"'{s}'" for s in skills) + "]"
-    role = profile["designation"][0] if profile["designation"] else ""
-
-    return {
-        "resume_id": resume_id or "PARSED_FROM_TEXT",
-        "role": role,
-        "seniority": seniority,
-        "industry": industry,
-        "skills": skills_str,
-        # Using the raw resume text itself as the "summary" so the text_similarity
-        # feature still has real content to compare against, instead of coming back
-        # as 0 the way it would with an empty summary/experience_bullets.
-        "summary": resume_text,
-        "experience_bullets": "",
-        "years_experience": None,
-    }
->>>>>>> Stashed changes

@@ -46,6 +46,7 @@ from app.schemas import (
     EmployeeInput, AttritionResponse,
     JobPostingInput, SalaryResponse,
     CandidateDecisionRequest, CandidateDecisionResponse,
+    ChatbotRequest, ChatbotResponse,
 )
 
 logger = logging.getLogger("uvicorn")
@@ -65,6 +66,7 @@ from app.attrition import predict_attrition_risk
 from app.salary import predict_salary_range
 from app.decision import recommend_candidate_decision
 from app.file_extraction import extract_resume_text
+from app.Chatbot import get_chatbot_response
 
 logger.info(f"All models loaded in {time.time() - _t0:.2f}s")
 # ---------------------------------------------------------------------------
@@ -525,7 +527,6 @@ def recommend_candidate_decision_endpoint(payload: CandidateDecisionRequest):
     result["job_id"] = job_id
     result["resume_id"] = resume_id
     return result
-<<<<<<< Updated upstream
 # ---------------------------------------------------------------------------
 # AI CHATBOT
 # ---------------------------------------------------------------------------
@@ -566,5 +567,3 @@ def chatbot_endpoint(payload: ChatbotRequest):
             status_code=500,
             detail="Chatbot service failed."
         )
-=======
->>>>>>> Stashed changes
