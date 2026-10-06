@@ -32,6 +32,12 @@ public class LeaveController {
 
         return leaveService.approveLeave(leaveId);
     }
+    @PutMapping("/{leaveId}/reject")
+    public ResponseEntity<ApiResponse<LeaveResponseDto>> rejectLeave(
+            @PathVariable Long leaveId) {
+
+        return leaveService.rejectLeave(leaveId);
+    }
     // =========================================================
     // APPLY LEAVE
     // =========================================================
@@ -48,7 +54,15 @@ public class LeaveController {
         );
     }
 
+    // =========================================================
+// GET ALL LEAVE REQUESTS - HR
+// =========================================================
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<LeaveResponseDto>>>
+    getAllLeaves() {
 
+        return leaveService.getAllLeaves();
+    }
     // =========================================================
     // GET MY LEAVE REQUESTS
     // =========================================================

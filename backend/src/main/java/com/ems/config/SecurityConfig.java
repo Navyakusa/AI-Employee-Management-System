@@ -617,7 +617,16 @@ public class SecurityConfig {
                                         HttpMethod.PUT,
                                         "/api/contact/messages/*/resolve"
                                 ).hasRole("SUPER_ADMIN")
+// =================================================
+// LEAVE MANAGEMENT
+// =================================================
 
+// Only HR can approve or reject leave
+                                        .requestMatchers(
+                                                HttpMethod.PUT,
+                                                "/api/leaves/*/approve",
+                                                "/api/leaves/*/reject"
+                                        ).hasRole("HR")
                                 // =================================================
                                 // NOTIFICATIONS
                                 // =================================================

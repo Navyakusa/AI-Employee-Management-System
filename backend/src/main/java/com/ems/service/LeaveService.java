@@ -47,7 +47,6 @@ public class LeaveService {
         this.notificationService = notificationService;
     }
 
-
     // =========================================================
     // APPLY LEAVE
     // =========================================================
@@ -77,7 +76,6 @@ public class LeaveService {
                         );
             }
 
-
             // -------------------------------------------------
             // 2. Find employee
             // -------------------------------------------------
@@ -100,7 +98,6 @@ public class LeaveService {
                         );
             }
 
-
             // -------------------------------------------------
             // 3. Validate dates
             // -------------------------------------------------
@@ -119,7 +116,6 @@ public class LeaveService {
                         );
             }
 
-
             if (request.getToDate()
                     .isBefore(request.getFromDate())) {
 
@@ -134,7 +130,6 @@ public class LeaveService {
                         );
             }
 
-
             // -------------------------------------------------
             // 4. Calculate number of days
             // -------------------------------------------------
@@ -144,7 +139,6 @@ public class LeaveService {
                             request.getFromDate(),
                             request.getToDate()
                     ) + 1;
-
 
             // -------------------------------------------------
             // 5. Check overlapping leave requests
@@ -196,7 +190,6 @@ public class LeaveService {
                         );
             }
 
-
             // -------------------------------------------------
             // 6. Check leave balance
             // -------------------------------------------------
@@ -221,13 +214,11 @@ public class LeaveService {
                         );
             }
 
-
             int availableLeave =
                     getAvailableLeave(
                             balance,
                             request.getLeaveType()
                     );
-
 
             // Unpaid Leave does not require available balance.
             boolean isUnpaid =
@@ -251,7 +242,6 @@ public class LeaveService {
                                 )
                         );
             }
-
 
             // -------------------------------------------------
             // 7. Create leave
@@ -279,10 +269,29 @@ public class LeaveService {
                             )
                             .build();
 
-
             Leave savedLeave =
                     leaveRepository.save(leave);
 
+            // =================================================
+            // 8. NOTIFY HR ABOUT NEW LEAVE REQUEST
+            // =================================================
+
+            List<User> hrUsers =
+                    userRepository.findByRoleIgnoreCase("HR");
+
+            for (User hrUser : hrUsers) {
+
+                notificationService.createNotification(
+                        hrUser.getUserId(),
+                        "New leave request submitted by "
+                                + employee.getEmail(),
+                        "LEAVE_APPLIED"
+                );
+            }
+
+            // -------------------------------------------------
+            // 9. Return response
+            // -------------------------------------------------
 
             return ResponseEntity
                     .status(HttpStatus.CREATED)
@@ -310,7 +319,6 @@ public class LeaveService {
                     );
         }
     }
-
 
     // =========================================================
     // APPROVE LEAVE
@@ -343,7 +351,6 @@ public class LeaveService {
                         );
             }
 
-
             // -------------------------------------------------
             // 2. Validate current status
             // -------------------------------------------------
@@ -362,7 +369,6 @@ public class LeaveService {
                         );
             }
 
-
             if ("REJECTED".equalsIgnoreCase(
                     leave.getStatus())) {
 
@@ -377,7 +383,6 @@ public class LeaveService {
                         );
             }
 
-
             if (!"PENDING".equalsIgnoreCase(
                     leave.getStatus())) {
 
@@ -391,7 +396,6 @@ public class LeaveService {
                                 )
                         );
             }
-
 
             // -------------------------------------------------
             // 3. Find employee
@@ -417,7 +421,6 @@ public class LeaveService {
                         );
             }
 
-
             // -------------------------------------------------
             // 4. Approve leave
             // -------------------------------------------------
@@ -426,7 +429,6 @@ public class LeaveService {
 
             Leave updatedLeave =
                     leaveRepository.save(leave);
-
 
             // -------------------------------------------------
             // 5. Find corresponding User
@@ -442,7 +444,6 @@ public class LeaveService {
                                 )
                                 .orElse(null);
 
-
                 // -------------------------------------------------
                 // 6. Create notification + trigger email
                 // -------------------------------------------------
@@ -456,7 +457,6 @@ public class LeaveService {
                     );
                 }
             }
-
 
             // -------------------------------------------------
             // 7. Return response
@@ -487,10 +487,192 @@ public class LeaveService {
         }
     }
 
+    // =========================================================
+// GET ALL LEAVE REQUESTS - HR
+// =========================================================
 
-    // =========================================================
-    // GET MY LEAVE REQUESTS
-    // =========================================================
+    public ResponseEntity<ApiResponse<List<LeaveResponseDto>>>
+    getAllLeaves() {
+
+        try {
+
+            List<Leave> leaves =
+                    leaveRepository.findAll();
+
+            List<LeaveResponseDto> response =
+                    leaves.stream()
+                            .map(this::mapToResponseDto)
+                            .collect(Collectors.toList());
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "All leave requests fetched successfully",
+                            response
+                    )
+            );
+
+        } catch (Exception e) {
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to fetch all leave requests: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
+        }
+    }
+
+// =========================================================
+// REJECT LEAVE
+// =========================================================
+
+    public ResponseEntity<ApiResponse<LeaveResponseDto>>
+    rejectLeave(Long leaveId) {
+
+        try {
+
+            // 1. Find leave request
+            Leave leave =
+                    leaveRepository
+                            .findById(leaveId)
+                            .orElse(null);
+
+            if (leave == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Leave request not found",
+                                        null
+                                )
+                        );
+            }
+
+            // 2. Validate current status
+            if ("APPROVED".equalsIgnoreCase(
+                    leave.getStatus())) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Approved leave request cannot be rejected",
+                                        null
+                                )
+                        );
+            }
+
+            if ("REJECTED".equalsIgnoreCase(
+                    leave.getStatus())) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Leave request is already rejected",
+                                        null
+                                )
+                        );
+            }
+
+            if (!"PENDING".equalsIgnoreCase(
+                    leave.getStatus())) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Only pending leave requests can be rejected",
+                                        null
+                                )
+                        );
+            }
+
+            // 3. Find employee
+            Employee employee =
+                    employeeRepository
+                            .findById(
+                                    leave.getEmployeeId()
+                            )
+                            .orElse(null);
+
+            if (employee == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Employee not found",
+                                        null
+                                )
+                        );
+            }
+
+            // 4. Reject leave
+            leave.setStatus("REJECTED");
+
+            Leave updatedLeave =
+                    leaveRepository.save(leave);
+
+            // 5. Find corresponding user
+            if (employee.getEmail() != null
+                    && !employee.getEmail().isBlank()) {
+
+                User employeeUser =
+                        userRepository
+                                .findByEmailIgnoreCase(
+                                        employee.getEmail()
+                                )
+                                .orElse(null);
+
+                // 6. Create notification + SSE + email
+                if (employeeUser != null) {
+
+                    notificationService.createNotification(
+                            employeeUser.getUserId(),
+                            "Your leave request has been rejected",
+                            "LEAVE_REJECTED"
+                    );
+                }
+            }
+
+            // 7. Return response
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Leave request rejected successfully",
+                            mapToResponseDto(updatedLeave)
+                    )
+            );
+
+        } catch (Exception e) {
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to reject leave request: "
+                                            + e.getMessage(),
+                                    null
+                            )
+                    );
+        }
+    }
+// =========================================================
+// GET MY LEAVE REQUESTS
+// =========================================================
 
     public ResponseEntity<ApiResponse<List<LeaveResponseDto>>>
     getMyLeaves(Authentication authentication) {
@@ -513,19 +695,16 @@ public class LeaveService {
                         );
             }
 
-
             List<Leave> leaves =
                     leaveRepository
                             .findByEmployeeIdOrderByAppliedOnDesc(
                                     employee.getId()
                             );
 
-
             List<LeaveResponseDto> response =
                     leaves.stream()
                             .map(this::mapToResponseDto)
                             .collect(Collectors.toList());
-
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
@@ -551,7 +730,6 @@ public class LeaveService {
                     );
         }
     }
-
 
     // =========================================================
     // GET MY LEAVE BY ID
@@ -580,7 +758,6 @@ public class LeaveService {
                         );
             }
 
-
             Leave leave =
                     leaveRepository
                             .findById(leaveId)
@@ -599,7 +776,6 @@ public class LeaveService {
                         );
             }
 
-
             // Employee can access only their own leave
             if (!leave.getEmployeeId()
                     .equals(employee.getId())) {
@@ -614,7 +790,6 @@ public class LeaveService {
                                 )
                         );
             }
-
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
@@ -641,7 +816,6 @@ public class LeaveService {
         }
     }
 
-
     // =========================================================
     // GET LEAVE SUMMARY
     // =========================================================
@@ -667,7 +841,6 @@ public class LeaveService {
                         );
             }
 
-
             LeaveBalance balance =
                     leaveBalanceRepository
                             .findByEmployeeId(
@@ -688,13 +861,11 @@ public class LeaveService {
                         );
             }
 
-
             List<Leave> leaves =
                     leaveRepository
                             .findByEmployeeIdOrderByAppliedOnDesc(
                                     employee.getId()
                             );
-
 
             // -------------------------------------------------
             // Pending requests count
@@ -709,7 +880,6 @@ public class LeaveService {
                             )
                             .count();
 
-
             // -------------------------------------------------
             // Approved leave days
             // -------------------------------------------------
@@ -723,7 +893,6 @@ public class LeaveService {
                             )
                             .mapToInt(Leave::getDays)
                             .sum();
-
 
             // -------------------------------------------------
             // Used leave
@@ -747,7 +916,6 @@ public class LeaveService {
                             )
                             .sum();
 
-
             // -------------------------------------------------
             // Total available balance
             // -------------------------------------------------
@@ -757,13 +925,11 @@ public class LeaveService {
                             balance
                     );
 
-
             int remainingBalance =
                     Math.max(
                             totalBalance - approvedDays,
                             0
                     );
-
 
             LeaveSummaryDto summary =
                     LeaveSummaryDto.builder()
@@ -780,7 +946,6 @@ public class LeaveService {
                                     usedLeave
                             )
                             .build();
-
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
@@ -806,7 +971,6 @@ public class LeaveService {
                     );
         }
     }
-
 
     // =========================================================
     // GET LEAVE TYPES
@@ -835,7 +999,6 @@ public class LeaveService {
         );
     }
 
-
     // =========================================================
     // GET LOGGED-IN EMPLOYEE
     // =========================================================
@@ -857,7 +1020,6 @@ public class LeaveService {
                 .findByEmailIgnoreCase(email)
                 .orElse(null);
     }
-
 
     // =========================================================
     // GET AVAILABLE LEAVE FOR TYPE
@@ -912,7 +1074,6 @@ public class LeaveService {
         };
     }
 
-
     // =========================================================
     // TOTAL PAID LEAVE BALANCE
     // =========================================================
@@ -927,7 +1088,6 @@ public class LeaveService {
                 + safeValue(balance.getPaternityLeave())
                 + safeValue(balance.getOtherLeave());
     }
-
 
     // =========================================================
     // CALCULATE USED DAYS
@@ -962,7 +1122,6 @@ public class LeaveService {
         ) + 1;
     }
 
-
     // =========================================================
     // NORMALIZE LEAVE TYPE
     // =========================================================
@@ -983,7 +1142,6 @@ public class LeaveService {
                 );
     }
 
-
     // =========================================================
     // SAFE INTEGER VALUE
     // =========================================================
@@ -994,7 +1152,6 @@ public class LeaveService {
                 ? 0
                 : value;
     }
-
 
     // =========================================================
     // ENTITY → DTO
