@@ -1,0 +1,383 @@
+/* =========================================================
+   HIRING MANAGER - INTERVIEW FEEDBACK
+   ========================================================= */
+
+.hm-feedback-page-card {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  padding: 28px;
+  box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+/* =========================================================
+   CANDIDATE HEADER
+   ========================================================= */
+
+.hm-feedback-candidate-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.hm-feedback-candidate {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-width: 0;
+}
+
+.hm-feedback-avatar {
+  width: 58px;
+  height: 58px;
+  min-width: 58px;
+  border-radius: 50%;
+  background: #eef2ff;
+  color: #5547f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 750;
+  font-size: 18px;
+}
+
+.hm-feedback-candidate h2 {
+  margin: 0 0 5px;
+  color: #111827;
+  font-size: 20px;
+}
+
+.hm-feedback-candidate p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.hm-feedback-completed-badge {
+  flex-shrink: 0;
+  padding: 8px 13px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* =========================================================
+   SECTIONS
+   ========================================================= */
+
+.hm-feedback-section {
+  padding: 24px 0;
+  border-bottom: 1px solid #eef0f4;
+}
+
+.hm-feedback-section:last-child {
+  border-bottom: none;
+}
+
+.hm-feedback-section h3 {
+  margin: 0 0 17px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.hm-feedback-section h3 svg {
+  color: #5547f5;
+}
+
+/* =========================================================
+   INFORMATION
+   ========================================================= */
+
+.hm-feedback-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.hm-feedback-info-item {
+  min-height: 72px;
+  background: #f8fafc;
+  border: 1px solid #edf0f4;
+  border-radius: 12px;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+.hm-feedback-info-item > svg {
+  color: #5547f5;
+  flex-shrink: 0;
+}
+
+.hm-feedback-info-item span {
+  display: block;
+  margin-bottom: 5px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.hm-feedback-info-item strong {
+  display: block;
+  color: #111827;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+/* =========================================================
+   OVERALL RATING
+   ========================================================= */
+
+.hm-feedback-overall-rating {
+  min-height: 90px;
+  border-radius: 14px;
+  background: #f8f7ff;
+  border: 1px solid #e6e3ff;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  box-sizing: border-box;
+}
+
+.hm-feedback-overall-rating > strong {
+  color: #111827;
+  font-size: 25px;
+}
+
+.hm-feedback-stars {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #f59e0b;
+}
+
+.hm-feedback-stars svg {
+  flex-shrink: 0;
+}
+
+/* =========================================================
+   RATING GRID
+   ========================================================= */
+
+.hm-feedback-rating-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.hm-feedback-rating-card {
+  min-height: 155px;
+  padding: 19px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  box-sizing: border-box;
+}
+
+.hm-feedback-rating-card > svg {
+  color: #5547f5;
+  margin-bottom: 12px;
+}
+
+.hm-feedback-rating-card > span {
+  color: #64748b;
+  font-size: 13px;
+  margin-bottom: 7px;
+}
+
+.hm-feedback-rating-card > strong {
+  color: #111827;
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+
+/* =========================================================
+   LISTS
+   ========================================================= */
+
+.hm-feedback-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.hm-feedback-list > div {
+  min-height: 42px;
+  padding: 10px 13px;
+  border-radius: 9px;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
+.hm-feedback-list > div svg {
+  flex-shrink: 0;
+}
+
+.hm-feedback-list > div:first-child svg {
+  color: #16a34a;
+}
+
+.hm-feedback-list > div span {
+  overflow-wrap: anywhere;
+}
+
+/* =========================================================
+   COMMENTS
+   ========================================================= */
+
+.hm-feedback-comments {
+  min-height: 110px;
+  padding: 17px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #edf0f4;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  box-sizing: border-box;
+}
+
+/* =========================================================
+   RECOMMENDATION
+   ========================================================= */
+
+.hm-feedback-recommendation {
+  min-height: 76px;
+  padding: 15px;
+  border-radius: 12px;
+  background: #ecfdf5;
+  border: 1px solid #d1fae5;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  box-sizing: border-box;
+}
+
+.hm-feedback-recommendation > svg {
+  color: #059669;
+  flex-shrink: 0;
+}
+
+.hm-feedback-recommendation span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.hm-feedback-recommendation strong {
+  display: block;
+  color: #065f46;
+  font-size: 14px;
+}
+
+/* =========================================================
+   ACTIONS
+   ========================================================= */
+
+.hm-feedback-page-card .hm-interview-details-actions {
+  padding-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hm-resume-primary-button,
+.hm-resume-secondary-button {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 650;
+  transition: 0.2s ease;
+}
+
+.hm-resume-primary-button {
+  border: 1px solid #5547f5;
+  background: #5547f5;
+  color: #ffffff;
+}
+
+.hm-resume-primary-button:hover {
+  background: #4638e8;
+}
+
+.hm-resume-secondary-button {
+  border: 1px solid #d9d6ff;
+  background: #ffffff;
+  color: #5547f5;
+}
+
+.hm-resume-secondary-button:hover {
+  background: #f5f3ff;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .hm-feedback-rating-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .hm-feedback-page-card {
+    padding: 20px;
+  }
+
+  .hm-feedback-candidate-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hm-feedback-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hm-feedback-overall-rating {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hm-feedback-page-card .hm-interview-details-actions {
+    justify-content: stretch;
+  }
+
+  .hm-resume-primary-button,
+  .hm-resume-secondary-button {
+    width: 100%;
+  }
+}

@@ -1,5 +1,6 @@
-import React from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+
 import {
   ArrowLeft,
   MapPin,
@@ -14,81 +15,227 @@ import {
 
 import HiringManagerSidebar from "./HiringManagerSidebar";
 import HiringManagerNavbar from "./HiringManagerNavbar";
+
+import { getJobById } from "./HiringManagerApi";
+
 import "./HiringManagerDashboard.css";
+import "./HiringManagerJobdetails.css";
 
 const HiringManagerJobDetails = () => {
-  const location = useLocation();
   const navigate = useNavigate();
+  const { jobId } = useParams();
 
-  // Job data is passed from HiringManagerJobs.jsx
-  const job = location.state?.job;
+  const [job, setJob] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  /*
-  --------------------------------------------------
-  If job data is not available
-  --------------------------------------------------
-  */
-  if (!job) {
+  // =========================================================
+  // LOAD JOB FROM BACKEND
+  // =========================================================
+
+  useEffect(() => {
+    const loadJob = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        if (!jobId) {
+          throw new Error("Job ID is missing.");
+        }
+
+        const response = await getJobById(jobId);
+
+        console.log("VIEW JOB API RESPONSE:", response);
+
+        /*
+         * Backend ApiResponse normally contains:
+         *
+         * {
+         *   success: true,
+         *   message: "...",
+         *   data: {...}
+         * }
+         *
+         * Handle both wrapped and direct responses.
+         */
+
+        let jobData = null;
+
+        if (response?.data) {
+          jobData = response.data;
+        } else if (response?.content) {
+          jobData = response.content;
+        } else if (response?.job) {
+          jobData = response.job;
+        } else {
+          jobData = response;
+        }
+
+        if (!jobData) {
+          throw new Error("Job details were not found.");
+        }
+
+        setJob(jobData);
+      } catch (err) {
+        console.error("VIEW JOB ERROR:", err);
+
+        setError(
+          err?.message ||
+            "Unable to load job details from the backend."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadJob();
+  }, [jobId]);
+
+  // =========================================================
+  // LOADING
+  // =========================================================
+
+  if (loading) {
     return (
-      <div className="hr-layout">
+      <div className="hiring-manager-layout">
+
         <HiringManagerSidebar />
 
-        <div className="hr-main-content">
+        <div className="hiring-manager-main">
+
           <HiringManagerNavbar />
 
-          <div className="hr-content">
-            <button
-              className="back-button"
-              onClick={() => navigate("/hiring-manager/jobs")}
-            >
-              <ArrowLeft size={18} />
-              Back to Assigned Jobs
-            </button>
+          <main className="hiring-manager-dashboard-content">
 
-            <div className="empty-state">
-              <FileText size={48} />
+            <div className="hiring-manager-dashboard-header">
 
-              <h2>Job Details Not Available</h2>
+              <span className="hiring-manager-label">
+                RECRUITMENT
+              </span>
+
+              <h1>Job Details</h1>
 
               <p>
-                The selected job information is not available.
-                Please return to Assigned Jobs and select a job again.
+                Loading job information from the backend...
               </p>
 
-              <button
-                className="primary-button"
-                onClick={() => navigate("/hiring-manager/jobs")}
-              >
-                View Assigned Jobs
-              </button>
             </div>
-          </div>
+
+            <div className="job-details-loading-card">
+
+              <div className="job-details-spinner"></div>
+
+              <h2>
+                Loading Job Details
+              </h2>
+
+              <p>
+                Please wait while we retrieve the job information.
+              </p>
+
+            </div>
+
+          </main>
+
         </div>
+
       </div>
     );
   }
 
-  /*
-  --------------------------------------------------
-  Normalize job fields
-  --------------------------------------------------
-  */
+  // =========================================================
+  // ERROR
+  // =========================================================
 
-  const title = job.title || job.jobTitle || "Untitled Job";
+  if (error || !job) {
+    return (
+      <div className="hiring-manager-layout">
+
+        <HiringManagerSidebar />
+
+        <div className="hiring-manager-main">
+
+          <HiringManagerNavbar />
+
+          <main className="hiring-manager-dashboard-content">
+
+            <button
+              className="back-button"
+              onClick={() =>
+                navigate("/hiring-manager/jobs")
+              }
+            >
+              <ArrowLeft size={18} />
+
+              Back to Assigned Jobs
+            </button>
+
+            <div className="job-details-error-card">
+
+              <div className="job-details-error-icon">
+                <FileText size={42} />
+              </div>
+
+              <h2>
+                Unable to Load Job
+              </h2>
+
+              <p>
+                {error ||
+                  "The requested job could not be found."}
+              </p>
+
+              <button
+                className="primary-button"
+                onClick={() =>
+                  navigate("/hiring-manager/jobs")
+                }
+              >
+                View Assigned Jobs
+              </button>
+
+            </div>
+
+          </main>
+
+        </div>
+
+      </div>
+    );
+  }
+
+  // =========================================================
+  // NORMALIZE BACKEND DATA
+  // =========================================================
+
+  const title =
+    job.title ||
+    job.jobTitle ||
+    "Untitled Job";
 
   const department =
-    job.department || "Not specified";
+    job.department ||
+    "Not specified";
 
   const locationValue =
-    job.location || "Not specified";
+    job.location ||
+    "Not specified";
 
   const status =
-    job.status || "OPEN";
+    job.status ||
+    "OPEN";
 
   const experience =
     job.experience ||
     job.experienceRequired ||
-    "Not specified";
+    (
+      job.experienceMin !== undefined ||
+      job.experienceMax !== undefined
+        ? `${job.experienceMin ?? 0} - ${
+            job.experienceMax ?? "Not specified"
+          } years`
+        : "Not specified"
+    );
 
   const employmentType =
     job.employmentType ||
@@ -114,13 +261,22 @@ const HiringManagerJobDetails = () => {
     job.description ||
     "No job description available.";
 
+  const responsibilities =
+    job.responsibilities ||
+    "";
+
   const skills =
-    job.skills ||
-    job.requiredSkills ||
+    job.requiredSkills ??
+    job.skills ??
+    [];
+
+  const preferredSkills =
+    job.preferredSkills ??
     [];
 
   const postedDate =
     job.postedDate ||
+    job.createdDate ||
     job.createdAt ||
     "";
 
@@ -129,11 +285,9 @@ const HiringManagerJobDetails = () => {
     job.applicationDeadline ||
     "";
 
-  /*
-  --------------------------------------------------
-  Format dates
-  --------------------------------------------------
-  */
+  // =========================================================
+  // HELPERS
+  // =========================================================
 
   const formatDate = (date) => {
     if (!date) {
@@ -141,58 +295,72 @@ const HiringManagerJobDetails = () => {
     }
 
     try {
-      return new Date(date).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
+      return new Date(date).toLocaleDateString(
+        "en-IN",
+        {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }
+      );
     } catch {
-      return date;
+      return String(date);
     }
   };
 
-  /*
-  --------------------------------------------------
-  Convert skills into array
-  --------------------------------------------------
-  */
+  const convertToArray = (value) => {
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => String(item).trim())
+        .filter(Boolean);
+    }
 
-  const skillList = Array.isArray(skills)
-    ? skills
-    : typeof skills === "string"
-      ? skills
-          .split(",")
-          .map((skill) => skill.trim())
-          .filter(Boolean)
-      : [];
+    if (typeof value === "string") {
+      return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
 
-  /*
-  --------------------------------------------------
-  Status class
-  --------------------------------------------------
-  */
+    return [];
+  };
+
+  const requiredSkillList =
+    convertToArray(skills);
+
+  const preferredSkillList =
+    convertToArray(preferredSkills);
+
+  const normalizedStatus =
+    String(status).toUpperCase();
+
+  const isOpen =
+    normalizedStatus === "OPEN" ||
+    normalizedStatus === "ACTIVE";
 
   const statusClass =
-    String(status).toUpperCase() === "OPEN"
+    isOpen
       ? "status-active"
       : "status-closed";
 
-  /*
-  --------------------------------------------------
-  Render
-  --------------------------------------------------
-  */
+  // =========================================================
+  // RENDER
+  // =========================================================
 
   return (
-    <div className="hr-layout">
+    <div className="hiring-manager-layout">
+
       <HiringManagerSidebar />
 
-      <div className="hr-main-content">
+      <div className="hiring-manager-main">
+
         <HiringManagerNavbar />
 
-        <div className="hr-content">
+        <main className="hiring-manager-dashboard-content">
 
-          {/* Back Button */}
+          {/* =================================================
+              BACK
+          ================================================= */}
 
           <button
             className="back-button"
@@ -201,13 +369,37 @@ const HiringManagerJobDetails = () => {
             }
           >
             <ArrowLeft size={18} />
+
             Back to Assigned Jobs
           </button>
 
 
-          {/* Job Header */}
+          {/* =================================================
+              PAGE HEADER
+          ================================================= */}
 
-          <div className="job-details-header">
+          <div className="hiring-manager-dashboard-header">
+
+            <span className="hiring-manager-label">
+              RECRUITMENT
+            </span>
+
+            <h1>
+              Job Details
+            </h1>
+
+            <p>
+              Complete information for the selected job.
+            </p>
+
+          </div>
+
+
+          {/* =================================================
+              JOB HEADER
+          ================================================= */}
+
+          <section className="job-details-header">
 
             <div className="job-details-header-left">
 
@@ -216,86 +408,142 @@ const HiringManagerJobDetails = () => {
               </div>
 
               <div>
-                <h1>{title}</h1>
+
+                <h1>
+                  {title}
+                </h1>
 
                 <p className="job-details-department">
+
                   <Building2 size={16} />
+
                   {department}
+
                 </p>
+
               </div>
 
             </div>
 
-            <span className={`job-status ${statusClass}`}>
-              {String(status).toUpperCase() === "OPEN"
+            <span
+              className={`job-status ${statusClass}`}
+            >
+              {isOpen
                 ? "Active"
                 : "Closed"}
             </span>
 
-          </div>
+          </section>
 
 
-          {/* Job Summary Cards */}
+          {/* =================================================
+              SUMMARY
+          ================================================= */}
 
-          <div className="job-summary-grid">
+          <section className="job-summary-grid">
 
             <div className="job-summary-card">
+
               <MapPin size={22} />
 
               <div>
-                <span>Location</span>
-                <strong>{locationValue}</strong>
+
+                <span>
+                  Location
+                </span>
+
+                <strong>
+                  {locationValue}
+                </strong>
+
               </div>
+
             </div>
 
 
             <div className="job-summary-card">
+
               <Briefcase size={22} />
 
               <div>
-                <span>Experience</span>
-                <strong>{experience}</strong>
+
+                <span>
+                  Experience
+                </span>
+
+                <strong>
+                  {experience}
+                </strong>
+
               </div>
+
             </div>
 
 
             <div className="job-summary-card">
+
               <Users size={22} />
 
               <div>
-                <span>Candidates</span>
-                <strong>{candidates}</strong>
+
+                <span>
+                  Candidates
+                </span>
+
+                <strong>
+                  {candidates}
+                </strong>
+
               </div>
+
             </div>
 
 
             <div className="job-summary-card">
+
               <Users size={22} />
 
               <div>
-                <span>Openings</span>
-                <strong>{openings}</strong>
+
+                <span>
+                  Openings
+                </span>
+
+                <strong>
+                  {openings}
+                </strong>
+
               </div>
+
             </div>
 
-          </div>
+          </section>
 
 
-          {/* Main Details */}
+          {/* =================================================
+              DETAILS
+          ================================================= */}
 
-          <div className="job-details-grid">
+          <section className="job-details-grid">
 
-            {/* Left Section */}
+            {/* =================================================
+                LEFT
+            ================================================= */}
 
             <div className="job-details-main">
 
-              {/* Job Description */}
+              {/* DESCRIPTION */}
 
               <section className="details-card">
 
                 <div className="details-card-header">
+
                   <FileText size={20} />
-                  <h2>Job Description</h2>
+
+                  <h2>
+                    Job Description
+                  </h2>
+
                 </div>
 
                 <p className="job-description">
@@ -305,98 +553,252 @@ const HiringManagerJobDetails = () => {
               </section>
 
 
-              {/* Required Skills */}
+              {/* RESPONSIBILITIES */}
+
+              {responsibilities && (
+                <section className="details-card">
+
+                  <div className="details-card-header">
+
+                    <Briefcase size={20} />
+
+                    <h2>
+                      Responsibilities
+                    </h2>
+
+                  </div>
+
+                  <div className="job-responsibilities">
+
+                    {String(responsibilities)
+                      .split(/\r?\n/)
+                      .map((item, index) => {
+
+                        const value =
+                          item
+                            .replace(
+                              /^[-•*]\s*/,
+                              ""
+                            )
+                            .trim();
+
+                        if (!value) {
+                          return null;
+                        }
+
+                        return (
+                          <div
+                            className="responsibility-item"
+                            key={index}
+                          >
+                            <span className="responsibility-dot">
+                              •
+                            </span>
+
+                            <span>
+                              {value}
+                            </span>
+                          </div>
+                        );
+                      })}
+
+                  </div>
+
+                </section>
+              )}
+
+
+              {/* REQUIRED SKILLS */}
 
               <section className="details-card">
 
                 <div className="details-card-header">
+
                   <Briefcase size={20} />
-                  <h2>Required Skills</h2>
+
+                  <h2>
+                    Required Skills
+                  </h2>
+
                 </div>
 
-                {skillList.length > 0 ? (
+                {requiredSkillList.length > 0 ? (
+
                   <div className="skills-container">
-                    {skillList.map((skill, index) => (
-                      <span
-                        className="skill-tag"
-                        key={`${skill}-${index}`}
-                      >
-                        {skill}
-                      </span>
-                    ))}
+
+                    {requiredSkillList.map(
+                      (skill, index) => (
+                        <span
+                          className="skill-tag"
+                          key={`${skill}-${index}`}
+                        >
+                          {skill}
+                        </span>
+                      )
+                    )}
+
                   </div>
+
                 ) : (
+
                   <p className="muted-text">
-                    No skills specified.
+                    No required skills specified.
                   </p>
+
                 )}
 
               </section>
 
+
+              {/* PREFERRED SKILLS */}
+
+              {preferredSkillList.length > 0 && (
+
+                <section className="details-card">
+
+                  <div className="details-card-header">
+
+                    <Briefcase size={20} />
+
+                    <h2>
+                      Preferred Skills
+                    </h2>
+
+                  </div>
+
+                  <div className="skills-container">
+
+                    {preferredSkillList.map(
+                      (skill, index) => (
+                        <span
+                          className="skill-tag preferred-skill-tag"
+                          key={`${skill}-${index}`}
+                        >
+                          {skill}
+                        </span>
+                      )
+                    )}
+
+                  </div>
+
+                </section>
+
+              )}
+
             </div>
 
 
-            {/* Right Section */}
+            {/* =================================================
+                RIGHT
+            ================================================= */}
 
             <div className="job-details-side">
 
-              {/* Job Information */}
+              {/* JOB INFORMATION */}
 
               <section className="details-card">
 
                 <div className="details-card-header">
+
                   <Briefcase size={20} />
-                  <h2>Job Information</h2>
-                </div>
 
+                  <h2>
+                    Job Information
+                  </h2>
 
-                <div className="detail-row">
-                  <span>Employment Type</span>
-                  <strong>{employmentType}</strong>
-                </div>
-
-
-                <div className="detail-row">
-                  <span>Education</span>
-                  <strong>{education}</strong>
-                </div>
-
-
-                <div className="detail-row">
-                  <span>Experience</span>
-                  <strong>{experience}</strong>
-                </div>
-
-
-                <div className="detail-row">
-                  <span>Department</span>
-                  <strong>{department}</strong>
-                </div>
-
-
-                <div className="detail-row">
-                  <span>Location</span>
-                  <strong>{locationValue}</strong>
-                </div>
-
-              </section>
-
-
-              {/* Dates */}
-
-              <section className="details-card">
-
-                <div className="details-card-header">
-                  <Calendar size={20} />
-                  <h2>Important Dates</h2>
                 </div>
 
 
                 <div className="detail-row">
 
                   <span>
+                    Employment Type
+                  </span>
+
+                  <strong>
+                    {employmentType}
+                  </strong>
+
+                </div>
+
+
+                <div className="detail-row">
+
+                  <span>
+                    Education
+                  </span>
+
+                  <strong>
+                    {education}
+                  </strong>
+
+                </div>
+
+
+                <div className="detail-row">
+
+                  <span>
+                    Experience
+                  </span>
+
+                  <strong>
+                    {experience}
+                  </strong>
+
+                </div>
+
+
+                <div className="detail-row">
+
+                  <span>
+                    Department
+                  </span>
+
+                  <strong>
+                    {department}
+                  </strong>
+
+                </div>
+
+
+                <div className="detail-row">
+
+                  <span>
+                    Location
+                  </span>
+
+                  <strong>
+                    {locationValue}
+                  </strong>
+
+                </div>
+
+              </section>
+
+
+              {/* DATES */}
+
+              <section className="details-card">
+
+                <div className="details-card-header">
+
+                  <Calendar size={20} />
+
+                  <h2>
+                    Important Dates
+                  </h2>
+
+                </div>
+
+
+                <div className="detail-row">
+
+                  <span>
+
                     <Clock size={15} />
+
                     Posted Date
+
                   </span>
 
                   <strong>
@@ -409,8 +811,11 @@ const HiringManagerJobDetails = () => {
                 <div className="detail-row">
 
                   <span>
+
                     <Calendar size={15} />
+
                     Closing Date
+
                   </span>
 
                   <strong>
@@ -422,15 +827,19 @@ const HiringManagerJobDetails = () => {
               </section>
 
 
-              {/* Candidate Information */}
+              {/* CANDIDATES */}
 
               <section className="details-card">
 
                 <div className="details-card-header">
-                  <Users size={20} />
-                  <h2>Candidate Overview</h2>
-                </div>
 
+                  <Users size={20} />
+
+                  <h2>
+                    Candidate Overview
+                  </h2>
+
+                </div>
 
                 <div className="candidate-overview">
 
@@ -439,8 +848,8 @@ const HiringManagerJobDetails = () => {
                   </div>
 
                   <p>
-                    Candidates have applied for this
-                    position.
+                    Candidates have applied for
+                    this position.
                   </p>
 
                 </div>
@@ -449,10 +858,12 @@ const HiringManagerJobDetails = () => {
 
             </div>
 
-          </div>
+          </section>
 
 
-          {/* Bottom Action */}
+          {/* =================================================
+              ACTIONS
+          ================================================= */}
 
           <div className="job-details-actions">
 
@@ -465,8 +876,10 @@ const HiringManagerJobDetails = () => {
               }
             >
               <Users size={18} />
+
               View Shortlisted Candidates
             </button>
+
 
             <button
               className="primary-button"
@@ -476,13 +889,17 @@ const HiringManagerJobDetails = () => {
                 )
               }
             >
+              <Calendar size={18} />
+
               View Interviews
             </button>
 
           </div>
 
-        </div>
+        </main>
+
       </div>
+
     </div>
   );
 };

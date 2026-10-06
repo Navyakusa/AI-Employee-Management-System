@@ -24,7 +24,8 @@ import {
   getCandidateReview,
 } from "./HiringManagerApi";
 
-import "./HiringManagerDashboard.css";
+import "./HiringManagerLayout.css";
+import "./HiringManagerCandidateReview.css";
 
 function HiringManagerCandidateReview() {
   const navigate = useNavigate();

@@ -1,4 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -22,64 +27,136 @@ import {
   rejectCandidate,
 } from "./HiringManagerApi";
 
-import "./HiringManagerDashboard.css";
+import "./HiringManagerDecisions.css";
+import "./HiringManagerLayout.css";
+
 
 function HiringManagerDecisions() {
   const navigate = useNavigate();
 
-  const [candidates, setCandidates] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [candidates, setCandidates] =
+    useState([]);
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [loading, setLoading] =
+    useState(true);
 
-  const [actionLoading, setActionLoading] = useState(null);
-  const [actionError, setActionError] = useState("");
+  const [error, setError] =
+    useState("");
 
-  // ======================================================
-  // FETCH CANDIDATE DECISIONS
-  // ======================================================
+  const [searchTerm, setSearchTerm] =
+    useState("");
 
-  const fetchDecisions = async (search = "") => {
+  const [statusFilter, setStatusFilter] =
+    useState("ALL");
+
+  const [actionLoading, setActionLoading] =
+    useState(null);
+
+  const [actionError, setActionError] =
+    useState("");
+
+
+  /*
+  ======================================================
+  NORMALIZE STATUS
+  ======================================================
+  */
+
+  const normalizeStatus = (status) => {
+    return String(status || "PENDING")
+      .trim()
+      .toUpperCase();
+  };
+
+
+  /*
+  ======================================================
+  FETCH CANDIDATE DECISIONS
+  ======================================================
+  */
+
+  const fetchDecisions = async () => {
     try {
       setLoading(true);
+
       setError("");
 
-      const response = await getCandidateDecisions(search);
+      const response =
+        await getCandidateDecisions();
 
-      console.log("Candidate decisions response:", response);
+      console.log(
+        "Candidate Decisions API:",
+        response
+      );
 
-      const apiCandidates = response?.data || [];
+      const apiCandidates =
+        Array.isArray(response?.data)
+          ? response.data
+          : [];
 
-      const formattedCandidates = apiCandidates.map((candidate) => ({
-        applicationId: candidate.applicationId,
-        candidateId: candidate.candidateId,
-        jobId: candidate.jobId,
+      const formattedCandidates =
+        apiCandidates.map((candidate) => ({
+          applicationId:
+            candidate.applicationId,
 
-        candidateName:
-          candidate.candidateName || "Unknown Candidate",
+          candidateId:
+            candidate.candidateId,
 
-        email:
-          candidate.candidateEmail || "Not specified",
+          jobId:
+            candidate.jobId,
 
-        jobTitle:
-          candidate.jobTitle || "Not specified",
+          candidateName:
+            candidate.candidateName ||
+            "Unknown Candidate",
 
-        experience:
-          candidate.experience || "Not specified",
+          email:
+            candidate.candidateEmail ||
+            candidate.email ||
+            "Not specified",
 
-        interviewScore:
-          candidate.interviewScore ?? null,
+          jobTitle:
+            candidate.jobTitle ||
+            "Not specified",
 
-        aiMatchPercentage:
-          candidate.aiMatchPercentage ?? null,
+          experience:
+            candidate.experience ||
+            "Not specified",
 
-        status:
-          candidate.status || "PENDING",
-      }));
+          interviewScore:
+            candidate.interviewScore ??
+            null,
 
-      setCandidates(formattedCandidates);
+          aiMatchPercentage:
+            candidate.aiMatchPercentage ??
+            null,
+
+          status:
+            candidate.status ||
+            "PENDING",
+
+          department:
+            candidate.department ||
+            null,
+
+          location:
+            candidate.location ||
+            null,
+
+          skills:
+            candidate.skills ||
+            candidate.requiredSkills ||
+            null,
+
+          appliedAt:
+            candidate.appliedAt ||
+            candidate.applicationDate ||
+            null,
+        }));
+
+      setCandidates(
+        formattedCandidates
+      );
+
     } catch (err) {
       console.error(
         "Failed to fetch candidate decisions:",
@@ -90,62 +167,87 @@ function HiringManagerDecisions() {
         err.message ||
           "Failed to load candidate decisions."
       );
+
     } finally {
       setLoading(false);
     }
   };
 
+
   useEffect(() => {
     fetchDecisions();
   }, []);
 
-  // ======================================================
-  // APPROVE CANDIDATE
-  // ======================================================
 
-  const handleApprove = async (candidate) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to approve ${candidate.candidateName}?`
-    );
+  /*
+  ======================================================
+  APPROVE CANDIDATE
+  ======================================================
+  */
+
+  const handleApprove = async (
+    candidate
+  ) => {
+
+    const confirmed =
+      window.confirm(
+        `Are you sure you want to approve ${candidate.candidateName}?`
+      );
 
     if (!confirmed) {
       return;
     }
 
     try {
-      setActionLoading(candidate.applicationId);
-      setActionError("");
-
-      const response = await approveCandidate(
+      setActionLoading(
         candidate.applicationId
       );
 
-      console.log("Approve response:", response);
+      setActionError("");
 
-      // Update UI using backend response
-      if (response?.data) {
-        setCandidates((previousCandidates) =>
-          previousCandidates.map((item) =>
-            item.applicationId ===
-            candidate.applicationId
-              ? {
-                  ...item,
-                  status:
-                    response.data.status ||
-                    "SELECTED",
-                  interviewScore:
-                    response.data.interviewScore ??
-                    item.interviewScore,
-                  aiMatchPercentage:
-                    response.data.aiMatchPercentage ??
-                    item.aiMatchPercentage,
-                }
-              : item
-          )
+      const response =
+        await approveCandidate(
+          candidate.applicationId
         );
+
+      console.log(
+        "Approve response:",
+        response
+      );
+
+      if (response?.data) {
+
+        setCandidates(
+          (previousCandidates) =>
+            previousCandidates.map(
+              (item) =>
+                item.applicationId ===
+                candidate.applicationId
+                  ? {
+                      ...item,
+
+                      status:
+                        response.data.status ||
+                        "SELECTED",
+
+                      interviewScore:
+                        response.data
+                          .interviewScore ??
+                        item.interviewScore,
+
+                      aiMatchPercentage:
+                        response.data
+                          .aiMatchPercentage ??
+                        item.aiMatchPercentage,
+                    }
+                  : item
+            )
+        );
+
       } else {
-        await fetchDecisions(searchTerm);
+        await fetchDecisions();
       }
+
     } catch (err) {
       console.error(
         "Failed to approve candidate:",
@@ -156,57 +258,82 @@ function HiringManagerDecisions() {
         err.message ||
           "Failed to approve candidate."
       );
+
     } finally {
       setActionLoading(null);
     }
   };
 
-  // ======================================================
-  // REJECT CANDIDATE
-  // ======================================================
 
-  const handleReject = async (candidate) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to reject ${candidate.candidateName}?`
-    );
+  /*
+  ======================================================
+  REJECT CANDIDATE
+  ======================================================
+  */
+
+  const handleReject = async (
+    candidate
+  ) => {
+
+    const confirmed =
+      window.confirm(
+        `Are you sure you want to reject ${candidate.candidateName}?`
+      );
 
     if (!confirmed) {
       return;
     }
 
     try {
-      setActionLoading(candidate.applicationId);
-      setActionError("");
-
-      const response = await rejectCandidate(
+      setActionLoading(
         candidate.applicationId
       );
 
-      console.log("Reject response:", response);
+      setActionError("");
+
+      const response =
+        await rejectCandidate(
+          candidate.applicationId
+        );
+
+      console.log(
+        "Reject response:",
+        response
+      );
 
       if (response?.data) {
-        setCandidates((previousCandidates) =>
-          previousCandidates.map((item) =>
-            item.applicationId ===
-            candidate.applicationId
-              ? {
-                  ...item,
-                  status:
-                    response.data.status ||
-                    "REJECTED",
-                  interviewScore:
-                    response.data.interviewScore ??
-                    item.interviewScore,
-                  aiMatchPercentage:
-                    response.data.aiMatchPercentage ??
-                    item.aiMatchPercentage,
-                }
-              : item
-          )
+
+        setCandidates(
+          (previousCandidates) =>
+            previousCandidates.map(
+              (item) =>
+                item.applicationId ===
+                candidate.applicationId
+                  ? {
+                      ...item,
+
+                      status:
+                        response.data.status ||
+                        "REJECTED",
+
+                      interviewScore:
+                        response.data
+                          .interviewScore ??
+                        item.interviewScore,
+
+                      aiMatchPercentage:
+                        response.data
+                          .aiMatchPercentage ??
+                        item.aiMatchPercentage,
+                    }
+                  : item
+            )
         );
+
       } else {
-        await fetchDecisions(searchTerm);
+        await fetchDecisions();
       }
+
     } catch (err) {
       console.error(
         "Failed to reject candidate:",
@@ -217,78 +344,155 @@ function HiringManagerDecisions() {
         err.message ||
           "Failed to reject candidate."
       );
+
     } finally {
       setActionLoading(null);
     }
   };
 
-  // ======================================================
-  // SEARCH + FILTER
-  // ======================================================
 
-  const filteredCandidates = useMemo(() => {
-    const search =
-      searchTerm.trim().toLowerCase();
+  /*
+  ======================================================
+  SEARCH + FILTER
+  ======================================================
+  */
 
-    return candidates.filter((candidate) => {
-      const matchesSearch =
-        !search ||
-        candidate.candidateName
-          .toLowerCase()
-          .includes(search) ||
-        candidate.email
-          .toLowerCase()
-          .includes(search) ||
-        candidate.jobTitle
-          .toLowerCase()
-          .includes(search);
+  const filteredCandidates =
+    useMemo(() => {
 
-      const normalizedStatus =
-        candidate.status?.toUpperCase();
+      const search =
+        searchTerm
+          .trim()
+          .toLowerCase();
 
-      const matchesStatus =
-        statusFilter === "All" ||
-        normalizedStatus ===
-          statusFilter.toUpperCase();
+      return candidates.filter(
+        (candidate) => {
 
-      return matchesSearch && matchesStatus;
-    });
-  }, [
-    candidates,
-    searchTerm,
-    statusFilter,
-  ]);
+          const candidateName =
+            String(
+              candidate.candidateName ||
+              ""
+            ).toLowerCase();
 
-  // ======================================================
-  // COUNTS
-  // ======================================================
+          const email =
+            String(
+              candidate.email ||
+              ""
+            ).toLowerCase();
 
-  const pendingCount = candidates.filter(
-    (candidate) =>
-      candidate.status?.toUpperCase() ===
-      "PENDING"
-  ).length;
+          const jobTitle =
+            String(
+              candidate.jobTitle ||
+              ""
+            ).toLowerCase();
 
-  const approvedCount = candidates.filter(
-    (candidate) =>
-      ["SELECTED", "HIRED"].includes(
-        candidate.status?.toUpperCase()
-      )
-  ).length;
+          const matchesSearch =
+            !search ||
+            candidateName.includes(
+              search
+            ) ||
+            email.includes(search) ||
+            jobTitle.includes(search);
 
-  const rejectedCount = candidates.filter(
-    (candidate) =>
-      candidate.status?.toUpperCase() ===
-      "REJECTED"
-  ).length;
+          const status =
+            normalizeStatus(
+              candidate.status
+            );
 
-  // ======================================================
-  // STATUS DISPLAY
-  // ======================================================
+          let matchesStatus = true;
 
-  const getDisplayStatus = (status) => {
-    switch (status?.toUpperCase()) {
+          if (
+            statusFilter !== "ALL"
+          ) {
+
+            if (
+              statusFilter ===
+              "APPROVED"
+            ) {
+
+              matchesStatus =
+                status ===
+                  "APPROVED" ||
+                status ===
+                  "SELECTED";
+
+            } else {
+
+              matchesStatus =
+                status ===
+                statusFilter;
+            }
+          }
+
+          return (
+            matchesSearch &&
+            matchesStatus
+          );
+        }
+      );
+
+    }, [
+      candidates,
+      searchTerm,
+      statusFilter,
+    ]);
+
+
+  /*
+  ======================================================
+  COUNTS
+  ======================================================
+  */
+
+  const pendingCount =
+    candidates.filter(
+      (candidate) =>
+        normalizeStatus(
+          candidate.status
+        ) === "PENDING"
+    ).length;
+
+
+  const approvedCount =
+    candidates.filter(
+      (candidate) =>
+        [
+          "APPROVED",
+          "SELECTED",
+          "HIRED",
+        ].includes(
+          normalizeStatus(
+            candidate.status
+          )
+        )
+    ).length;
+
+
+  const rejectedCount =
+    candidates.filter(
+      (candidate) =>
+        normalizeStatus(
+          candidate.status
+        ) === "REJECTED"
+    ).length;
+
+
+  /*
+  ======================================================
+  DISPLAY STATUS
+  ======================================================
+  */
+
+  const getDisplayStatus = (
+    status
+  ) => {
+
+    switch (
+      normalizeStatus(status)
+    ) {
+
       case "SELECTED":
+      case "APPROVED":
         return "Approved";
 
       case "HIRED":
@@ -301,113 +505,165 @@ function HiringManagerDecisions() {
         return "Pending";
 
       default:
-        return status || "Pending";
+        return status ||
+          "Pending";
     }
   };
 
-  // ======================================================
-  // LOADING
-  // ======================================================
+
+  /*
+  ======================================================
+  LOADING
+  ======================================================
+  */
 
   if (loading) {
     return (
       <div className="hiring-manager-layout">
+
         <HiringManagerSidebar />
 
         <div className="hiring-manager-main">
+
           <HiringManagerNavbar />
 
           <main className="hiring-manager-dashboard-content">
+
             <div className="hiring-manager-dashboard-header">
+
               <p className="hiring-manager-label">
                 CANDIDATE DECISIONS
               </p>
 
-              <h1>Candidate Decisions</h1>
+              <h1>
+                Candidate Decisions
+              </h1>
 
               <p>
-                Review shortlisted candidates and
-                make final hiring decisions.
+                Review shortlisted candidates
+                and make final hiring decisions.
               </p>
+
             </div>
 
+
             <section className="hm-decision-empty">
+
               <div className="hm-decision-empty-icon">
-                <Clock size={38} />
+
+                <Clock
+                  size={38}
+                />
+
               </div>
 
-              <h2>Loading Candidates</h2>
+              <h2>
+                Loading Candidates
+              </h2>
 
               <p>
-                Fetching candidate decisions from
-                the backend.
+                Fetching candidate
+                decisions from the backend.
               </p>
+
             </section>
+
           </main>
+
         </div>
+
       </div>
     );
   }
 
-  // ======================================================
-  // ERROR
-  // ======================================================
+
+  /*
+  ======================================================
+  ERROR
+  ======================================================
+  */
 
   if (error) {
     return (
       <div className="hiring-manager-layout">
+
         <HiringManagerSidebar />
 
         <div className="hiring-manager-main">
+
           <HiringManagerNavbar />
 
           <main className="hiring-manager-dashboard-content">
+
             <div className="hiring-manager-dashboard-header">
+
               <p className="hiring-manager-label">
                 CANDIDATE DECISIONS
               </p>
 
-              <h1>Candidate Decisions</h1>
+              <h1>
+                Candidate Decisions
+              </h1>
 
               <p>
-                Review shortlisted candidates and
-                make final hiring decisions.
+                Review shortlisted candidates
+                and make final hiring decisions.
               </p>
+
             </div>
 
+
             <section className="hm-decision-empty">
+
               <div className="hm-decision-empty-icon">
-                <AlertCircle size={38} />
+
+                <AlertCircle
+                  size={38}
+                />
+
               </div>
 
-              <h2>Unable to Load Candidates</h2>
+              <h2>
+                Unable to Load Candidates
+              </h2>
 
-              <p>{error}</p>
+              <p>
+                {error}
+              </p>
 
               <button
                 type="button"
-                onClick={() =>
-                  fetchDecisions(searchTerm)
+                onClick={
+                  fetchDecisions
                 }
               >
                 Try Again
               </button>
+
             </section>
+
           </main>
+
         </div>
+
       </div>
     );
   }
 
-  // ======================================================
-  // MAIN RENDER
-  // ======================================================
+
+  /*
+  ======================================================
+  MAIN
+  ======================================================
+  */
 
   return (
     <div className="hiring-manager-layout">
+
       <HiringManagerSidebar />
 
       <div className="hiring-manager-main">
+
         <HiringManagerNavbar />
 
         <main className="hiring-manager-dashboard-content">
@@ -415,96 +671,159 @@ function HiringManagerDecisions() {
           {/* HEADER */}
 
           <div className="hiring-manager-dashboard-header">
+
             <p className="hiring-manager-label">
               CANDIDATE DECISIONS
             </p>
 
-            <h1>Candidate Decisions</h1>
+            <h1>
+              Candidate Decisions
+            </h1>
 
             <p>
-              Review candidates and make final
-              hiring decisions based on interview
-              and AI results.
+              Review candidates and make
+              final hiring decisions based
+              on interview and AI results.
             </p>
+
           </div>
+
 
           {/* ACTION ERROR */}
 
           {actionError && (
-            <div
-              style={{
-                marginBottom: "20px",
-                padding: "12px 16px",
-                borderRadius: "8px",
-                background: "#fee2e2",
-                color: "#991b1b",
-              }}
-            >
-              {actionError}
+            <div className="hm-decision-empty">
+
+              <div className="hm-decision-empty-icon">
+
+                <AlertCircle
+                  size={30}
+                />
+
+              </div>
+
+              <h2>
+                Action Failed
+              </h2>
+
+              <p>
+                {actionError}
+              </p>
+
             </div>
           )}
+
 
           {/* SUMMARY */}
 
           <div className="hm-decision-summary">
 
             <div className="hm-decision-summary-card">
+
               <div className="hm-decision-summary-icon pending">
-                <Clock size={21} />
+
+                <Clock
+                  size={21}
+                />
+
               </div>
 
               <div>
-                <span>Pending Decisions</span>
 
-                <strong>{pendingCount}</strong>
+                <span>
+                  Pending Decisions
+                </span>
+
+                <strong>
+                  {pendingCount}
+                </strong>
+
               </div>
+
             </div>
 
+
             <div className="hm-decision-summary-card">
+
               <div className="hm-decision-summary-icon approved">
-                <CheckCircle size={21} />
+
+                <CheckCircle
+                  size={21}
+                />
+
               </div>
 
               <div>
-                <span>Approved</span>
 
-                <strong>{approvedCount}</strong>
+                <span>
+                  Approved
+                </span>
+
+                <strong>
+                  {approvedCount}
+                </strong>
+
               </div>
+
             </div>
 
+
             <div className="hm-decision-summary-card">
+
               <div className="hm-decision-summary-icon rejected">
-                <XCircle size={21} />
+
+                <XCircle
+                  size={21}
+                />
+
               </div>
 
               <div>
-                <span>Rejected</span>
 
-                <strong>{rejectedCount}</strong>
+                <span>
+                  Rejected
+                </span>
+
+                <strong>
+                  {rejectedCount}
+                </strong>
+
               </div>
+
             </div>
 
           </div>
+
 
           {/* SEARCH + FILTER */}
 
           <div className="hm-decision-toolbar">
 
             <div className="hm-decision-search">
-              <Search size={19} />
+
+              <Search
+                size={19}
+              />
 
               <input
                 type="text"
                 placeholder="Search candidate, email or job..."
                 value={searchTerm}
                 onChange={(event) =>
-                  setSearchTerm(event.target.value)
+                  setSearchTerm(
+                    event.target.value
+                  )
                 }
               />
+
             </div>
 
+
             <div className="hm-decision-filter">
-              <Filter size={18} />
+
+              <Filter
+                size={18}
+              />
 
               <select
                 value={statusFilter}
@@ -514,46 +833,57 @@ function HiringManagerDecisions() {
                   )
                 }
               >
-                <option value="All">
+
+                <option value="ALL">
                   All Status
                 </option>
 
-                <option value="Pending">
+                <option value="PENDING">
                   Pending
                 </option>
 
-                <option value="Approved">
+                <option value="APPROVED">
                   Approved
                 </option>
 
-                <option value="Rejected">
+                <option value="REJECTED">
                   Rejected
                 </option>
 
-                <option value="Hired">
+                <option value="HIRED">
                   Hired
                 </option>
+
               </select>
+
             </div>
 
           </div>
 
-          {/* RESULTS COUNT */}
+
+          {/* RESULTS */}
 
           <div className="hm-decision-results">
+
             Showing{" "}
+
             <strong>
               {filteredCandidates.length}
             </strong>{" "}
+
             candidate
-            {filteredCandidates.length !== 1
+            {filteredCandidates.length !==
+            1
               ? "s"
               : ""}
+
           </div>
 
-          {/* CANDIDATES */}
 
-          {filteredCandidates.length > 0 ? (
+          {/* CANDIDATE CARDS */}
+
+          {filteredCandidates.length >
+          0 ? (
 
             <section className="hm-decision-grid">
 
@@ -565,14 +895,27 @@ function HiringManagerDecisions() {
                       candidate.status
                     );
 
+                  const normalized =
+                    normalizeStatus(
+                      candidate.status
+                    );
+
+                  const isPending =
+                    normalized ===
+                    "PENDING";
+
                   const isActionLoading =
                     actionLoading ===
                     candidate.applicationId;
 
+
                   return (
+
                     <div
                       className="hm-decision-card"
-                      key={candidate.applicationId}
+                      key={
+                        candidate.applicationId
+                      }
                     >
 
                       {/* HEADER */}
@@ -582,20 +925,31 @@ function HiringManagerDecisions() {
                         <div className="hm-decision-candidate">
 
                           <div className="hm-decision-avatar">
-                            <User size={21} />
+
+                            <User
+                              size={21}
+                            />
+
                           </div>
 
                           <div>
+
                             <h3>
-                              {candidate.candidateName}
+                              {
+                                candidate.candidateName
+                              }
                             </h3>
 
                             <p>
-                              {candidate.email}
+                              {
+                                candidate.email
+                              }
                             </p>
+
                           </div>
 
                         </div>
+
 
                         <span
                           className={`hm-decision-status ${displayStatus.toLowerCase()}`}
@@ -605,27 +959,40 @@ function HiringManagerDecisions() {
 
                       </div>
 
+
                       {/* JOB */}
 
                       <div className="hm-decision-job">
-                        <BriefcaseBusiness size={17} />
+
+                        <BriefcaseBusiness
+                          size={17}
+                        />
 
                         <span>
-                          {candidate.jobTitle}
+                          {
+                            candidate.jobTitle
+                          }
                         </span>
+
                       </div>
+
 
                       {/* EXPERIENCE */}
 
                       <div className="hm-decision-info-row">
+
                         <span>
                           Experience
                         </span>
 
                         <strong>
-                          {candidate.experience}
+                          {
+                            candidate.experience
+                          }
                         </strong>
+
                       </div>
+
 
                       {/* AI SCORE */}
 
@@ -634,29 +1001,47 @@ function HiringManagerDecisions() {
                         <div className="hm-decision-score-header">
 
                           <span>
-                            <Sparkles size={15} />
+
+                            <Sparkles
+                              size={15}
+                            />
+
                             AI Match Score
+
                           </span>
 
+
                           <strong>
-                            {candidate.aiMatchPercentage !==
-                            null
-                              ? `${candidate.aiMatchPercentage}%`
-                              : "Not Available"}
+
+                            {
+                              candidate.aiMatchPercentage !==
+                                null &&
+                              candidate.aiMatchPercentage !==
+                                undefined
+                                ? `${candidate.aiMatchPercentage}%`
+                                : "Not Available"
+                            }
+
                           </strong>
 
                         </div>
 
+
                         <div className="hm-decision-score-bar">
+
                           <div
                             className="hm-decision-score-fill"
                             style={{
                               width:
                                 candidate.aiMatchPercentage !==
-                                null
+                                  null &&
+                                candidate.aiMatchPercentage !==
+                                  undefined
                                   ? `${Math.min(
                                       Math.max(
-                                        candidate.aiMatchPercentage,
+                                        Number(
+                                          candidate.aiMatchPercentage
+                                        ),
                                         0
                                       ),
                                       100
@@ -664,28 +1049,40 @@ function HiringManagerDecisions() {
                                   : "0%",
                             }}
                           />
+
                         </div>
 
                       </div>
 
+
                       {/* INTERVIEW SCORE */}
 
                       <div className="hm-decision-interview-score">
+
                         <span>
                           Interview Score
                         </span>
 
                         <strong>
-                          {candidate.interviewScore !==
-                          null
-                            ? `${candidate.interviewScore} / 5`
-                            : "Not Available"}
+
+                          {
+                            candidate.interviewScore !==
+                              null &&
+                            candidate.interviewScore !==
+                              undefined
+                              ? `${candidate.interviewScore} / 5`
+                              : "Not Available"
+                          }
+
                         </strong>
+
                       </div>
+
 
                       {/* APPLICATION STATUS */}
 
                       <div className="hm-decision-interview-status">
+
                         <span>
                           Application Status
                         </span>
@@ -693,13 +1090,16 @@ function HiringManagerDecisions() {
                         <strong>
                           {displayStatus}
                         </strong>
+
                       </div>
+
 
                       {/* ACTIONS */}
 
                       <div className="hm-decision-actions">
 
-                        {/* VIEW CANDIDATE */}
+
+                        {/* VIEW */}
 
                         <button
                           type="button"
@@ -713,49 +1113,70 @@ function HiringManagerDecisions() {
                           View Candidate
                         </button>
 
+
                         {/* APPROVE */}
 
-                        {candidate.status?.toUpperCase() ===
-                          "PENDING" && (
+                        {isPending && (
+
                           <button
                             type="button"
                             className="hm-decision-approve-button"
-                            disabled={isActionLoading}
+                            disabled={
+                              isActionLoading
+                            }
                             onClick={() =>
-                              handleApprove(candidate)
+                              handleApprove(
+                                candidate
+                              )
                             }
                           >
-                            <CheckCircle size={16} />
+
+                            <CheckCircle
+                              size={16}
+                            />
 
                             {isActionLoading
                               ? "Processing..."
                               : "Approve"}
+
                           </button>
+
                         )}
+
 
                         {/* REJECT */}
 
-                        {candidate.status?.toUpperCase() ===
-                          "PENDING" && (
+                        {isPending && (
+
                           <button
                             type="button"
                             className="hm-decision-reject-button"
-                            disabled={isActionLoading}
+                            disabled={
+                              isActionLoading
+                            }
                             onClick={() =>
-                              handleReject(candidate)
+                              handleReject(
+                                candidate
+                              )
                             }
                           >
-                            <XCircle size={16} />
+
+                            <XCircle
+                              size={16}
+                            />
 
                             {isActionLoading
                               ? "Processing..."
                               : "Reject"}
+
                           </button>
+
                         )}
 
                       </div>
 
                     </div>
+
                   );
                 }
               )}
@@ -764,39 +1185,60 @@ function HiringManagerDecisions() {
 
           ) : (
 
+            /* EMPTY */
+
             <div className="hm-decision-empty">
 
               <div className="hm-decision-empty-icon">
-                <User size={38} />
+
+                <User
+                  size={38}
+                />
+
               </div>
 
-              <h2>No Candidates Found</h2>
+              <h2>
+                No Candidates Found
+              </h2>
 
               <p>
-                {candidates.length === 0
+
+                {candidates.length ===
+                0
                   ? "There are currently no candidate decisions available."
                   : "No candidates match your current search or status filter."}
+
               </p>
 
-              {candidates.length > 0 && (
+
+              {candidates.length >
+                0 && (
+
                 <button
                   type="button"
                   onClick={() => {
                     setSearchTerm("");
-                    setStatusFilter("All");
+                    setStatusFilter(
+                      "ALL"
+                    );
                   }}
                 >
                   Clear Filters
                 </button>
+
               )}
 
             </div>
+
           )}
 
         </main>
+
       </div>
+
     </div>
   );
 }
+
 
 export default HiringManagerDecisions;

@@ -5,6 +5,7 @@ const API_BASE_URL = "http://localhost:8080/api";
 COMMON HEADERS
 ========================================================
 */
+
 const getHeaders = () => {
   const token = localStorage.getItem("token");
 
@@ -21,6 +22,7 @@ const getHeaders = () => {
 HIRING MANAGER DASHBOARD
 ========================================================
 */
+
 export const getHiringManagerDashboard = async () => {
   const response = await fetch(
     `${API_BASE_URL}/hiring-manager/dashboard`,
@@ -42,12 +44,34 @@ export const getHiringManagerDashboard = async () => {
 
 /*
 ========================================================
-SHORTLISTED CANDIDATES
+SHORTLISTED / ELIGIBLE CANDIDATES
+========================================================
+
+Backend endpoint verified from Swagger:
+
+GET /api/applications/eligible-for-interview
+
+Expected response:
+
+{
+  "data": [
+    {
+      "applicationId": 5,
+      "candidateId": 8,
+      "candidateName": "Candidate1",
+      "jobId": 1,
+      "jobTitle": "Java Full Stack Developer"
+    }
+  ],
+  "success": true
+}
+
 ========================================================
 */
+
 export const getShortlistedCandidates = async () => {
   const response = await fetch(
-    `${API_BASE_URL}/applications`,
+    `${API_BASE_URL}/applications/eligible-for-interview`,
     {
       method: "GET",
       headers: getHeaders(),
@@ -66,9 +90,35 @@ export const getShortlistedCandidates = async () => {
 
 /*
 ========================================================
+ELIGIBLE CANDIDATES
+========================================================
+*/
+
+export const getEligibleCandidates = async () => {
+  const response = await fetch(
+    `${API_BASE_URL}/applications/eligible-for-interview`,
+    {
+      method: "GET",
+      headers: getHeaders(),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch eligible candidates: ${response.status}`
+    );
+  }
+
+  return response.json();
+};
+
+
+/*
+========================================================
 CANDIDATE REVIEW
 ========================================================
 */
+
 export const getCandidateReview = async (applicationId) => {
   const response = await fetch(
     `${API_BASE_URL}/applications/${applicationId}/review`,
@@ -93,7 +143,11 @@ export const getCandidateReview = async (applicationId) => {
 SHORTLIST CANDIDATE
 ========================================================
 */
-export const shortlistCandidate = async (candidateId, jobId) => {
+
+export const shortlistCandidate = async (
+  candidateId,
+  jobId
+) => {
   const response = await fetch(
     `${API_BASE_URL}/applications/shortlist?candidateId=${candidateId}&jobId=${jobId}`,
     {
@@ -117,6 +171,7 @@ export const shortlistCandidate = async (candidateId, jobId) => {
 ASSIGNED JOBS
 ========================================================
 */
+
 export const getAssignedJobs = async () => {
   const response = await fetch(
     `${API_BASE_URL}/jobs/assigned`,
@@ -134,12 +189,40 @@ export const getAssignedJobs = async () => {
 
   return response.json();
 };
+/*
+========================================================
+GET JOB DETAILS BY ID
+========================================================
+*/
+
+export const getJobById = async (jobId) => {
+  if (!jobId) {
+    throw new Error("Job ID is required.");
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/jobs/${jobId}`,
+    {
+      method: "GET",
+      headers: getHeaders(),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch job details: ${response.status}`
+    );
+  }
+
+  return response.json();
+};
 
 /*
 ========================================================
 INTERVIEW MANAGEMENT
 ========================================================
 */
+
 export const getInterviewManagementData = async () => {
   const response = await fetch(
     `${API_BASE_URL}/interviews/management`,
@@ -164,6 +247,7 @@ export const getInterviewManagementData = async () => {
 INTERVIEW STATS
 ========================================================
 */
+
 export const getInterviewStats = async () => {
   const response = await fetch(
     `${API_BASE_URL}/interviews/stats`,
@@ -188,6 +272,7 @@ export const getInterviewStats = async () => {
 UPCOMING INTERVIEWS
 ========================================================
 */
+
 export const getUpcomingInterviews = async () => {
   const response = await fetch(
     `${API_BASE_URL}/interviews/upcoming`,
@@ -212,7 +297,10 @@ export const getUpcomingInterviews = async () => {
 INTERVIEW DETAILS
 ========================================================
 */
-export const getInterviewDetails = async (interviewId) => {
+
+export const getInterviewDetails = async (
+  interviewId
+) => {
   const response = await fetch(
     `${API_BASE_URL}/interviews/${interviewId}`,
     {
@@ -236,9 +324,14 @@ export const getInterviewDetails = async (interviewId) => {
 SEARCH INTERVIEWS
 ========================================================
 */
-export const searchInterviews = async (keyword) => {
+
+export const searchInterviews = async (
+  keyword
+) => {
   const response = await fetch(
-    `${API_BASE_URL}/interviews/search?keyword=${encodeURIComponent(keyword)}`,
+    `${API_BASE_URL}/interviews/search?keyword=${encodeURIComponent(
+      keyword
+    )}`,
     {
       method: "GET",
       headers: getHeaders(),
@@ -260,9 +353,14 @@ export const searchInterviews = async (keyword) => {
 INTERVIEWS BY STATUS
 ========================================================
 */
-export const getInterviewsByStatus = async (status) => {
+
+export const getInterviewsByStatus = async (
+  status
+) => {
   const response = await fetch(
-    `${API_BASE_URL}/interviews/status/${encodeURIComponent(status)}`,
+    `${API_BASE_URL}/interviews/status/${encodeURIComponent(
+      status
+    )}`,
     {
       method: "GET",
       headers: getHeaders(),
@@ -277,12 +375,17 @@ export const getInterviewsByStatus = async (status) => {
 
   return response.json();
 };
+
+
 /*
 ========================================================
 INTERVIEW FEEDBACK
 ========================================================
 */
-export const getInterviewFeedback = async (interviewId) => {
+
+export const getInterviewFeedback = async (
+  interviewId
+) => {
   const response = await fetch(
     `${API_BASE_URL}/interview-feedback/interview/${interviewId}`,
     {
@@ -299,6 +402,13 @@ export const getInterviewFeedback = async (interviewId) => {
 
   return response.json();
 };
+
+
+/*
+========================================================
+NOTIFICATIONS
+========================================================
+*/
 
 export const getMyNotifications = async () => {
   const response = await fetch(
@@ -395,6 +505,14 @@ export const markAllNotificationsAsRead = async () => {
 
   return response.json();
 };
+
+
+/*
+========================================================
+PROFILE
+========================================================
+*/
+
 export const getProfile = async () => {
   const response = await fetch(
     `${API_BASE_URL}/profile/get`,
@@ -442,6 +560,13 @@ export const updateProfile = async (
   return response.json();
 };
 
+
+/*
+========================================================
+SETTINGS
+========================================================
+*/
+
 export const getSettings = async () => {
   const response = await fetch(
     `${API_BASE_URL}/settings/current`,
@@ -461,7 +586,9 @@ export const getSettings = async () => {
 };
 
 
-export const saveSettings = async (settings) => {
+export const saveSettings = async (
+  settings
+) => {
   const response = await fetch(
     `${API_BASE_URL}/settings/save`,
     {
@@ -480,7 +607,16 @@ export const saveSettings = async (settings) => {
   return response.json();
 };
 
-export const getCandidateDecisions = async (search = "") => {
+
+/*
+========================================================
+CANDIDATE DECISIONS
+========================================================
+*/
+
+export const getCandidateDecisions = async (
+  search = ""
+) => {
   const query = search
     ? `?search=${encodeURIComponent(search)}`
     : "";
@@ -502,7 +638,16 @@ export const getCandidateDecisions = async (search = "") => {
   return response.json();
 };
 
-export const approveCandidate = async (applicationId) => {
+
+/*
+========================================================
+APPROVE CANDIDATE
+========================================================
+*/
+
+export const approveCandidate = async (
+  applicationId
+) => {
   const response = await fetch(
     `${API_BASE_URL}/candidate-decisions/${applicationId}/approve`,
     {
@@ -520,7 +665,16 @@ export const approveCandidate = async (applicationId) => {
   return response.json();
 };
 
-export const rejectCandidate = async (applicationId) => {
+
+/*
+========================================================
+REJECT CANDIDATE
+========================================================
+*/
+
+export const rejectCandidate = async (
+  applicationId
+) => {
   const response = await fetch(
     `${API_BASE_URL}/candidate-decisions/${applicationId}/reject`,
     {

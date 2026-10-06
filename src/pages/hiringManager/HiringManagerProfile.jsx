@@ -23,7 +23,8 @@ import {
   updateProfile,
 } from "./HiringManagerApi";
 
-import "./HiringManagerDashboard.css";
+import "./HiringManagerProfile.css";
+import "./HiringManagerLayout.css";
 
 function HiringManagerProfile() {
   const loggedInUser = JSON.parse(

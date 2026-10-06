@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CheckCircle2,
 } from "lucide-react";
+import "./HiringManagerSidebar.css";
 
 function HiringManagerSidebar() {
   const navigate = useNavigate();

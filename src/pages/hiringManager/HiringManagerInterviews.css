@@ -1,0 +1,706 @@
+/* =========================================================
+   HIRING MANAGER - INTERVIEWS
+   ========================================================= */
+
+.hm-interviews-page {
+  width: 100%;
+}
+
+
+/* =========================================================
+   SUMMARY CARDS
+   ========================================================= */
+
+.hm-interviews-summary {
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+
+  gap: 16px;
+
+  margin-bottom: 25px;
+}
+
+.hm-interviews-summary-card {
+  background: #ffffff;
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 12px;
+
+  padding: 20px;
+
+  min-height: 110px;
+
+  box-sizing: border-box;
+
+  display: flex;
+
+  flex-direction: column;
+
+  justify-content: center;
+}
+
+.hm-interviews-summary-card span {
+  display: block;
+
+  color: #64748b;
+
+  font-size: 14px;
+
+  margin-bottom: 8px;
+}
+
+.hm-interviews-summary-card strong {
+  display: block;
+
+  font-size: 28px;
+
+  color: #111827;
+}
+
+.hm-interviews-summary-card.total strong {
+  color: #111827;
+}
+
+.hm-interviews-summary-card.scheduled strong {
+  color: #5547f5;
+}
+
+.hm-interviews-summary-card.completed strong {
+  color: #059669;
+}
+
+.hm-interviews-summary-card.cancelled strong {
+  color: #dc2626;
+}
+
+
+/* =========================================================
+   FILTER BAR
+   ========================================================= */
+
+.hm-interviews-filter-bar {
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  flex-wrap: wrap;
+
+  margin-bottom: 25px;
+}
+
+.hm-interviews-filter-label {
+  display: flex;
+
+  align-items: center;
+
+  gap: 7px;
+
+  color: #64748b;
+
+  font-weight: 600;
+
+  margin-right: 5px;
+}
+
+.hm-interviews-filter-button {
+  padding: 9px 16px;
+
+  border-radius: 8px;
+
+  border: 1px solid #dbe3ee;
+
+  background: #ffffff;
+
+  color: #475569;
+
+  cursor: pointer;
+
+  font-weight: 600;
+
+  font-size: 13px;
+
+  transition: all 0.2s ease;
+}
+
+.hm-interviews-filter-button:hover {
+  border-color: #5547f5;
+
+  color: #5547f5;
+}
+
+.hm-interviews-filter-button.active {
+  border-color: #5547f5;
+
+  background: #5547f5;
+
+  color: #ffffff;
+}
+
+
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
+
+.hm-interviews-empty-state {
+  background: #ffffff;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 16px;
+
+  min-height: 230px;
+
+  padding: 60px 30px;
+
+  box-sizing: border-box;
+
+  text-align: center;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  color: #64748b;
+}
+
+.hm-interviews-empty-state svg {
+  color: #94a3b8;
+
+  margin-bottom: 15px;
+}
+
+.hm-interviews-empty-state h3 {
+  margin: 0 0 7px;
+
+  color: #111827;
+
+  font-size: 18px;
+}
+
+.hm-interviews-empty-state p {
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   LOADING STATE
+   ========================================================= */
+
+.hm-interviews-loading {
+  background: #ffffff;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 16px;
+
+  min-height: 230px;
+
+  padding: 60px 30px;
+
+  box-sizing: border-box;
+
+  text-align: center;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  color: #64748b;
+}
+
+.hm-interviews-loading svg {
+  color: #5547f5;
+
+  margin-bottom: 15px;
+
+  animation: hm-interviews-spin 1s linear infinite;
+}
+
+.hm-interviews-loading p {
+  margin: 0;
+
+  font-size: 14px;
+}
+
+@keyframes hm-interviews-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* =========================================================
+   ERROR STATE
+   ========================================================= */
+
+.hm-interviews-error {
+  background: #fff1f2;
+
+  border: 1px solid #fecdd3;
+
+  border-radius: 14px;
+
+  min-height: 230px;
+
+  padding: 50px 30px;
+
+  box-sizing: border-box;
+
+  text-align: center;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  color: #be123c;
+}
+
+.hm-interviews-error svg {
+  margin-bottom: 15px;
+}
+
+.hm-interviews-error h3 {
+  margin: 0 0 8px;
+
+  color: #9f1239;
+
+  font-size: 18px;
+}
+
+.hm-interviews-error p {
+  margin: 0;
+
+  color: #be123c;
+
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   INTERVIEW GRID
+   ========================================================= */
+
+.hm-interviews-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 20px;
+
+  width: 100%;
+}
+
+
+/* =========================================================
+   INTERVIEW CARD
+   ========================================================= */
+
+.hm-interview-card {
+  background: #ffffff;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 16px;
+
+  padding: 22px;
+
+  box-sizing: border-box;
+
+  min-width: 0;
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.hm-interview-card:hover {
+  transform: translateY(-2px);
+
+  border-color: #d8d5ff;
+
+  box-shadow:
+    0 8px 22px rgba(15, 23, 42, 0.07);
+}
+
+
+/* =========================================================
+   CARD HEADER
+   ========================================================= */
+
+.hm-interview-card-header {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 12px;
+
+  margin-bottom: 20px;
+}
+
+.hm-interview-icon {
+  width: 44px;
+
+  height: 44px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 11px;
+
+  background: #eef2ff;
+
+  color: #5547f5;
+
+  flex-shrink: 0;
+}
+
+
+/* =========================================================
+   STATUS
+   ========================================================= */
+
+.hm-interview-status {
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  font-size: 10px;
+
+  font-weight: 700;
+
+  padding: 6px 10px;
+
+  border-radius: 20px;
+
+  white-space: nowrap;
+}
+
+.hm-interview-status.scheduled {
+  background: #eef2ff;
+
+  color: #4f46e5;
+}
+
+.hm-interview-status.completed {
+  background: #dcfce7;
+
+  color: #15803d;
+}
+
+.hm-interview-status.cancelled {
+  background: #fee2e2;
+
+  color: #dc2626;
+}
+
+.hm-interview-status.default {
+  background: #f1f5f9;
+
+  color: #64748b;
+}
+
+
+/* =========================================================
+   CANDIDATE
+   ========================================================= */
+
+.hm-interview-candidate {
+  display: flex;
+
+  align-items: center;
+
+  gap: 11px;
+
+  margin-bottom: 20px;
+
+  min-width: 0;
+}
+
+.hm-interview-avatar {
+  width: 42px;
+
+  height: 42px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  background: #f1f5f9;
+
+  color: #64748b;
+
+  border-radius: 10px;
+
+  flex-shrink: 0;
+}
+
+.hm-interview-candidate > div:last-child {
+  min-width: 0;
+}
+
+.hm-interview-candidate h3 {
+  margin: 0;
+
+  color: #111827;
+
+  font-size: 15px;
+
+  font-weight: 700;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+.hm-interview-candidate p {
+  margin: 4px 0 0;
+
+  color: #64748b;
+
+  font-size: 11px;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   INTERVIEW DETAILS
+   ========================================================= */
+
+.hm-interview-details {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 11px;
+
+  padding: 16px 0;
+
+  border-top: 1px solid #f1f5f9;
+
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.hm-interview-details div {
+  display: flex;
+
+  align-items: flex-start;
+
+  gap: 8px;
+
+  color: #64748b;
+
+  font-size: 12px;
+
+  line-height: 1.4;
+
+  min-width: 0;
+}
+
+.hm-interview-details svg {
+  flex-shrink: 0;
+
+  margin-top: 1px;
+
+  color: #94a3b8;
+}
+
+.hm-interview-details span {
+  min-width: 0;
+
+  word-break: break-word;
+}
+
+
+/* =========================================================
+   INTERVIEW TYPE
+   ========================================================= */
+
+.hm-interview-type {
+  margin-top: 12px;
+
+  color: #64748b;
+
+  font-size: 13px;
+
+  line-height: 1.5;
+}
+
+.hm-interview-type strong {
+  color: #475569;
+}
+
+
+/* =========================================================
+   ACTIONS
+   ========================================================= */
+
+.hm-interview-actions {
+  display: flex;
+
+  gap: 9px;
+
+  margin-top: 18px;
+}
+
+.hm-interview-view-button,
+.hm-interview-feedback-button {
+  flex: 1;
+
+  min-width: 0;
+
+  min-height: 38px;
+
+  border-radius: 8px;
+
+  font-size: 11px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.hm-interview-view-button {
+  background: #ffffff;
+
+  border: 1px solid #dbe2ea;
+
+  color: #475569;
+}
+
+.hm-interview-view-button:hover {
+  background: #f8fafc;
+
+  border-color: #cbd5e1;
+
+  color: #334155;
+}
+
+.hm-interview-feedback-button {
+  border: none;
+
+  background: #5547f5;
+
+  color: #ffffff;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 6px;
+}
+
+.hm-interview-feedback-button:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.hm-interview-feedback-button:disabled {
+  background: #e2e8f0;
+
+  color: #94a3b8;
+
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1200px) {
+  .hm-interviews-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1000px) {
+  .hm-interviews-summary {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .hm-interviews-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hm-interviews-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .hm-interview-actions {
+    flex-direction: column;
+  }
+
+  .hm-interview-view-button,
+  .hm-interview-feedback-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 500px) {
+  .hm-interviews-filter-bar {
+    align-items: flex-start;
+
+    flex-direction: column;
+  }
+
+  .hm-interviews-filter-label {
+    margin-right: 0;
+  }
+
+  .hm-interviews-filter-button {
+    width: 100%;
+  }
+}

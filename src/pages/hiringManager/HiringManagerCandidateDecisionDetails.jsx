@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -13,10 +13,17 @@ import {
   Code2,
   MessagesSquare,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 
 import HiringManagerSidebar from "./HiringManagerSidebar";
 import HiringManagerNavbar from "./HiringManagerNavbar";
+
+import {
+  getCandidateDecisions,
+  approveCandidate,
+  rejectCandidate,
+} from "./HiringManagerApi";
 
 import "./HiringManagerDashboard.css";
 
@@ -24,91 +31,396 @@ function HiringManagerCandidateDecisionDetails() {
   const navigate = useNavigate();
   const { candidateId } = useParams();
 
+  // =========================================================
+  // STATE
+  // =========================================================
+
+  const [candidate, setCandidate] = useState(null);
+
+  const [loading, setLoading] = useState(true);
+
+  const [error, setError] = useState("");
+
+  const [decision, setDecision] = useState("PENDING");
+
   const [finalNotes, setFinalNotes] = useState("");
 
-  /*
-  ======================================================
-  TEMPORARY FRONTEND DATA
-  ======================================================
-  Backend integration will replace this later.
-  */
+  const [actionLoading, setActionLoading] = useState(false);
 
-  const candidates = [
-    {
-      id: 3,
-      interviewId: 3,
+  const [actionError, setActionError] = useState("");
 
-      name: "Sneha Reddy",
-      email: "sneha@gmail.com",
+  // =========================================================
+  // FETCH CANDIDATE DECISION
+  // =========================================================
 
-      job: "QA Engineer",
-      experience: "4 Years",
+  const fetchCandidate = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-      matchScore: 83,
+      console.log(
+        "Loading candidate decision for candidateId:",
+        candidateId
+      );
 
-      interviewStatus: "Completed",
+      const response = await getCandidateDecisions();
 
-      interviewer: "Arjun Kumar",
+      console.log(
+        "Candidate decisions API response:",
+        response
+      );
 
-      overallRating: 4,
-      technicalRating: 4,
-      communicationRating: 4,
-      problemSolvingRating: 5,
+      /*
+       * Backend response:
+       *
+       * {
+       *   data: [
+       *     {
+       *       applicationId: 5,
+       *       candidateId: 8,
+       *       candidateName: "Candidate1",
+       *       jobId: 1,
+       *       jobTitle: "Java Full Stack Developer"
+       *     }
+       *   ],
+       *   message: "...",
+       *   success: true
+       * }
+       */
 
-      recommendation: "Recommended",
+      const candidates = Array.isArray(response?.data)
+        ? response.data
+        : [];
 
-      strengths: [
-        "Strong API testing knowledge",
-        "Good understanding of Selenium automation",
-        "Explained testing scenarios clearly",
-        "Good problem-solving approach",
-      ],
+      console.log(
+        "Candidate decision records:",
+        candidates
+      );
 
-      concerns: [
-        "Limited performance testing experience",
-        "Could improve advanced automation framework knowledge",
-      ],
+      /*
+       * Route currently gives candidateId.
+       *
+       * Example:
+       * /hiring-manager/candidate-decisions/8
+       *
+       * We first match candidateId.
+       *
+       * We also check applicationId so the page is
+       * slightly more tolerant if the route uses applicationId.
+       */
 
-      feedback:
-        "Sneha demonstrated strong knowledge of software testing fundamentals, API testing and automation. She explained her previous QA experience clearly and handled scenario-based questions well.",
-    },
-  ];
+      const foundCandidate = candidates.find(
+        (item) =>
+          String(item?.candidateId) ===
+            String(candidateId) ||
+          String(item?.applicationId) ===
+            String(candidateId)
+      );
 
-  /*
-  ======================================================
-  FIND CANDIDATE
-  ======================================================
-  */
+      if (!foundCandidate) {
+        setCandidate(null);
 
-  const candidate = candidates.find(
-    (item) => item.id === Number(candidateId)
-  );
+        setError(
+          "Candidate decision record was not found."
+        );
 
-  /*
-  ======================================================
-  GET STORED DECISION
-  ======================================================
-  */
+        return;
+      }
 
-  const [decision, setDecision] = useState(() => {
-    if (!candidate) {
-      return "Pending";
+      console.log(
+        "Selected candidate:",
+        foundCandidate
+      );
+
+      setCandidate(foundCandidate);
+
+      /*
+       * Backend status may be:
+       *
+       * PENDING
+       * APPROVED
+       * REJECTED
+       * SELECTED
+       *
+       */
+
+      setDecision(
+        foundCandidate.status ||
+          foundCandidate.decision ||
+          "PENDING"
+      );
+
+    } catch (err) {
+      console.error(
+        "Failed to load candidate decision:",
+        err
+      );
+
+      setError(
+        err?.message ||
+          "Failed to load candidate decision."
+      );
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =========================================================
+  // LOAD WHEN PAGE OPENS
+  // =========================================================
+
+  useEffect(() => {
+    fetchCandidate();
+  }, [candidateId]);
+
+  // =========================================================
+  // APPROVE CANDIDATE
+  // =========================================================
+
+  const handleApprove = async () => {
+    if (!candidate?.applicationId) {
+      setActionError(
+        "Application ID is missing."
+      );
+
+      return;
     }
 
-    return (
-      localStorage.getItem(
-        `candidateDecision_${candidate.id}`
-      ) || "Pending"
+    const confirmed = window.confirm(
+      `Are you sure you want to approve ${
+        candidate.candidateName ||
+        "this candidate"
+      }?`
     );
-  });
 
-  /*
-  ======================================================
-  CANDIDATE NOT FOUND
-  ======================================================
-  */
+    if (!confirmed) {
+      return;
+    }
 
-  if (!candidate) {
+    try {
+      setActionLoading(true);
+      setActionError("");
+
+      console.log(
+        "Approving application:",
+        candidate.applicationId
+      );
+
+      const response =
+        await approveCandidate(
+          candidate.applicationId
+        );
+
+      console.log(
+        "Approve response:",
+        response
+      );
+
+      /*
+       * Update the page using backend response.
+       */
+
+      const updatedData =
+        response?.data || {};
+
+      setDecision(
+        updatedData.status ||
+          updatedData.decision ||
+          "APPROVED"
+      );
+
+      setCandidate((previous) => ({
+        ...previous,
+
+        ...updatedData,
+
+        status:
+          updatedData.status ||
+          "APPROVED",
+      }));
+
+      /*
+       * Go back to decisions page after successful
+       * backend update.
+       */
+
+      navigate(
+        "/hiring-manager/decisions"
+      );
+
+    } catch (err) {
+      console.error(
+        "Failed to approve candidate:",
+        err
+      );
+
+      setActionError(
+        err?.message ||
+          "Failed to approve candidate."
+      );
+
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // =========================================================
+  // REJECT CANDIDATE
+  // =========================================================
+
+  const handleReject = async () => {
+    if (!candidate?.applicationId) {
+      setActionError(
+        "Application ID is missing."
+      );
+
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to reject ${
+        candidate.candidateName ||
+        "this candidate"
+      }?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setActionError("");
+
+      console.log(
+        "Rejecting application:",
+        candidate.applicationId
+      );
+
+      const response =
+        await rejectCandidate(
+          candidate.applicationId
+        );
+
+      console.log(
+        "Reject response:",
+        response
+      );
+
+      const updatedData =
+        response?.data || {};
+
+      setDecision(
+        updatedData.status ||
+          updatedData.decision ||
+          "REJECTED"
+      );
+
+      setCandidate((previous) => ({
+        ...previous,
+
+        ...updatedData,
+
+        status:
+          updatedData.status ||
+          "REJECTED",
+      }));
+
+      navigate(
+        "/hiring-manager/decisions"
+      );
+
+    } catch (err) {
+      console.error(
+        "Failed to reject candidate:",
+        err
+      );
+
+      setActionError(
+        err?.message ||
+          "Failed to reject candidate."
+      );
+
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // =========================================================
+  // STAR RATING
+  // =========================================================
+
+  const renderStars = (rating) => {
+    const numericRating =
+      Number(rating) || 0;
+
+    return Array.from({
+      length: 5,
+    }).map((_, index) => (
+      <Star
+        key={index}
+        size={17}
+        fill={
+          index < numericRating
+            ? "currentColor"
+            : "none"
+        }
+      />
+    ));
+  };
+
+  // =========================================================
+  // LOADING
+  // =========================================================
+
+  if (loading) {
+    return (
+      <div className="hiring-manager-layout">
+
+        <HiringManagerSidebar />
+
+        <div className="hiring-manager-main">
+
+          <HiringManagerNavbar />
+
+          <main className="hiring-manager-dashboard-content">
+
+            <div
+              style={{
+                minHeight: "500px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "column",
+                gap: "15px",
+              }}
+            >
+
+              <Loader2
+                size={40}
+                className="hm-loading-icon"
+              />
+
+              <p>
+                Loading candidate details...
+              </p>
+
+            </div>
+
+          </main>
+
+        </div>
+
+      </div>
+    );
+  }
+
+  // =========================================================
+  // ERROR / CANDIDATE NOT FOUND
+  // =========================================================
+
+  if (error || !candidate) {
     return (
       <div className="hiring-manager-layout">
 
@@ -131,12 +443,11 @@ function HiringManagerCandidateDecisionDetails() {
               </h1>
 
               <p>
-                The requested candidate decision record
-                could not be found.
+                {error ||
+                  "The requested candidate decision record could not be found."}
               </p>
 
             </div>
-
 
             <section className="hm-final-decision-card">
 
@@ -144,6 +455,7 @@ function HiringManagerCandidateDecisionDetails() {
 
                 <h3>
                   <AlertCircle size={18} />
+
                   Candidate Unavailable
                 </h3>
 
@@ -153,13 +465,12 @@ function HiringManagerCandidateDecisionDetails() {
                     lineHeight: "1.6",
                   }}
                 >
-                  This candidate is not available in the
-                  current frontend data. Backend integration
-                  will provide the real candidate record later.
+                  No candidate decision record was
+                  returned by the backend for this
+                  candidate.
                 </p>
 
               </div>
-
 
               <div className="hm-interview-details-actions">
 
@@ -173,6 +484,7 @@ function HiringManagerCandidateDecisionDetails() {
                   }
                 >
                   <ArrowLeft size={16} />
+
                   Back to Candidate Decisions
                 </button>
 
@@ -188,83 +500,96 @@ function HiringManagerCandidateDecisionDetails() {
     );
   }
 
-  /*
-  ======================================================
-  INITIALS
-  ======================================================
-  */
+  // =========================================================
+  // SAFE VALUES
+  // =========================================================
 
-  const initials = candidate.name
-    .split(" ")
-    .map((word) => word[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const candidateName =
+    candidate.candidateName ||
+    candidate.name ||
+    "Unknown Candidate";
 
-  /*
-  ======================================================
-  STAR RATING
-  ======================================================
-  */
+  const candidateEmail =
+    candidate.candidateEmail ||
+    candidate.email ||
+    "Email not available";
 
-  const renderStars = (rating) =>
-    Array.from({ length: 5 }).map(
-      (_, index) => (
-        <Star
-          key={index}
-          size={17}
-          fill={
-            index < rating
-              ? "currentColor"
-              : "none"
-          }
-        />
-      )
-    );
+  const jobTitle =
+    candidate.jobTitle ||
+    candidate.job ||
+    "Position not available";
 
-  /*
-  ======================================================
-  APPROVE
-  ======================================================
-  */
+  const experience =
+    candidate.experience ||
+    "Not specified";
 
-  const handleApprove = () => {
-    const newDecision = "Approved";
+  const matchScore =
+    candidate.aiMatchPercentage ??
+    candidate.matchScore ??
+    candidate.aiMatchScore ??
+    null;
 
-    setDecision(newDecision);
+  const interviewScore =
+    candidate.interviewScore ??
+    candidate.overallRating ??
+    null;
 
-    localStorage.setItem(
-      `candidateDecision_${candidate.id}`,
-      newDecision
-    );
+  const technicalRating =
+    candidate.technicalRating ??
+    candidate.technicalScore ??
+    null;
 
-    navigate("/hiring-manager/decisions");
-  };
+  const communicationRating =
+    candidate.communicationRating ??
+    candidate.communicationScore ??
+    null;
 
-  /*
-  ======================================================
-  REJECT
-  ======================================================
-  */
+  const problemSolvingRating =
+    candidate.problemSolvingRating ??
+    candidate.problemSolvingScore ??
+    null;
 
-  const handleReject = () => {
-    const newDecision = "Rejected";
+  const interviewStatus =
+    candidate.interviewStatus ||
+    "Completed";
 
-    setDecision(newDecision);
+  const interviewer =
+    candidate.interviewerName ||
+    candidate.interviewer ||
+    "Not specified";
 
-    localStorage.setItem(
-      `candidateDecision_${candidate.id}`,
-      newDecision
-    );
+  const recommendation =
+    candidate.interviewRecommendation ||
+    candidate.recommendation ||
+    "Not available";
 
-    navigate("/hiring-manager/decisions");
-  };
+  const feedback =
+    candidate.interviewFeedback ||
+    candidate.feedback ||
+    "No interviewer feedback available.";
 
-  /*
-  ======================================================
-  RENDER
-  ======================================================
-  */
+  const strengths =
+    Array.isArray(candidate.strengths)
+      ? candidate.strengths
+      : [];
+
+  const concerns =
+    Array.isArray(candidate.concerns)
+      ? candidate.concerns
+      : [];
+
+  const initials =
+    candidateName
+      .split(" ")
+      .filter(Boolean)
+      .map((word) => word[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+
+  // =========================================================
+  // MAIN UI
+  // =========================================================
 
   return (
     <div className="hiring-manager-layout">
@@ -281,9 +606,9 @@ function HiringManagerCandidateDecisionDetails() {
 
         <main className="hiring-manager-dashboard-content">
 
-          {/* ==================================================
+          {/* =================================================
               HEADER
-          ================================================== */}
+          ================================================= */}
 
           <div className="hiring-manager-dashboard-header">
 
@@ -304,15 +629,15 @@ function HiringManagerCandidateDecisionDetails() {
           </div>
 
 
-          {/* ==================================================
+          {/* =================================================
               MAIN CARD
-          ================================================== */}
+          ================================================= */}
 
           <section className="hm-final-decision-card">
 
-            {/* ==================================================
+            {/* =================================================
                 CANDIDATE HEADER
-            ================================================== */}
+            ================================================= */}
 
             <div className="hm-final-candidate-header">
 
@@ -325,20 +650,21 @@ function HiringManagerCandidateDecisionDetails() {
                 <div>
 
                   <h2>
-                    {candidate.name}
+                    {candidateName}
                   </h2>
 
                   <p>
-                    {candidate.email}
+                    {candidateEmail}
                   </p>
 
                 </div>
 
               </div>
 
-
               <span
-                className={`hm-decision-status ${decision.toLowerCase()}`}
+                className={`hm-decision-status ${String(
+                  decision
+                ).toLowerCase()}`}
               >
                 {decision}
               </span>
@@ -346,17 +672,17 @@ function HiringManagerCandidateDecisionDetails() {
             </div>
 
 
-            {/* ==================================================
+            {/* =================================================
                 CANDIDATE INFORMATION
-            ================================================== */}
+            ================================================= */}
 
             <div className="hm-final-section">
 
               <h3>
                 <User size={18} />
+
                 Candidate Information
               </h3>
-
 
               <div className="hm-final-info-grid">
 
@@ -371,7 +697,7 @@ function HiringManagerCandidateDecisionDetails() {
                     </span>
 
                     <strong>
-                      {candidate.job}
+                      {jobTitle}
                     </strong>
 
                   </div>
@@ -390,7 +716,7 @@ function HiringManagerCandidateDecisionDetails() {
                     </span>
 
                     <strong>
-                      {candidate.experience}
+                      {experience}
                     </strong>
 
                   </div>
@@ -402,17 +728,85 @@ function HiringManagerCandidateDecisionDetails() {
             </div>
 
 
-            {/* ==================================================
+            {/* =================================================
+                APPLICATION INFORMATION
+            ================================================= */}
+
+            <div className="hm-final-section">
+
+              <h3>
+                Application Information
+              </h3>
+
+              <div className="hm-final-info-grid">
+
+                <div className="hm-final-info-item">
+
+                  <div>
+
+                    <span>
+                      Application ID
+                    </span>
+
+                    <strong>
+                      {candidate.applicationId ??
+                        "N/A"}
+                    </strong>
+
+                  </div>
+
+                </div>
+
+                <div className="hm-final-info-item">
+
+                  <div>
+
+                    <span>
+                      Candidate ID
+                    </span>
+
+                    <strong>
+                      {candidate.candidateId ??
+                        "N/A"}
+                    </strong>
+
+                  </div>
+
+                </div>
+
+                <div className="hm-final-info-item">
+
+                  <div>
+
+                    <span>
+                      Job ID
+                    </span>
+
+                    <strong>
+                      {candidate.jobId ??
+                        "N/A"}
+                    </strong>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+            {/* =================================================
                 AI ANALYSIS
-            ================================================== */}
+            ================================================= */}
 
             <div className="hm-final-section">
 
               <h3>
                 <Brain size={18} />
+
                 AI Candidate Analysis
               </h3>
-
 
               <div className="hm-final-ai-card">
 
@@ -425,41 +819,52 @@ function HiringManagerCandidateDecisionDetails() {
                     </span>
 
                     <strong>
-                      {candidate.matchScore}%
+                      {matchScore !== null
+                        ? `${matchScore}%`
+                        : "Not available"}
                     </strong>
 
                   </div>
 
                 </div>
 
+                {matchScore !== null && (
 
-                <div className="hm-final-ai-bar">
+                  <div className="hm-final-ai-bar">
 
-                  <div
-                    className="hm-final-ai-progress"
-                    style={{
-                      width: `${candidate.matchScore}%`,
-                    }}
-                  />
+                    <div
+                      className="hm-final-ai-progress"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          Math.max(
+                            0,
+                            Number(matchScore)
+                          )
+                        )}%`,
+                      }}
+                    />
 
-                </div>
+                  </div>
+
+                )}
 
               </div>
 
             </div>
 
 
-            {/* ==================================================
+            {/* =================================================
                 INTERVIEW RESULT
-            ================================================== */}
+            ================================================= */}
 
             <div className="hm-final-section">
 
               <h3>
                 <MessageSquareText size={18} />
+
                 Interview Result
               </h3>
-
 
               <div className="hm-final-interview-header">
 
@@ -473,7 +878,7 @@ function HiringManagerCandidateDecisionDetails() {
 
                     <CheckCircle2 size={15} />
 
-                    {candidate.interviewStatus}
+                    {interviewStatus}
 
                   </strong>
 
@@ -487,7 +892,7 @@ function HiringManagerCandidateDecisionDetails() {
                   </span>
 
                   <strong>
-                    {candidate.interviewer}
+                    {interviewer}
                   </strong>
 
                 </div>
@@ -502,14 +907,20 @@ function HiringManagerCandidateDecisionDetails() {
                   <div className="hm-final-rating">
 
                     <strong>
-                      {candidate.overallRating}/5
+                      {interviewScore !== null
+                        ? `${interviewScore}/5`
+                        : "N/A"}
                     </strong>
 
-                    <div>
-                      {renderStars(
-                        candidate.overallRating
-                      )}
-                    </div>
+                    {interviewScore !== null && (
+
+                      <div>
+                        {renderStars(
+                          interviewScore
+                        )}
+                      </div>
+
+                    )}
 
                   </div>
 
@@ -520,9 +931,9 @@ function HiringManagerCandidateDecisionDetails() {
             </div>
 
 
-            {/* ==================================================
+            {/* =================================================
                 INTERVIEW RATINGS
-            ================================================== */}
+            ================================================= */}
 
             <div className="hm-final-section">
 
@@ -530,10 +941,7 @@ function HiringManagerCandidateDecisionDetails() {
                 Interview Evaluation
               </h3>
 
-
               <div className="hm-final-rating-grid">
-
-                {/* TECHNICAL */}
 
                 <div className="hm-final-rating-card">
 
@@ -544,19 +952,23 @@ function HiringManagerCandidateDecisionDetails() {
                   </span>
 
                   <strong>
-                    {candidate.technicalRating}/5
+                    {technicalRating !== null
+                      ? `${technicalRating}/5`
+                      : "N/A"}
                   </strong>
 
-                  <div className="hm-feedback-stars">
-                    {renderStars(
-                      candidate.technicalRating
-                    )}
-                  </div>
+                  {technicalRating !== null && (
+
+                    <div className="hm-feedback-stars">
+                      {renderStars(
+                        technicalRating
+                      )}
+                    </div>
+
+                  )}
 
                 </div>
 
-
-                {/* COMMUNICATION */}
 
                 <div className="hm-final-rating-card">
 
@@ -567,19 +979,23 @@ function HiringManagerCandidateDecisionDetails() {
                   </span>
 
                   <strong>
-                    {candidate.communicationRating}/5
+                    {communicationRating !== null
+                      ? `${communicationRating}/5`
+                      : "N/A"}
                   </strong>
 
-                  <div className="hm-feedback-stars">
-                    {renderStars(
-                      candidate.communicationRating
-                    )}
-                  </div>
+                  {communicationRating !== null && (
+
+                    <div className="hm-feedback-stars">
+                      {renderStars(
+                        communicationRating
+                      )}
+                    </div>
+
+                  )}
 
                 </div>
 
-
-                {/* PROBLEM SOLVING */}
 
                 <div className="hm-final-rating-card">
 
@@ -590,14 +1006,20 @@ function HiringManagerCandidateDecisionDetails() {
                   </span>
 
                   <strong>
-                    {candidate.problemSolvingRating}/5
+                    {problemSolvingRating !== null
+                      ? `${problemSolvingRating}/5`
+                      : "N/A"}
                   </strong>
 
-                  <div className="hm-feedback-stars">
-                    {renderStars(
-                      candidate.problemSolvingRating
-                    )}
-                  </div>
+                  {problemSolvingRating !== null && (
+
+                    <div className="hm-feedback-stars">
+                      {renderStars(
+                        problemSolvingRating
+                      )}
+                    </div>
+
+                  )}
 
                 </div>
 
@@ -606,36 +1028,51 @@ function HiringManagerCandidateDecisionDetails() {
             </div>
 
 
-            {/* ==================================================
+            {/* =================================================
                 STRENGTHS
-            ================================================== */}
+            ================================================= */}
 
             <div className="hm-final-section">
 
               <h3>
                 <CheckCircle2 size={18} />
+
                 Candidate Strengths
               </h3>
 
-
               <div className="hm-final-list">
 
-                {candidate.strengths.map(
-                  (strength, index) => (
+                {strengths.length > 0 ? (
 
-                    <div
-                      key={`${strength}-${index}`}
-                    >
+                  strengths.map(
+                    (strength, index) => (
 
-                      <CheckCircle2 size={16} />
+                      <div
+                        key={index}
+                      >
 
-                      <span>
-                        {strength}
-                      </span>
+                        <CheckCircle2
+                          size={16}
+                        />
 
-                    </div>
+                        <span>
+                          {strength}
+                        </span>
 
+                      </div>
+
+                    )
                   )
+
+                ) : (
+
+                  <div>
+                    <span>
+                      No strengths data available from
+                      backend.
+                    </span>
+                  </div>
+
                 )}
 
               </div>
@@ -643,36 +1080,51 @@ function HiringManagerCandidateDecisionDetails() {
             </div>
 
 
-            {/* ==================================================
+            {/* =================================================
                 CONCERNS
-            ================================================== */}
+            ================================================= */}
 
             <div className="hm-final-section">
 
               <h3>
                 <AlertCircle size={18} />
+
                 Areas of Concern
               </h3>
 
-
               <div className="hm-final-list">
 
-                {candidate.concerns.map(
-                  (concern, index) => (
+                {concerns.length > 0 ? (
 
-                    <div
-                      key={`${concern}-${index}`}
-                    >
+                  concerns.map(
+                    (concern, index) => (
 
-                      <AlertCircle size={16} />
+                      <div
+                        key={index}
+                      >
 
-                      <span>
-                        {concern}
-                      </span>
+                        <AlertCircle
+                          size={16}
+                        />
 
-                    </div>
+                        <span>
+                          {concern}
+                        </span>
 
+                      </div>
+
+                    )
                   )
+
+                ) : (
+
+                  <div>
+                    <span>
+                      No concerns data available from
+                      backend.
+                    </span>
+                  </div>
+
                 )}
 
               </div>
@@ -680,35 +1132,36 @@ function HiringManagerCandidateDecisionDetails() {
             </div>
 
 
-            {/* ==================================================
+            {/* =================================================
                 INTERVIEWER FEEDBACK
-            ================================================== */}
+            ================================================= */}
 
             <div className="hm-final-section">
 
               <h3>
                 <MessageSquareText size={18} />
+
                 Interviewer Feedback
               </h3>
 
-
               <div className="hm-final-feedback-box">
-                {candidate.feedback}
+
+                {feedback}
+
               </div>
 
             </div>
 
 
-            {/* ==================================================
+            {/* =================================================
                 RECOMMENDATION
-            ================================================== */}
+            ================================================= */}
 
             <div className="hm-final-section">
 
               <h3>
                 Interviewer Recommendation
               </h3>
-
 
               <div className="hm-final-recommendation">
 
@@ -721,7 +1174,7 @@ function HiringManagerCandidateDecisionDetails() {
                   </span>
 
                   <strong>
-                    {candidate.recommendation}
+                    {recommendation}
                   </strong>
 
                 </div>
@@ -731,9 +1184,9 @@ function HiringManagerCandidateDecisionDetails() {
             </div>
 
 
-            {/* ==================================================
+            {/* =================================================
                 FINAL NOTES
-            ================================================== */}
+            ================================================= */}
 
             <div className="hm-final-section">
 
@@ -741,24 +1194,22 @@ function HiringManagerCandidateDecisionDetails() {
                 Hiring Manager Final Notes
               </h3>
 
-
               <p className="hm-final-notes-description">
                 Add your final observations before
                 completing the hiring decision.
               </p>
 
-
               <textarea
                 value={finalNotes}
-                onChange={(event) =>
+                onChange={(e) =>
                   setFinalNotes(
-                    event.target.value
+                    e.target.value
                   )
                 }
                 placeholder="Enter final hiring decision notes..."
                 rows="5"
                 disabled={
-                  decision !== "Pending"
+                  decision !== "PENDING"
                 }
                 className="hm-final-notes"
               />
@@ -766,9 +1217,30 @@ function HiringManagerCandidateDecisionDetails() {
             </div>
 
 
-            {/* ==================================================
+            {/* =================================================
+                ACTION ERROR
+            ================================================= */}
+
+            {actionError && (
+
+              <div
+                style={{
+                  padding: "12px 16px",
+                  marginBottom: "20px",
+                  borderRadius: "8px",
+                  background: "#fee2e2",
+                  color: "#b91c1c",
+                }}
+              >
+                {actionError}
+              </div>
+
+            )}
+
+
+            {/* =================================================
                 FINAL DECISION
-            ================================================== */}
+            ================================================= */}
 
             <div className="hm-final-section">
 
@@ -776,8 +1248,7 @@ function HiringManagerCandidateDecisionDetails() {
                 Final Hiring Decision
               </h3>
 
-
-              {decision === "Pending" ? (
+              {decision === "PENDING" ? (
 
                 <div className="hm-final-decision-actions">
 
@@ -785,9 +1256,22 @@ function HiringManagerCandidateDecisionDetails() {
                     type="button"
                     className="hm-final-approve-button"
                     onClick={handleApprove}
+                    disabled={actionLoading}
                   >
-                    <CheckCircle2 size={17} />
+
+                    {actionLoading ? (
+                      <Loader2
+                        size={17}
+                        className="hm-loading-icon"
+                      />
+                    ) : (
+                      <CheckCircle2
+                        size={17}
+                      />
+                    )}
+
                     Approve Candidate
+
                   </button>
 
 
@@ -795,9 +1279,22 @@ function HiringManagerCandidateDecisionDetails() {
                     type="button"
                     className="hm-final-reject-button"
                     onClick={handleReject}
+                    disabled={actionLoading}
                   >
-                    <XCircle size={17} />
+
+                    {actionLoading ? (
+                      <Loader2
+                        size={17}
+                        className="hm-loading-icon"
+                      />
+                    ) : (
+                      <XCircle
+                        size={17}
+                      />
+                    )}
+
                     Reject Candidate
+
                   </button>
 
                 </div>
@@ -805,15 +1302,27 @@ function HiringManagerCandidateDecisionDetails() {
               ) : (
 
                 <div
-                  className={`hm-final-result ${decision.toLowerCase()}`}
+                  className={`hm-final-result ${String(
+                    decision
+                  ).toLowerCase()}`}
                 >
 
-                  {decision === "Approved" ? (
-                    <CheckCircle2 size={21} />
-                  ) : (
-                    <XCircle size={21} />
-                  )}
+                  {String(decision).toUpperCase() ===
+                  "APPROVED" ||
+                  String(decision).toUpperCase() ===
+                  "SELECTED" ? (
 
+                    <CheckCircle2
+                      size={21}
+                    />
+
+                  ) : (
+
+                    <XCircle
+                      size={21}
+                    />
+
+                  )}
 
                   <div>
 
@@ -834,9 +1343,9 @@ function HiringManagerCandidateDecisionDetails() {
             </div>
 
 
-            {/* ==================================================
-                BACK
-            ================================================== */}
+            {/* =================================================
+                BACK BUTTON
+            ================================================= */}
 
             <div className="hm-interview-details-actions">
 
@@ -849,8 +1358,11 @@ function HiringManagerCandidateDecisionDetails() {
                   )
                 }
               >
+
                 <ArrowLeft size={16} />
+
                 Back to Candidate Decisions
+
               </button>
 
             </div>
