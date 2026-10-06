@@ -592,35 +592,6 @@ function RecruiterDashboard() {
               </div>
             </section>
           </div>
-
-          {/* ================= AI SCREENING ================= */}
-
-          <section className="recruiter-card recruiter-ai-card">
-            <div className="recruiter-ai-icon">
-              <Brain size={25} />
-            </div>
-
-            <div className="recruiter-ai-content">
-              <h2>AI Candidate Screening</h2>
-
-              <p>
-                Review AI-assisted candidate matching
-                and screening results before making
-                recruitment decisions.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              className="recruiter-ai-button"
-              onClick={() =>
-                navigate("/recruiter/ai-screening")
-              }
-            >
-              Open AI Screening
-              <ArrowRight size={16} />
-            </button>
-          </section>
         </section>
       </main>
     </div>
