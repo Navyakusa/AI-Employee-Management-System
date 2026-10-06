@@ -50,9 +50,13 @@ function SignupPage() {
     e.preventDefault();
 
     const userName = formData.userName.trim();
-    const email = formData.email.trim().toLowerCase();
+    const email = formData.email
+      .trim()
+      .toLowerCase();
+
     const password = formData.password;
-    const confirmPassword = formData.confirmPassword;
+    const confirmPassword =
+      formData.confirmPassword;
 
     // ==============================
     // EMPTY FIELD CHECK
@@ -92,6 +96,8 @@ function SignupPage() {
 
       // ==============================
       // CALL SPRING BOOT SIGNUP API
+
+      // PUBLIC SIGNUP = CANDIDATE
       // ==============================
       // Role is NOT sent from frontend.
       // Backend is responsible for assigning
@@ -103,9 +109,17 @@ function SignupPage() {
           userName,
           email,
           password,
+
           department: "Engineering",
+
+          role: "CANDIDATE",
+          department: "candidate",
+
         }
       );
+
+      
+
 
       const apiResponse = response.data;
 
@@ -266,6 +280,7 @@ function SignupPage() {
 
         <p className="login-text">
           Already have an account?{" "}
+ 
 
           <Link
             to="/login"
@@ -275,6 +290,9 @@ function SignupPage() {
                 Boolean(applicationRedirect),
             }}
           >
+
+          
+
             Login
           </Link>
         </p>
@@ -283,4 +301,8 @@ function SignupPage() {
   );
 }
 
+
 export default SignupPage;
+
+
+
