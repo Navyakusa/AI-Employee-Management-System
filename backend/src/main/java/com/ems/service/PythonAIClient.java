@@ -118,10 +118,9 @@ public class PythonAIClient {
             );
         }
     }
-// =========================================================
+    // =========================================================
 // 2. CHATBOT
 // =========================================================
-
     public PythonChatResponseDto chat(
             PythonChatbotRequestDto request) {
 
@@ -133,41 +132,41 @@ public class PythonAIClient {
                 );
             }
 
-            String json =
+            String jsonBody =
                     objectMapper.writeValueAsString(request);
 
-            HttpRequest httpRequest =
-                    HttpRequest.newBuilder()
-                            .uri(URI.create(
-                                    aiBaseUrl + "/chat"
-                            ))
-                            .timeout(Duration.ofSeconds(60))
-                            .header(
-                                    "Content-Type",
-                                    "application/json"
-                            )
-                            .POST(
-                                    HttpRequest.BodyPublishers.ofString(
-                                            json,
-                                            StandardCharsets.UTF_8
-                                    )
-                            )
-                            .build();
+            System.out.println("=================================");
+            System.out.println("CALLING PYTHON AI - CHATBOT");
+            System.out.println(
+                    "URL = "
+                            + aiBaseUrl
+                            + "/chat"
+            );
+            System.out.println("JSON SENT TO PYTHON:");
+            System.out.println(jsonBody);
+            System.out.println("=================================");
 
             HttpResponse<String> response =
-                    httpClient.send(
-                            httpRequest,
-                            HttpResponse.BodyHandlers.ofString()
+                    sendPostRequest(
+                            aiBaseUrl + "/chat",
+                            jsonBody
                     );
 
-            if (response.statusCode() != 200) {
-                throw new RuntimeException(
-                        "Python chatbot API returned status: "
-                                + response.statusCode()
-                                + " body: "
-                                + response.body()
-                );
-            }
+            System.out.println("=================================");
+            System.out.println(
+                    "PYTHON CHATBOT STATUS = "
+                            + response.statusCode()
+            );
+            System.out.println(
+                    "PYTHON CHATBOT RESPONSE = "
+                            + response.body()
+            );
+            System.out.println("=================================");
+
+            validateResponse(
+                    response,
+                    "Chatbot"
+            );
 
             return objectMapper.readValue(
                     response.body(),
@@ -175,6 +174,8 @@ public class PythonAIClient {
             );
 
         } catch (Exception e) {
+
+            e.printStackTrace();
 
             throw new RuntimeException(
                     "Python chatbot call failed: "
