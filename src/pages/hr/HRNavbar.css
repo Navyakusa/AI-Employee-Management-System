@@ -1,0 +1,398 @@
+/* ============================================================
+   HR NAVBAR
+============================================================ */
+
+.hr-navbar {
+  position: fixed;
+
+  top: 0;
+  left: 200px;
+  right: 0;
+
+  height: 72px;
+
+  background: #ffffff;
+
+  border-bottom: 1px solid #e5e7eb;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  padding: 0 28px;
+
+  box-sizing: border-box;
+
+  z-index: 10000;
+}
+
+
+/* ============================================================
+   SEARCH
+============================================================ */
+
+.hr-navbar-search {
+  width: 360px;
+
+  height: 42px;
+
+  display: flex;
+
+  align-items: center;
+
+  background: #f8fafc;
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 8px;
+
+  padding: 0 14px;
+
+  box-sizing: border-box;
+}
+
+
+.hr-navbar-search-icon {
+  font-size: 16px;
+
+  margin-right: 10px;
+
+  opacity: 0.65;
+}
+
+
+.hr-navbar-search input {
+  width: 100%;
+
+  border: none;
+
+  outline: none;
+
+  background: transparent;
+
+  font-size: 13px;
+
+  color: #334155;
+}
+
+
+.hr-navbar-search input::placeholder {
+  color: #94a3b8;
+}
+
+
+/* ============================================================
+   RIGHT SIDE
+============================================================ */
+
+.hr-navbar-right {
+  display: flex;
+
+  align-items: center;
+
+  gap: 22px;
+}
+
+
+/* ============================================================
+   NOTIFICATION
+============================================================ */
+
+.hr-navbar-notification {
+  position: relative;
+
+  width: 40px;
+
+  height: 40px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border: none;
+
+  background: transparent;
+
+  border-radius: 8px;
+
+  cursor: pointer;
+
+  padding: 0;
+}
+
+
+.hr-navbar-notification:hover {
+  background: #f5f7fb;
+}
+
+
+.hr-navbar-bell {
+  font-size: 20px;
+
+  line-height: 1;
+}
+
+
+/* ============================================================
+   NOTIFICATION BADGE
+============================================================ */
+
+.hr-navbar-notification-badge {
+  position: absolute;
+
+  top: 1px;
+
+  right: 0;
+
+  min-width: 18px;
+
+  height: 18px;
+
+  padding: 0 5px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 999px;
+
+  background: #ef4444;
+
+  color: #ffffff;
+
+  font-size: 10px;
+
+  font-weight: 700;
+
+  line-height: 1;
+
+  border: 2px solid #ffffff;
+
+  box-sizing: border-box;
+
+  pointer-events: none;
+}
+
+
+/* ============================================================
+   PROFILE
+============================================================ */
+
+.hr-navbar-profile-wrapper {
+  position: relative;
+}
+
+
+.hr-navbar-profile {
+  min-width: 164px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 6px 10px;
+
+  background: #ffffff;
+
+  border: 1px solid #111827;
+
+  border-radius: 9px;
+
+  cursor: pointer;
+
+  text-align: left;
+}
+
+
+.hr-navbar-profile:hover {
+  background: #f8fafc;
+}
+
+
+/* ============================================================
+   AVATAR
+============================================================ */
+
+.hr-navbar-avatar {
+  width: 36px;
+
+  height: 36px;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background: #eee9ff;
+
+  color: #4f46e5;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  font-size: 14px;
+
+  font-weight: 700;
+}
+
+
+/* ============================================================
+   PROFILE TEXT
+============================================================ */
+
+.hr-navbar-profile-info {
+  flex: 1;
+
+  display: flex;
+
+  flex-direction: column;
+}
+
+
+.hr-navbar-profile-info strong {
+  font-size: 13px;
+
+  color: #111827;
+
+  line-height: 18px;
+}
+
+
+.hr-navbar-profile-info span {
+  font-size: 11px;
+
+  color: #64748b;
+
+  margin-top: 1px;
+
+  line-height: 15px;
+}
+
+
+/* ============================================================
+   PROFILE ARROW
+============================================================ */
+
+.hr-navbar-profile-arrow {
+  font-size: 16px;
+
+  color: #64748b;
+}
+
+
+/* ============================================================
+   PROFILE MENU
+============================================================ */
+
+.hr-navbar-profile-menu {
+  position: absolute;
+
+  top: calc(100% + 8px);
+
+  right: 0;
+
+  width: 190px;
+
+  background: #ffffff;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 10px;
+
+  padding: 8px;
+
+  box-shadow:
+    0 8px 25px rgba(0, 0, 0, 0.12);
+
+  z-index: 1100;
+}
+
+
+.hr-navbar-profile-menu button {
+  width: 100%;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 11px 12px;
+
+  background: transparent;
+
+  border: none;
+
+  border-radius: 7px;
+
+  cursor: pointer;
+
+  font-size: 14px;
+
+  color: #374151;
+
+  text-align: left;
+}
+
+
+.hr-navbar-profile-menu button:hover {
+  background: #f5f5ff;
+}
+
+
+.hr-navbar-profile-menu .hr-navbar-logout {
+  color: #ef4444;
+}
+
+
+.hr-navbar-profile-menu .hr-navbar-logout:hover {
+  background: #fff1f2;
+}
+
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
+
+@media (max-width: 900px) {
+
+  .hr-navbar {
+    left: 200px;
+
+    padding: 0 16px;
+  }
+
+  .hr-navbar-search {
+    width: 280px;
+  }
+
+  .hr-navbar-right {
+    gap: 12px;
+  }
+}
+
+
+@media (max-width: 700px) {
+
+  .hr-navbar-search {
+    width: 220px;
+  }
+
+  .hr-navbar-profile-info {
+    display: none;
+  }
+
+  .hr-navbar-profile {
+    min-width: auto;
+  }
+}

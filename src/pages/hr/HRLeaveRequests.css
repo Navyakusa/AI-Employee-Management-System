@@ -1,0 +1,330 @@
+/* ============================================================
+   HR LEAVE REQUESTS PAGE
+============================================================ */
+
+.hr-leave-page {
+  padding: 28px;
+  background: #f5f7fb;
+  min-height: calc(100vh - 70px);
+}
+
+
+/* ============================================================
+   HEADER
+============================================================ */
+
+.hr-leave-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.hr-leave-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.hr-leave-header p {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+
+/* ============================================================
+   SUMMARY
+============================================================ */
+
+.hr-leave-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.hr-leave-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+}
+
+.hr-leave-card span {
+  display: block;
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.hr-leave-card strong {
+  font-size: 25px;
+  color: #111827;
+}
+
+.hr-leave-card.pending strong {
+  color: #d97706;
+}
+
+.hr-leave-card.approved strong {
+  color: #059669;
+}
+
+.hr-leave-card.rejected strong {
+  color: #dc2626;
+}
+
+
+/* ============================================================
+   CONTENT
+============================================================ */
+
+.hr-leave-content {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+
+/* ============================================================
+   TOOLBAR
+============================================================ */
+
+.hr-leave-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 22px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.hr-leave-toolbar h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #111827;
+}
+
+.hr-leave-filters {
+  display: flex;
+  gap: 8px;
+}
+
+.hr-leave-filters button {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #4b5563;
+  padding: 8px 14px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.hr-leave-filters button:hover {
+  background: #f9fafb;
+}
+
+.hr-leave-filters button.active {
+  background: #4f46e5;
+  color: #ffffff;
+  border-color: #4f46e5;
+}
+
+
+/* ============================================================
+   TABLE
+============================================================ */
+
+.hr-leave-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.hr-leave-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1050px;
+}
+
+.hr-leave-table th {
+  background: #f9fafb;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: left;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.hr-leave-table td {
+  padding: 15px 16px;
+  border-bottom: 1px solid #eef0f4;
+  font-size: 13px;
+  color: #374151;
+  vertical-align: middle;
+}
+
+.hr-leave-table tbody tr:hover {
+  background: #fafbff;
+}
+
+
+/* ============================================================
+   EMPLOYEE
+============================================================ */
+
+.hr-employee-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hr-employee-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #eef2ff;
+  color: #4f46e5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.hr-employee-info strong {
+  display: block;
+  color: #111827;
+  font-size: 13px;
+}
+
+.hr-employee-info span {
+  display: block;
+  margin-top: 3px;
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+
+/* ============================================================
+   REASON
+============================================================ */
+
+.hr-leave-reason {
+  max-width: 180px;
+}
+
+
+/* ============================================================
+   STATUS
+============================================================ */
+
+.hr-leave-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.hr-leave-status.pending {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.hr-leave-status.approved {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.hr-leave-status.rejected {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+
+/* ============================================================
+   ACTIONS
+============================================================ */
+
+.hr-leave-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.hr-leave-actions button {
+  border: none;
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.approve-btn {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.approve-btn:hover {
+  background: #d1fae5;
+}
+
+.reject-btn {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.reject-btn:hover {
+  background: #fee2e2;
+}
+
+.no-action {
+  color: #9ca3af;
+}
+
+
+/* ============================================================
+   EMPTY
+============================================================ */
+
+.hr-leave-empty {
+  text-align: center;
+  padding: 50px !important;
+  color: #9ca3af !important;
+}
+
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
+
+@media (max-width: 1000px) {
+  .hr-leave-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .hr-leave-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 15px;
+  }
+}
+
+@media (max-width: 600px) {
+  .hr-leave-page {
+    padding: 16px;
+  }
+
+  .hr-leave-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .hr-leave-filters {
+    flex-wrap: wrap;
+  }
+}
