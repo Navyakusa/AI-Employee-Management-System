@@ -6,6 +6,7 @@ import {
   MessageCircle,
   Sparkles,
 } from "lucide-react";
+import apiClient from "@/api/apiClient";
 
 function Chatbot() {
   const [messages, setMessages] = useState([
@@ -18,6 +19,7 @@ function Chatbot() {
   ]);
 
   const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const quickQuestions = [
     "Show me available jobs",
@@ -26,80 +28,78 @@ function Chatbot() {
     "How does AI screening work?",
   ];
 
-  const getBotReply = (message) => {
-    const text = message.toLowerCase();
+  const sendMessage = async (messageText = input) => {
+  const trimmedMessage = messageText.trim();
 
-    if (
-      text.includes("job") ||
-      text.includes("opening")
-    ) {
-      return "You can view all currently available positions from the Jobs page. Select a job to view its details and apply.";
-    }
+  if (!trimmedMessage || loading) {
+    return;
+  }
 
-    if (
-      text.includes("apply") ||
-      text.includes("application")
-    ) {
-      return "To apply, open a job from the Jobs page, click Apply Now, complete the application form and upload your resume.";
-    }
-
-    if (
-      text.includes("resume") ||
-      text.includes("screening") ||
-      text.includes("ai")
-    ) {
-      return "The platform is designed to use AI-assisted resume screening to analyze skills, education and experience against job requirements.";
-    }
-
-    if (
-      text.includes("interview")
-    ) {
-      return "Shortlisted candidates may move through HR, technical, managerial or final interview stages depending on the role.";
-    }
-
-    if (
-      text.includes("contact") ||
-      text.includes("support")
-    ) {
-      return "You can reach the recruitment team using the Contact page available in the navigation bar.";
-    }
-
-    return "I can help with jobs, applications, resume screening, interviews and recruitment-related questions. Try asking me about one of those topics.";
+  const userMessage = {
+    id: Date.now(),
+    sender: "user",
+    text: trimmedMessage,
   };
 
-  const sendMessage = (messageText = input) => {
-    const trimmedMessage = messageText.trim();
+  const conversationHistory = messages.map(
+    (message) => message.text
+  );
 
-    if (!trimmedMessage) {
-      return;
+  setMessages((prev) => [
+    ...prev,
+    userMessage,
+  ]);
+
+  setInput("");
+  setLoading(true);
+
+  try {
+    const response = await apiClient.post(
+      "/chatbot/chat",
+      {
+        message: trimmedMessage,
+        conversation_history: conversationHistory,
+        job_context: "",
+      }
+    );
+
+    console.log("Chatbot API response:", response);
+    console.log("Chatbot response data:", response.data);
+
+    const botResponse = response.data?.response;
+
+    if (!botResponse) {
+      throw new Error("Chatbot response field is missing");
     }
 
-    const userMessage = {
-      id: Date.now(),
-      sender: "user",
-      text: trimmedMessage,
+    const botMessage = {
+      id: Date.now() + 1,
+      sender: "bot",
+      text: botResponse,
     };
 
     setMessages((prev) => [
       ...prev,
-      userMessage,
+      botMessage,
     ]);
+  } catch (error) {
+    console.error("Chatbot error:", error);
 
-    setInput("");
+    const botMessage = {
+      id: Date.now() + 1,
+      sender: "bot",
+      text:
+        "Sorry, I couldn't generate a response. Please try again.",
+    };
 
-    setTimeout(() => {
-      const botMessage = {
-        id: Date.now() + 1,
-        sender: "bot",
-        text: getBotReply(trimmedMessage),
-      };
-
-      setMessages((prev) => [
-        ...prev,
-        botMessage,
-      ]);
-    }, 500);
-  };
+    setMessages((prev) => [
+      ...prev,
+      botMessage,
+    ]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -132,7 +132,6 @@ function Chatbot() {
         </div>
       </section>
 
-
       <section className="chatbot-section">
         <div className="container">
 
@@ -155,7 +154,6 @@ function Chatbot() {
 
               </div>
 
-
               <div className="quick-questions">
 
                 <h4>
@@ -169,6 +167,7 @@ function Chatbot() {
                     onClick={() =>
                       sendMessage(question)
                     }
+                    disabled={loading}
                   >
                     <MessageCircle size={16} />
 
@@ -179,7 +178,6 @@ function Chatbot() {
               </div>
 
             </aside>
-
 
             <div className="chatbot-window">
 
@@ -195,12 +193,11 @@ function Chatbot() {
                   </h3>
 
                   <span>
-                    Online
+                    {loading ? "Thinking..." : "Online"}
                   </span>
                 </div>
 
               </div>
-
 
               <div className="chatbot-messages">
 
@@ -224,7 +221,6 @@ function Chatbot() {
 
                     </div>
 
-
                     <div className="chat-message-content">
 
                       <span>
@@ -242,8 +238,22 @@ function Chatbot() {
                   </div>
                 ))}
 
-              </div>
+                {loading && (
+                  <div className="chat-message bot-message">
 
+                    <div className="chat-message-avatar">
+                      <Bot size={18} />
+                    </div>
+
+                    <div className="chat-message-content">
+                      <span>TalentAI</span>
+                      <p>Thinking...</p>
+                    </div>
+
+                  </div>
+                )}
+
+              </div>
 
               <form
                 className="chatbot-input-area"
@@ -257,11 +267,13 @@ function Chatbot() {
                   onChange={(e) =>
                     setInput(e.target.value)
                   }
+                  disabled={loading}
                 />
 
                 <button
                   type="submit"
                   aria-label="Send message"
+                  disabled={loading}
                 >
                   <Send size={19} />
                 </button>

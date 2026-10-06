@@ -121,15 +121,52 @@ function RecruiterScreening() {
       }
 
       const screeningRecords = Array.isArray(result.data)
-        ? result.data
-        : [];
+  ? result.data
+  : [];
 
-      setScreenings(screeningRecords);
+// ---------------------------------------------------------
+// Show only the latest screening for each Candidate + Job.
+//
+// Backend still keeps all historical screening records.
+// We are only removing duplicates from the React table.
+//
+// Example:
+// Candidate 31 + Job 1
+// Screening 69  -> hidden
+// Screening 78  -> hidden
+// Screening 81  -> hidden
+// Screening 82  -> displayed
+// ---------------------------------------------------------
+const latestScreeningMap = new Map();
 
-      await Promise.all([
-        fetchCandidates(),
-        fetchJobs(screeningRecords),
-      ]);
+screeningRecords.forEach((screening) => {
+  const key = `${screening.candidateId}-${screening.jobId}`;
+
+  const existing = latestScreeningMap.get(key);
+
+  if (
+    !existing ||
+    Number(screening.id || 0) > Number(existing.id || 0)
+  ) {
+    latestScreeningMap.set(key, screening);
+  }
+});
+
+const latestScreenings = Array.from(
+  latestScreeningMap.values()
+);
+
+// Latest screening first
+latestScreenings.sort(
+  (a, b) => Number(b.id || 0) - Number(a.id || 0)
+);
+
+setScreenings(latestScreenings);
+
+await Promise.all([
+  fetchCandidates(),
+  fetchJobs(latestScreenings),
+]);
     } catch (err) {
       console.error("AI screening fetch error:", err);
 
@@ -152,57 +189,126 @@ function RecruiterScreening() {
   };
 
   // GET /api/resumes/management
-  const fetchAvailableApplications = async () => {
-    try {
-      setApplicationsLoading(true);
-      setApplicationsError("");
+const fetchAvailableApplications = async () => {
+  try {
+    setApplicationsLoading(true);
+    setApplicationsError("");
 
-      const response = await apiClient.get("/resumes/management");
-      const result = response.data;
+    const response = await apiClient.get("/resumes/management");
+    const result = response.data;
 
-      if (!result?.success || !Array.isArray(result?.data)) {
-        throw new Error(
-          result?.message || "Unable to load candidate applications."
-        );
-      }
-
-      const applications = result.data
-        .filter(
-          (resume) =>
-            isValidId(resume.candidateId) &&
-            isValidId(resume.jobId)
-        )
-        .map((resume) => ({
-          applicationId: resume.applicationId ?? null,
-          candidateId: Number(resume.candidateId),
-          candidateName: resume.candidateName || "Unknown Candidate",
-          candidateEmail: resume.candidateEmail || "",
-          jobId: Number(resume.jobId),
-          jobTitle: resume.position || `Job #${resume.jobId}`,
-          resumeId: resume.resumeId ?? null,
-        }));
-
-      setAvailableApplications(applications);
-
-      if (result.data.length > 0 && applications.length === 0) {
-        setApplicationsError(
-          "The Resume Management API is not returning valid candidateId and jobId values. Ask the backend team to include both IDs for each application."
-        );
-      }
-    } catch (err) {
-      console.error("Application selection fetch error:", err);
-
-      setApplicationsError(
-        err.response?.data?.message ||
-          err.message ||
-          "Unable to load candidate applications."
+    if (!result?.success || !Array.isArray(result?.data)) {
+      throw new Error(
+        result?.message || "Unable to load candidate applications."
       );
-
-      setAvailableApplications([]);
-    } finally {
-      setApplicationsLoading(false);
     }
-  };
+
+    // ---------------------------------------------------------
+    // STEP 1:
+    // Keep only resume records that contain a valid
+    // candidateId and jobId.
+    // ---------------------------------------------------------
+    const validRecords = result.data.filter(
+      (resume) =>
+        isValidId(resume.candidateId) &&
+        isValidId(resume.jobId)
+    );
+
+    // ---------------------------------------------------------
+    // STEP 2:
+    // Resume Management can return multiple resumes for the
+    // same application.
+    //
+    // Example:
+    // Candidate 31
+    // Application 21
+    // Job 1
+    //
+    // may have Resume 38, 54, 55, etc.
+    //
+    // We only want ONE option in the AI Screening dropdown.
+    //
+    // If applicationId exists:
+    //     deduplicate using applicationId.
+    //
+    // Otherwise:
+    //     deduplicate using candidateId + jobId.
+    //
+    // If duplicates exist, keep the record with the highest
+    // resumeId (latest resume record).
+    // ---------------------------------------------------------
+    const uniqueApplicationsMap = new Map();
+
+    validRecords.forEach((resume) => {
+      const key = isValidId(resume.applicationId)
+        ? `application-${resume.applicationId}`
+        : `candidate-${resume.candidateId}-job-${resume.jobId}`;
+
+      const existingResume = uniqueApplicationsMap.get(key);
+
+      if (!existingResume) {
+        uniqueApplicationsMap.set(key, resume);
+        return;
+      }
+
+      const existingResumeId = Number(existingResume.resumeId || 0);
+      const currentResumeId = Number(resume.resumeId || 0);
+
+      if (currentResumeId > existingResumeId) {
+        uniqueApplicationsMap.set(key, resume);
+      }
+    });
+
+    // ---------------------------------------------------------
+    // STEP 3:
+    // Convert the unique resume/application records into the
+    // structure already used by the existing React dropdown.
+    // ---------------------------------------------------------
+    const applications = Array.from(
+      uniqueApplicationsMap.values()
+    ).map((resume) => ({
+      applicationId: resume.applicationId ?? null,
+      candidateId: Number(resume.candidateId),
+      candidateName:
+        resume.candidateName || "Unknown Candidate",
+      candidateEmail:
+        resume.candidateEmail || "",
+      jobId: Number(resume.jobId),
+      jobTitle:
+        resume.position || `Job #${resume.jobId}`,
+      resumeId: resume.resumeId ?? null,
+    }));
+
+    // Optional sorting only changes display order.
+    // It does not change API data or screening behavior.
+    applications.sort((a, b) => {
+      const nameA = String(a.candidateName || "").toLowerCase();
+      const nameB = String(b.candidateName || "").toLowerCase();
+
+      return nameA.localeCompare(nameB);
+    });
+
+    setAvailableApplications(applications);
+
+    if (result.data.length > 0 && applications.length === 0) {
+      setApplicationsError(
+        "The Resume Management API is not returning valid candidateId and jobId values. Ask the backend team to include both IDs for each application."
+      );
+    }
+  } catch (err) {
+    console.error("Application selection fetch error:", err);
+
+    setApplicationsError(
+      err.response?.data?.message ||
+        err.message ||
+        "Unable to load candidate applications."
+    );
+
+    setAvailableApplications([]);
+  } finally {
+    setApplicationsLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchScreenings();

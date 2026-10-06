@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import "./Chatbot.css";
+import apiClient from "../services/apiClient";
 
-function FloatingChatbot() {
+function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([
@@ -12,6 +15,41 @@ function FloatingChatbot() {
   ]);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    const resetChat = () => {
+      setMessages([
+        {
+          sender: "bot",
+          text: "Hi! 👋 I'm TalentAI. How can I help you today?",
+        },
+      ]);
+      setMessage("");
+      setLoading(false);
+    };
+
+    const checkUser = () => {
+      const currentUser = localStorage.getItem("loggedInUser");
+      const currentToken = localStorage.getItem("token");
+
+      const currentSession = `${currentToken || ""}_${currentUser || ""}`;
+      const previousSession = sessionStorage.getItem("chatbotSession");
+
+      if (previousSession && previousSession !== currentSession) {
+        resetChat();
+      }
+
+      sessionStorage.setItem("chatbotSession", currentSession);
+    };
+
+    checkUser();
+
+    const interval = setInterval(checkUser, 500);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
+
   const sendMessage = async () => {
     const trimmedMessage = message.trim();
 
@@ -19,7 +57,6 @@ function FloatingChatbot() {
       return;
     }
 
-    // Add user message
     setMessages((previousMessages) => [
       ...previousMessages,
       {
@@ -32,32 +69,23 @@ function FloatingChatbot() {
     setLoading(true);
 
     try {
-      const response = await fetch(
-        "http://localhost:8080/api/chatbot/chat",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            message: trimmedMessage,
-          }),
-        }
-      );
+      const response = await apiClient.post("/chatbot/chat", {
+        message: trimmedMessage,
+        conversation_history: [],
+        job_context: "",
+      });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error: ${response.status}`);
+      const botResponse = response.data?.response;
+
+      if (!botResponse) {
+        throw new Error("Chatbot response is missing");
       }
-
-      const data = await response.json();
 
       setMessages((previousMessages) => [
         ...previousMessages,
         {
           sender: "bot",
-          text:
-            data.reply ||
-            "Sorry, I could not generate a response.",
+          text: botResponse,
         },
       ]);
     } catch (error) {
@@ -67,8 +95,7 @@ function FloatingChatbot() {
         ...previousMessages,
         {
           sender: "bot",
-          text:
-            "Sorry, I'm having trouble connecting to the server right now.",
+          text: "Sorry, I'm having trouble connecting to the server right now.",
         },
       ]);
     } finally {
@@ -85,17 +112,11 @@ function FloatingChatbot() {
 
   return (
     <>
-      {/* ================= CHAT WINDOW ================= */}
       {isOpen && (
         <div className="chatbot-window">
-
-          {/* ================= HEADER ================= */}
           <div className="chatbot-header">
-
             <div className="chatbot-header-info">
-              <div className="chatbot-avatar">
-                🤖
-              </div>
+              <div className="chatbot-avatar">🤖</div>
 
               <div>
                 <h3>TalentAI</h3>
@@ -103,7 +124,6 @@ function FloatingChatbot() {
               </div>
             </div>
 
-            {/* CLOSE BUTTON */}
             <button
               type="button"
               className="chatbot-close"
@@ -113,12 +133,9 @@ function FloatingChatbot() {
             >
               ×
             </button>
-
           </div>
 
-          {/* ================= MESSAGES ================= */}
           <div className="chatbot-messages">
-
             {messages.map((chatMessage, index) => (
               <div
                 key={index}
@@ -128,11 +145,12 @@ function FloatingChatbot() {
                     : "bot-message"
                 }`}
               >
-                {chatMessage.text}
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+  {chatMessage.text}
+</ReactMarkdown>
               </div>
             ))}
 
-            {/* LOADING / TYPING */}
             {loading && (
               <div className="chat-message bot-message typing">
                 <span></span>
@@ -140,12 +158,9 @@ function FloatingChatbot() {
                 <span></span>
               </div>
             )}
-
           </div>
 
-          {/* ================= INPUT ================= */}
           <div className="chatbot-input-area">
-
             <textarea
               value={message}
               onChange={(event) => setMessage(event.target.value)}
@@ -164,13 +179,10 @@ function FloatingChatbot() {
             >
               ➤
             </button>
-
           </div>
-
         </div>
       )}
 
-      {/* ================= FLOATING BUTTON ================= */}
       {!isOpen && (
         <button
           type="button"
@@ -187,4 +199,4 @@ function FloatingChatbot() {
   );
 }
 
-export default FloatingChatbot;
+export default Chatbot;
