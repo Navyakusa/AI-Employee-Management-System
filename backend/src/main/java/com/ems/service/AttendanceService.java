@@ -289,8 +289,8 @@ public class AttendanceService {
 
 
     // =========================
-    // UPDATE ATTENDANCE
-    // =========================
+// UPDATE ATTENDANCE
+// =========================
 
     public ResponseEntity<ApiResponse<Attendance>> updateAttendance(
             Long id,
@@ -298,6 +298,7 @@ public class AttendanceService {
 
         try {
 
+            // 1. Find existing attendance record
             Attendance attendance =
                     attendanceRepository
                             .findById(id)
@@ -307,33 +308,48 @@ public class AttendanceService {
                                     )
                             );
 
-            attendance.setEmployeeId(
-                    updatedAttendance.getEmployeeId()
-            );
+            // 2. Update only fields that are provided
+            if (updatedAttendance.getEmployeeId() != null) {
+                attendance.setEmployeeId(
+                        updatedAttendance.getEmployeeId()
+                );
+            }
 
-            attendance.setAttendanceDate(
-                    updatedAttendance.getAttendanceDate()
-            );
+            if (updatedAttendance.getAttendanceDate() != null) {
+                attendance.setAttendanceDate(
+                        updatedAttendance.getAttendanceDate()
+                );
+            }
 
-            attendance.setCheckInTime(
-                    updatedAttendance.getCheckInTime()
-            );
+            if (updatedAttendance.getCheckInTime() != null) {
+                attendance.setCheckInTime(
+                        updatedAttendance.getCheckInTime()
+                );
+            }
 
-            attendance.setCheckOutTime(
-                    updatedAttendance.getCheckOutTime()
-            );
+            if (updatedAttendance.getCheckOutTime() != null) {
+                attendance.setCheckOutTime(
+                        updatedAttendance.getCheckOutTime()
+                );
+            }
 
-            attendance.setStatus(
-                    updatedAttendance.getStatus()
-            );
+            if (updatedAttendance.getStatus() != null) {
+                attendance.setStatus(
+                        updatedAttendance.getStatus()
+                );
+            }
 
-            attendance.setRemarks(
-                    updatedAttendance.getRemarks()
-            );
+            if (updatedAttendance.getRemarks() != null) {
+                attendance.setRemarks(
+                        updatedAttendance.getRemarks()
+                );
+            }
 
+            // 3. Save existing record
             Attendance savedAttendance =
                     attendanceRepository.save(attendance);
 
+            // 4. Return updated record
             ApiResponse<Attendance> response =
                     new ApiResponse<>(
                             true,
@@ -361,8 +377,6 @@ public class AttendanceService {
             );
         }
     }
-
-
     // =========================
     // DELETE ATTENDANCE
     // =========================

@@ -2,7 +2,9 @@ package com.ems.service;
 
 import com.ems.common.ApiResponse;
 import com.ems.dto.AdminUserDto;
+import com.ems.entity.Employee;
 import com.ems.entity.User;
+import com.ems.repository.EmployeeRepository;
 import com.ems.repository.UserRepository;
 
 import org.springframework.http.HttpStatus;
@@ -11,24 +13,30 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
 public class AdminUserService {
 
     private final UserRepository userRepository;
+    private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
 
     public AdminUserService(
             UserRepository userRepository,
+            EmployeeRepository employeeRepository,
             PasswordEncoder passwordEncoder,
             AuditLogService auditLogService,
             NotificationService notificationService
     ) {
         this.userRepository = userRepository;
+        this.employeeRepository = employeeRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditLogService = auditLogService;
         this.notificationService = notificationService;
@@ -180,6 +188,7 @@ public class AdminUserService {
     // CREATE USER
     // ============================================================
 
+    @Transactional(rollbackFor = Exception.class)
     public ResponseEntity<ApiResponse<AdminUserDto>> createUser(
             AdminUserDto dto
     ) {
@@ -234,9 +243,14 @@ public class AdminUserService {
                         );
             }
 
+            String email =
+                    dto.getEmail()
+                            .trim()
+                            .toLowerCase();
+
             if (
                     userRepository
-                            .findByEmailIgnoreCase(dto.getEmail())
+                            .findByEmailIgnoreCase(email)
                             .isPresent()
             ) {
 
@@ -257,11 +271,7 @@ public class AdminUserService {
                     dto.getUserName().trim()
             );
 
-            user.setEmail(
-                    dto.getEmail()
-                            .trim()
-                            .toLowerCase()
-            );
+            user.setEmail(email);
 
             user.setPassword(
                     passwordEncoder.encode(
@@ -283,21 +293,98 @@ public class AdminUserService {
                             : true
             );
 
+            // ====================================================
+            // SAVE USER
+            // ====================================================
+
             User savedUser =
                     userRepository.save(user);
 
-            // Audit log
+
+            // ====================================================
+            // CREATE EMPLOYEE AUTOMATICALLY
+            // ====================================================
+
+            if (
+                    savedUser.getRole() != null &&
+                            savedUser.getRole()
+                                    .equalsIgnoreCase("EMPLOYEE")
+            ) {
+
+                String employeeEmail =
+                        savedUser.getEmail();
+
+                // Prevent duplicate Employee
+                if (
+                        employeeRepository
+                                .findByEmailIgnoreCase(employeeEmail)
+                                .isPresent()
+                ) {
+
+                    throw new RuntimeException(
+                            "Employee record already exists for email: "
+                                    + employeeEmail
+                    );
+                }
+
+                Employee employee =
+                        new Employee();
+
+                // Data available from Create User
+                employee.setName(
+                        savedUser.getUserName()
+                );
+
+                employee.setEmail(
+                        employeeEmail
+                );
+
+                employee.setDepartment(
+                        savedUser.getDepartment()
+                );
+
+                // Generate employee ID
+                employee.setEmployeeId(
+                        "EMP-" +
+                                String.format(
+                                        "%04d",
+                                        savedUser.getUserId()
+                                )
+                );
+
+                // Default employee values
+                employee.setStatus("ACTIVE");
+
+                employee.setJoiningDate(
+                        LocalDate.now()
+                );
+
+                // Not available from Create User request
+                employee.setPhone(null);
+                employee.setDesignation(null);
+                employee.setManager(null);
+                employee.setLocation(null);
+                employee.setEmploymentType(null);
+
+                employeeRepository.save(employee);
+            }
+
+
+            // ====================================================
+            // AUDIT LOG
+            // ====================================================
+
             createAuditLogSafely(
                     "CREATE",
                     "Created user: " +
                             savedUser.getEmail()
             );
 
-            /*
-             * IMPORTANT:
-             * Notification goes to the newly created user,
-             * not to the logged-in admin.
-             */
+
+            // ====================================================
+            // NOTIFICATION
+            // ====================================================
+
             createNotificationSafely(
                     savedUser.getUserId(),
                     "User " +
@@ -307,6 +394,7 @@ public class AdminUserService {
                             ") was created",
                     "USER_CREATED"
             );
+
 
             return ResponseEntity
                     .status(HttpStatus.CREATED)
@@ -321,6 +409,14 @@ public class AdminUserService {
         } catch (Exception e) {
 
             e.printStackTrace();
+
+            /*
+             * Important:
+             * If Employee creation fails, rollback User creation too.
+             */
+            TransactionAspectSupport
+                    .currentTransactionStatus()
+                    .setRollbackOnly();
 
             return ResponseEntity
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -462,9 +558,6 @@ public class AdminUserService {
                             updatedUser.getEmail()
             );
 
-            /*
-             * Notification goes to the updated user.
-             */
             createNotificationSafely(
                     updatedUser.getUserId(),
                     "User " +
@@ -556,16 +649,6 @@ public class AdminUserService {
                             updatedUser.getEmail()
             );
 
-            /*
-             * IMPORTANT FIX:
-             *
-             * Previously createNotificationSafely() used
-             * getCurrentUserId(), which returned the logged-in
-             * Super Admin ID.
-             *
-             * Now we explicitly pass the TARGET user's ID.
-             */
-
             if (active) {
 
                 createNotificationSafely(
@@ -652,16 +735,6 @@ public class AdminUserService {
             String deletedUserName =
                     user.getUserName();
 
-            /*
-             * Do not create USER_DELETED notification for the
-             * deleted user's ID after deletion.
-             *
-             * Notification.userId currently references an existing
-             * application user concept and EmailNotificationService
-             * also needs the User row to obtain the email address.
-             *
-             * Keep deletion as audit-only for now.
-             */
             userRepository.delete(user);
 
             createAuditLogSafely(

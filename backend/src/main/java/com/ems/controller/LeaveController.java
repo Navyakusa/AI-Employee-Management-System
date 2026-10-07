@@ -100,8 +100,7 @@ public class LeaveController {
     // =========================================================
 
     @GetMapping("/my/summary")
-    public ResponseEntity<ApiResponse<LeaveSummaryDto>>
-    getLeaveSummary(
+    public ResponseEntity<ApiResponse<LeaveSummaryDto>> getLeaveSummary(
             Authentication authentication) {
 
         return leaveService.getLeaveSummary(
