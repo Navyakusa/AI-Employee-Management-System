@@ -20,16 +20,10 @@ public class LeaveBalance {
     private Long employeeId;
 
     private Integer casualLeave;
-
     private Integer sickLeave;
-
     private Integer annualLeave;
-
     private Integer unpaidLeave;
-
     private Integer maternityLeave;
-
     private Integer paternityLeave;
-
     private Integer otherLeave;
 }

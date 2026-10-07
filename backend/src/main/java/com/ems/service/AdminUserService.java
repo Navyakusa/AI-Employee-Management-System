@@ -3,8 +3,10 @@ package com.ems.service;
 import com.ems.common.ApiResponse;
 import com.ems.dto.AdminUserDto;
 import com.ems.entity.Employee;
+import com.ems.entity.LeaveBalance;
 import com.ems.entity.User;
 import com.ems.repository.EmployeeRepository;
+import com.ems.repository.LeaveBalanceRepository;
 import com.ems.repository.UserRepository;
 
 import org.springframework.http.HttpStatus;
@@ -24,6 +26,7 @@ public class AdminUserService {
 
     private final UserRepository userRepository;
     private final EmployeeRepository employeeRepository;
+    private final LeaveBalanceRepository leaveBalanceRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
@@ -31,12 +34,14 @@ public class AdminUserService {
     public AdminUserService(
             UserRepository userRepository,
             EmployeeRepository employeeRepository,
+            LeaveBalanceRepository leaveBalanceRepository,
             PasswordEncoder passwordEncoder,
             AuditLogService auditLogService,
             NotificationService notificationService
     ) {
         this.userRepository = userRepository;
         this.employeeRepository = employeeRepository;
+        this.leaveBalanceRepository = leaveBalanceRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditLogService = auditLogService;
         this.notificationService = notificationService;
@@ -366,7 +371,25 @@ public class AdminUserService {
                 employee.setLocation(null);
                 employee.setEmploymentType(null);
 
-                employeeRepository.save(employee);
+                Employee savedEmployee = employeeRepository.save(employee);
+
+                // ====================================================
+                // CREATE LEAVE BALANCE AUTOMATICALLY
+                // ====================================================
+                if (leaveBalanceRepository.findByEmployeeId(savedEmployee.getId()).isEmpty()) {
+                    LeaveBalance leaveBalance = LeaveBalance.builder()
+                            .employeeId(savedEmployee.getId())
+                            .annualLeave(20)
+                            .casualLeave(12)
+                            .sickLeave(12)
+                            .maternityLeave(180)
+                            .paternityLeave(15)
+                            .otherLeave(5)
+                            .unpaidLeave(0)
+                            .build();
+
+                    leaveBalanceRepository.save(leaveBalance);
+                }
             }
 
 
