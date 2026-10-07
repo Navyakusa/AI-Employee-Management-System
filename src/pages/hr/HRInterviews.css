@@ -1,5 +1,40 @@
-/* HRInterviews.css — new classes only, reuses .jobs-panel, .job-table,
-   .job-row, .job-heading, .no-jobs, .create-job-button from existing files. */
+/* ============================================================
+   HR INTERVIEWS
+   Reuses existing:
+   .jobs-panel
+   .job-table
+   .job-row
+   .job-heading
+   .no-jobs
+   .create-job-button
+============================================================ */
+
+
+/* ============================================================
+   MAIN CONTENT
+   Sidebar = 200px
+   Top Navbar = fixed at top
+============================================================ */
+
+.hr-interviews-main {
+  margin-left: 200px;
+
+  min-height: 100vh;
+
+  padding-top: 102px;
+  padding-left: 30px;
+  padding-right: 30px;
+  padding-bottom: 30px;
+
+  box-sizing: border-box;
+
+  background: #f5f7fb;
+}
+
+
+/* ============================================================
+   INTERVIEW FORM
+============================================================ */
 
 .interview-form {
   display: flex;
@@ -7,57 +42,310 @@
   gap: 14px;
 }
 
+
+/* ============================================================
+   FORM GRID
+============================================================ */
+
 .interview-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 12px;
 }
 
+
+/* ============================================================
+   FULL WIDTH FORM FIELDS
+============================================================ */
+
 .interview-form-wide {
   grid-column: 1 / -1;
 }
 
+
+/* ============================================================
+   SELECT + INPUT + TEXTAREA
+============================================================ */
+
 .interview-form-grid select,
-.interview-form-grid input {
+.interview-form-grid input,
+.interview-form-grid textarea {
   padding: 12px 14px;
+
   border: 1px solid #d7dbea;
   border-radius: 8px;
+
   font-size: 14px;
+
   outline: none;
+
   font-family: inherit;
+
+  background: #ffffff;
+  color: #111827;
+
+  box-sizing: border-box;
 }
 
-.interview-form-grid select:focus,
-.interview-form-grid input:focus {
-  border-color: #4f46e5;
+
+/* ============================================================
+   TEXTAREA
+============================================================ */
+
+.interview-form-grid textarea {
+  resize: vertical;
+  min-height: 80px;
 }
+
+
+/* ============================================================
+   FOCUS
+============================================================ */
+
+.interview-form-grid select:focus,
+.interview-form-grid input:focus,
+.interview-form-grid textarea:focus {
+  border-color: #4f46e5;
+
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.08);
+}
+
+
+/* ============================================================
+   ERROR MESSAGE
+============================================================ */
 
 .interview-error {
   color: #dc2626;
+
   font-size: 13.5px;
+
   margin: 0;
 }
 
+
+/* ============================================================
+   INTERVIEW TABLE
+============================================================ */
+
 .interview-row-grid {
-  grid-template-columns: 1.5fr 1.3fr 1fr 1.2fr 1.3fr 1fr;
+  grid-template-columns:
+    1.5fr
+    1.3fr
+    1fr
+    1.2fr
+    1.3fr
+    1fr;
 }
+
+
+/* ============================================================
+   STATUS SELECT
+============================================================ */
 
 .status-select {
   padding: 6px 10px;
+
   border: 1px solid #d7dbea;
+
   border-radius: 6px;
+
   font-size: 12.5px;
+
   font-weight: 600;
+
   color: #334155;
+
+  background: #ffffff;
+
+  outline: none;
+
+  cursor: pointer;
 }
 
+
+.status-select:focus {
+  border-color: #4f46e5;
+}
+
+
+/* ============================================================
+   SCHEDULE BUTTON
+   Keeps the existing .create-job-button style but improves
+   disabled state for scheduling
+============================================================ */
+
+.create-job-button:disabled {
+  opacity: 0.65;
+
+  cursor: not-allowed;
+}
+
+
+/* ============================================================
+   INTERVIEW PANELS
+   Makes the interview sections work nicely with navbar
+============================================================ */
+
+.hr-interviews-main .jobs-panel {
+  margin-bottom: 25px;
+}
+
+
+/* ============================================================
+   PANEL HEADER
+============================================================ */
+
+.hr-interviews-main .jobs-panel-header {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  margin-bottom: 20px;
+}
+
+
+.hr-interviews-main .jobs-panel-header h2 {
+  margin: 0;
+
+  color: #111827;
+
+  font-size: 20px;
+}
+
+
+/* ============================================================
+   INTERVIEW TABLE
+============================================================ */
+
+.hr-interviews-main .job-table {
+  width: 100%;
+
+  overflow-x: auto;
+}
+
+
+/* ============================================================
+   TABLE ROW
+============================================================ */
+
+.hr-interviews-main .job-row {
+  min-width: 900px;
+}
+
+
+/* ============================================================
+   RESCHEDULE / MODAL SUPPORT
+============================================================ */
+
+.hr-interviews-main input,
+.hr-interviews-main select,
+.hr-interviews-main textarea {
+  font-family: inherit;
+}
+
+
+/* ============================================================
+   RESPONSIVE - TABLET
+============================================================ */
+
+@media (max-width: 1100px) {
+
+  .hr-interviews-main {
+    padding-left: 25px;
+
+    padding-right: 25px;
+  }
+
+  .interview-row-grid {
+    grid-template-columns:
+      1.3fr
+      1.2fr
+      1fr
+      1.1fr
+      1.3fr
+      1fr;
+  }
+}
+
+
+/* ============================================================
+   RESPONSIVE - MOBILE / SMALL SCREEN
+============================================================ */
+
 @media (max-width: 900px) {
+
   .interview-form-grid {
     grid-template-columns: 1fr;
   }
 
+
+  .interview-form-wide {
+    grid-column: auto;
+  }
+
+
   .interview-row-grid {
     grid-template-columns: 1fr;
+
     gap: 4px;
+
+    min-width: 0;
+  }
+
+
+  .hr-interviews-main .job-row {
+    min-width: 0;
+  }
+
+
+  .hr-interviews-main .job-heading {
+    display: none;
+  }
+}
+
+
+/* ============================================================
+   SMALL MOBILE
+============================================================ */
+
+@media (max-width: 700px) {
+
+  .hr-interviews-main {
+    margin-left: 200px;
+
+    padding-top: 95px;
+
+    padding-left: 15px;
+
+    padding-right: 15px;
+
+    padding-bottom: 20px;
+  }
+
+
+  .hr-interviews-main .jobs-panel {
+    padding: 18px;
+  }
+
+
+  .hr-interviews-main .jobs-panel-header {
+    align-items: flex-start;
+
+    gap: 10px;
+  }
+
+
+  .interview-form-grid {
+    gap: 10px;
+  }
+
+
+  .interview-form-grid select,
+  .interview-form-grid input,
+  .interview-form-grid textarea {
+    width: 100%;
   }
 }

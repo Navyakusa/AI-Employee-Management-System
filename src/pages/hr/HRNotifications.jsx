@@ -44,10 +44,7 @@ function HRNotifications() {
   // COMMON API REQUEST
   // ============================================================
 
-  const apiRequest = async (
-    endpoint,
-    options = {}
-  ) => {
+  const apiRequest = async (endpoint, options = {}) => {
     const response = await fetch(
       `${API_BASE}${endpoint}`,
       {
@@ -65,9 +62,7 @@ function HRNotifications() {
     let result = {};
 
     try {
-      result = text
-        ? JSON.parse(text)
-        : {};
+      result = text ? JSON.parse(text) : {};
     } catch {
       result = {};
     }
@@ -121,7 +116,9 @@ function HRNotifications() {
           "/notifications/stats"
         );
 
-      // Backend wraps data inside "data"
+      // --------------------------------------------------------
+      // BACKEND DATA
+      // --------------------------------------------------------
 
       const notificationData =
         Array.isArray(
@@ -133,9 +130,11 @@ function HRNotifications() {
       const statsData =
         statsResponse?.data || {};
 
-      setNotifications(
-        notificationData
-      );
+      // --------------------------------------------------------
+      // UPDATE STATE
+      // --------------------------------------------------------
+
+      setNotifications(notificationData);
 
       setStats({
         totalNotifications:
@@ -150,12 +149,12 @@ function HRNotifications() {
       });
 
       console.log(
-        "Notifications:",
+        "HR Notifications:",
         notificationData
       );
 
       console.log(
-        "Notification stats:",
+        "HR Notification stats:",
         statsData
       );
     } catch (err) {
@@ -173,218 +172,368 @@ function HRNotifications() {
     }
   };
 
-
-
   // ============================================================
-// SSE - REAL-TIME NOTIFICATIONS
-// ============================================================
+  // SSE - REAL-TIME NOTIFICATIONS
+  // ============================================================
 
-const connectNotificationStream = () => {
-  const token = localStorage.getItem("token");
+  const connectNotificationStream = () => {
+    const token = localStorage.getItem("token");
 
-  if (!token) {
-    console.warn("No JWT token found. SSE connection not started.");
-    return null;
-  }
-
-  const controller = new AbortController();
-
-  const startSSE = async () => {
-    try {
-      console.log("Connecting to notification SSE...");
-
-      const response = await fetch(
-        `${API_BASE}/notifications/stream`,
-        {
-          method: "GET",
-
-          headers: {
-            Accept: "text/event-stream",
-            Authorization: `Bearer ${token}`,
-            "Cache-Control": "no-cache",
-          },
-
-          signal: controller.signal,
-        }
+    if (!token) {
+      console.warn(
+        "No JWT token found. SSE connection not started."
       );
 
-      if (!response.ok) {
-        throw new Error(
-          `SSE connection failed: ${response.status}`
+      return null;
+    }
+
+    const controller =
+      new AbortController();
+
+    const startSSE = async () => {
+      try {
+        console.log(
+          "Connecting to HR notification SSE..."
         );
-      }
 
-      if (!response.body) {
-        throw new Error(
-          "SSE response body is not available."
+        const response = await fetch(
+          `${API_BASE}/notifications/stream`,
+          {
+            method: "GET",
+
+            // IMPORTANT:
+            // Do NOT add Cache-Control here.
+            // It can cause a CORS preflight problem.
+
+            headers: {
+              Accept: "text/event-stream",
+
+              Authorization: `Bearer ${token}`,
+            },
+
+            signal: controller.signal,
+          }
         );
-      }
 
-      console.log(
-        "Notification SSE connection established."
-      );
+        // ------------------------------------------------------
+        // CHECK RESPONSE
+        // ------------------------------------------------------
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-
-      let buffer = "";
-
-      while (true) {
-        const { value, done } =
-          await reader.read();
-
-        if (done) {
-          console.log(
-            "Notification SSE connection closed."
+        if (!response.ok) {
+          throw new Error(
+            `SSE connection failed: ${response.status}`
           );
-          break;
         }
 
-        buffer += decoder.decode(
-          value,
-          { stream: true }
+        // ------------------------------------------------------
+        // CHECK STREAM BODY
+        // ------------------------------------------------------
+
+        if (!response.body) {
+          throw new Error(
+            "SSE response body is not available."
+          );
+        }
+
+        console.log(
+          "HR notification SSE connection established."
         );
 
-        // SSE events are normally separated by a blank line
-        const events = buffer.split("\n\n");
+        // ------------------------------------------------------
+        // CREATE STREAM READER
+        // ------------------------------------------------------
 
-        // Keep incomplete event for next chunk
-        buffer = events.pop() || "";
+        const reader =
+          response.body.getReader();
 
-        for (const event of events) {
-          const lines = event.split("\n");
+        const decoder =
+          new TextDecoder("utf-8");
 
-          let data = "";
+        let buffer = "";
 
-          for (const line of lines) {
-            if (line.startsWith("data:")) {
-              data += line
-                .substring(5)
-                .trim();
+        // ------------------------------------------------------
+        // READ SSE STREAM
+        // ------------------------------------------------------
+
+        while (
+          !controller.signal.aborted
+        ) {
+          const { value, done } =
+            await reader.read();
+
+          // ----------------------------------------------------
+          // STREAM CLOSED
+          // ----------------------------------------------------
+
+          if (done) {
+            console.log(
+              "HR notification SSE connection closed."
+            );
+
+            break;
+          }
+
+          // ----------------------------------------------------
+          // CONVERT BYTES TO TEXT
+          // ----------------------------------------------------
+
+          buffer += decoder.decode(
+            value,
+            {
+              stream: true,
             }
-          }
-
-          // Ignore heartbeat / empty events
-          if (!data) {
-            continue;
-          }
-
-          console.log(
-            "SSE notification received:",
-            data
           );
 
-          let newNotification;
+          // ----------------------------------------------------
+          // SSE EVENTS ARE SEPARATED BY BLANK LINE
+          // ----------------------------------------------------
 
-          try {
-            newNotification =
-              JSON.parse(data);
-          } catch {
-            console.warn(
-              "SSE data is not JSON:",
+          const events =
+            buffer.split(/\r?\n\r?\n/);
+
+          // Keep incomplete event
+          buffer =
+            events.pop() || "";
+
+          // ----------------------------------------------------
+          // PROCESS EACH EVENT
+          // ----------------------------------------------------
+
+          for (const eventText of events) {
+            if (!eventText.trim()) {
+              continue;
+            }
+
+            // --------------------------------------------------
+            // DEFAULT EVENT TYPE
+            // --------------------------------------------------
+
+            let eventType =
+              "message";
+
+            let data = "";
+
+            // --------------------------------------------------
+            // SPLIT EVENT INTO LINES
+            // --------------------------------------------------
+
+            const lines =
+              eventText.split(/\r?\n/);
+
+            // --------------------------------------------------
+            // READ SSE LINES
+            // --------------------------------------------------
+
+            for (const line of lines) {
+              // ----------------------------------------------
+              // event: connected
+              // event: notification
+              // ----------------------------------------------
+
+              if (
+                line.startsWith("event:")
+              ) {
+                eventType =
+                  line
+                    .substring(6)
+                    .trim();
+              }
+
+              // ----------------------------------------------
+              // data: something
+              // ----------------------------------------------
+
+              if (
+                line.startsWith("data:")
+              ) {
+                const lineData =
+                  line
+                    .substring(5)
+                    .trim();
+
+                data += lineData;
+              }
+            }
+
+            // --------------------------------------------------
+            // NOTHING TO PROCESS
+            // --------------------------------------------------
+
+            if (!data) {
+              continue;
+            }
+
+            console.log(
+              "HR SSE event:",
+              eventType
+            );
+
+            console.log(
+              "HR SSE data:",
               data
             );
 
-            continue;
-          }
+            // ==================================================
+            // INITIAL CONNECTION EVENT
+            // ==================================================
 
-          // Some backends may wrap notification inside data
-          if (
-            newNotification?.data &&
-            typeof newNotification.data ===
-              "object"
-          ) {
-            newNotification =
-              newNotification.data;
-          }
+            if (
+              eventType ===
+              "connected"
+            ) {
+              console.log(
+                "HR SSE connection confirmation received."
+              );
 
-          // Add new notification to UI
-          setNotifications(
-            (previousNotifications) => {
+              continue;
+            }
 
-              // Prevent duplicate notification
-              const alreadyExists =
-                previousNotifications.some(
-                  (notification) =>
-                    notification.notificationId ===
-                    newNotification.notificationId
+            // ==================================================
+            // REAL NOTIFICATION EVENT
+            // ==================================================
+
+            if (
+              eventType ===
+              "notification"
+            ) {
+              let newNotification;
+
+              // ------------------------------------------------
+              // PARSE JSON
+              // ------------------------------------------------
+
+              try {
+                newNotification =
+                  JSON.parse(data);
+              } catch (parseError) {
+                console.warn(
+                  "Invalid HR notification JSON:",
+                  data
                 );
 
-              if (alreadyExists) {
-                return previousNotifications;
+                continue;
               }
 
-              return [
-                newNotification,
-                ...previousNotifications,
-              ];
+              console.log(
+                "HR SSE notification received:",
+                newNotification
+              );
+
+              // ------------------------------------------------
+              // PREVENT DUPLICATE NOTIFICATIONS
+              // ------------------------------------------------
+
+              setNotifications(
+                (previousNotifications) => {
+                  const alreadyExists =
+                    previousNotifications.some(
+                      (notification) =>
+                        String(
+                          notification.notificationId
+                        ) ===
+                        String(
+                          newNotification.notificationId
+                        )
+                    );
+
+                  if (
+                    alreadyExists
+                  ) {
+                    console.log(
+                      "Duplicate HR notification ignored."
+                    );
+
+                    return previousNotifications;
+                  }
+
+                  return [
+                    newNotification,
+                    ...previousNotifications,
+                  ];
+                }
+              );
+
+              // ------------------------------------------------
+              // UPDATE STATISTICS
+              // ------------------------------------------------
+
+              setStats(
+                (previousStats) => ({
+                  totalNotifications:
+                    previousStats.totalNotifications +
+                    1,
+
+                  unread:
+                    previousStats.unread +
+                    1,
+                })
+              );
             }
-          );
-
-          // Update statistics
-          setStats(
-            (previousStats) => ({
-              totalNotifications:
-                previousStats.totalNotifications + 1,
-
-              unread:
-                previousStats.unread + 1,
-            })
-          );
+          }
         }
-      }
-    } catch (error) {
-      if (
-        error.name ===
-        "AbortError"
-      ) {
-        console.log(
-          "Notification SSE connection stopped."
+      } catch (error) {
+        // ------------------------------------------------------
+        // SSE WAS INTENTIONALLY STOPPED
+        // ------------------------------------------------------
+
+        if (
+          error.name ===
+          "AbortError"
+        ) {
+          console.log(
+            "HR notification SSE connection aborted."
+          );
+
+          return;
+        }
+
+        // ------------------------------------------------------
+        // SSE ERROR
+        // ------------------------------------------------------
+
+        console.error(
+          "HR notification SSE error:",
+          error
         );
-        return;
+
+        setError(
+          "Real-time notification connection failed."
+        );
       }
+    };
 
-      console.error(
-        "Notification SSE error:",
-        error
-      );
+    // Start SSE
+    startSSE();
 
-      setError(
-        "Real-time notification connection failed."
-      );
-    }
+    // Return controller so useEffect can abort it
+    return controller;
   };
 
-  startSSE();
-
-  return controller;
-};   
-
-
-
-
   // ============================================================
-  // INITIAL LOAD
+  // INITIAL LOAD + SSE
   // ============================================================
 
   useEffect(() => {
-  // Load existing notifications
-  loadNotifications();
+    // Load existing notifications
+    loadNotifications();
 
-  // Start real-time SSE connection
-  const controller =
-    connectNotificationStream();
+    // Start real-time SSE connection
+    const controller =
+      connectNotificationStream();
 
-  // Close SSE when leaving page
-  return () => {
-    if (controller) {
-      controller.abort();
-    }
-  };
-}, []);
+    // ----------------------------------------------------------
+    // CLOSE SSE WHEN LEAVING PAGE
+    // ----------------------------------------------------------
+
+    return () => {
+      if (controller) {
+        controller.abort();
+      }
+    };
+  }, []);
 
   // ============================================================
-  // MARK ONE AS READ
+  // MARK ONE NOTIFICATION AS READ
   // ============================================================
 
   const handleMarkAsRead = async (
@@ -400,14 +549,18 @@ const connectNotificationStream = () => {
         }
       );
 
-      // Update notification locally
+      // --------------------------------------------------------
+      // UPDATE NOTIFICATION LOCALLY
+      // --------------------------------------------------------
 
       setNotifications(
         (previousNotifications) =>
           previousNotifications.map(
             (notification) =>
-              notification.notificationId ===
-              notificationId
+              String(
+                notification.notificationId
+              ) ===
+              String(notificationId)
                 ? {
                     ...notification,
                     readStatus: true,
@@ -416,17 +569,18 @@ const connectNotificationStream = () => {
           )
       );
 
-      // Update unread count locally
+      // --------------------------------------------------------
+      // UPDATE UNREAD COUNT
+      // --------------------------------------------------------
 
       setStats(
         (previousStats) => ({
           ...previousStats,
 
-          unread:
-            Math.max(
-              0,
-              previousStats.unread - 1
-            ),
+          unread: Math.max(
+            0,
+            previousStats.unread - 1
+          ),
         })
       );
     } catch (err) {
@@ -443,7 +597,7 @@ const connectNotificationStream = () => {
   };
 
   // ============================================================
-  // MARK ALL AS READ
+  // MARK ALL NOTIFICATIONS AS READ
   // ============================================================
 
   const handleMarkAllAsRead =
@@ -458,7 +612,9 @@ const connectNotificationStream = () => {
           }
         );
 
-        // Update all notifications locally
+        // ------------------------------------------------------
+        // UPDATE ALL NOTIFICATIONS LOCALLY
+        // ------------------------------------------------------
 
         setNotifications(
           (previousNotifications) =>
@@ -470,7 +626,9 @@ const connectNotificationStream = () => {
             )
         );
 
-        // Backend now has zero unread
+        // ------------------------------------------------------
+        // UPDATE UNREAD COUNT
+        // ------------------------------------------------------
 
         setStats(
           (previousStats) => ({
@@ -500,17 +658,21 @@ const connectNotificationStream = () => {
       try {
         setError("");
 
-        // Find notification before deleting
+        // ------------------------------------------------------
+        // FIND NOTIFICATION BEFORE DELETING
+        // ------------------------------------------------------
 
         const notificationToDelete =
           notifications.find(
             (notification) =>
-              notification.notificationId ===
-              notificationId
+              String(
+                notification.notificationId
+              ) ===
+              String(notificationId)
           );
 
         // ------------------------------------------------------
-        // DELETE /api/notifications/{notificationId}
+        // DELETE FROM BACKEND
         // ------------------------------------------------------
 
         await apiRequest(
@@ -520,18 +682,24 @@ const connectNotificationStream = () => {
           }
         );
 
-        // Remove from UI
+        // ------------------------------------------------------
+        // REMOVE FROM UI
+        // ------------------------------------------------------
 
         setNotifications(
           (previousNotifications) =>
             previousNotifications.filter(
               (notification) =>
-                notification.notificationId !==
-                notificationId
+                String(
+                  notification.notificationId
+                ) !==
+                String(notificationId)
             )
         );
 
-        // Update statistics
+        // ------------------------------------------------------
+        // UPDATE STATISTICS
+        // ------------------------------------------------------
 
         setStats(
           (previousStats) => ({
@@ -547,7 +715,8 @@ const connectNotificationStream = () => {
               !notificationToDelete.readStatus
                 ? Math.max(
                     0,
-                    previousStats.unread - 1
+                    previousStats.unread -
+                      1
                   )
                 : previousStats.unread,
           })
@@ -600,7 +769,7 @@ const connectNotificationStream = () => {
   };
 
   // ============================================================
-  // NOTIFICATION TYPE
+  // NOTIFICATION TYPE LABEL
   // ============================================================
 
   const getNotificationTypeLabel = (
@@ -616,10 +785,26 @@ const connectNotificationStream = () => {
       case "FEEDBACK_SUBMITTED":
         return "Interview Feedback";
 
+      case "LEAVE_APPLIED":
+        return "Leave Applied";
+
+      case "LEAVE_APPROVED":
+        return "Leave Approved";
+
+      case "LEAVE_REJECTED":
+        return "Leave Rejected";
+
+      case "INTERVIEW_SCHEDULED":
+        return "Interview Scheduled";
+
+      case "INTERVIEW_RESCHEDULED":
+        return "Interview Rescheduled";
+
+      case "INTERVIEW_CANCELLED":
+        return "Interview Cancelled";
+
       default:
-        return (
-          type || "Notification"
-        );
+        return type || "Notification";
     }
   };
 
@@ -639,6 +824,24 @@ const connectNotificationStream = () => {
 
       case "FEEDBACK_SUBMITTED":
         return "💬";
+
+      case "LEAVE_APPLIED":
+        return "📝";
+
+      case "LEAVE_APPROVED":
+        return "✅";
+
+      case "LEAVE_REJECTED":
+        return "❌";
+
+      case "INTERVIEW_SCHEDULED":
+        return "📅";
+
+      case "INTERVIEW_RESCHEDULED":
+        return "📅";
+
+      case "INTERVIEW_CANCELLED":
+        return "❌";
 
       default:
         return "🔔";
@@ -720,7 +923,6 @@ const connectNotificationStream = () => {
               </button>
 
             </div>
-
           </div>
 
           {/* ==================================================
@@ -748,6 +950,7 @@ const connectNotificationStream = () => {
               </div>
 
               <div>
+
                 <span>
                   Total Notifications
                 </span>
@@ -755,6 +958,7 @@ const connectNotificationStream = () => {
                 <strong>
                   {stats.totalNotifications}
                 </strong>
+
               </div>
 
             </div>
@@ -768,6 +972,7 @@ const connectNotificationStream = () => {
               </div>
 
               <div>
+
                 <span>
                   Unread Notifications
                 </span>
@@ -775,6 +980,7 @@ const connectNotificationStream = () => {
                 <strong>
                   {stats.unread}
                 </strong>
+
               </div>
 
             </div>
@@ -790,6 +996,7 @@ const connectNotificationStream = () => {
             <div className="notifications-panel-header">
 
               <div>
+
                 <h2>
                   Recent Notifications
                 </h2>
@@ -798,6 +1005,7 @@ const connectNotificationStream = () => {
                   Notifications received from
                   the recruitment system.
                 </p>
+
               </div>
 
               {stats.unread > 0 && (
@@ -825,6 +1033,7 @@ const connectNotificationStream = () => {
             {!loading &&
               notifications.length ===
                 0 && (
+
                 <div className="notifications-empty">
 
                   <div className="empty-notification-icon">
@@ -870,9 +1079,11 @@ const connectNotificationStream = () => {
                         {/* ICON */}
 
                         <div className="notification-item-icon">
+
                           {getNotificationIcon(
                             notification.type
                           )}
+
                         </div>
 
                         {/* CONTENT */}
@@ -882,9 +1093,11 @@ const connectNotificationStream = () => {
                           <div className="notification-item-top">
 
                             <span className="notification-type">
+
                               {getNotificationTypeLabel(
                                 notification.type
                               )}
+
                             </span>
 
                             {!notification.readStatus && (
@@ -896,15 +1109,19 @@ const connectNotificationStream = () => {
                           </div>
 
                           <p className="notification-message">
+
                             {
                               notification.message
                             }
+
                           </p>
 
                           <span className="notification-date">
+
                             {formatNotificationDate(
                               notification.createdAt
                             )}
+
                           </span>
 
                         </div>
@@ -914,6 +1131,7 @@ const connectNotificationStream = () => {
                         <div className="notification-actions">
 
                           {!notification.readStatus && (
+
                             <button
                               className="notification-read-button"
                               onClick={() =>
@@ -924,6 +1142,7 @@ const connectNotificationStream = () => {
                             >
                               Mark as read
                             </button>
+
                           )}
 
                           <button
@@ -940,12 +1159,10 @@ const connectNotificationStream = () => {
                         </div>
 
                       </div>
-
                     )
                   )}
 
                 </div>
-
               )}
 
           </div>

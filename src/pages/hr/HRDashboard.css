@@ -1,195 +1,298 @@
+/* ============================================================
+   MAIN DASHBOARD
+============================================================ */
+
 .hr-dashboard {
   min-height: 100vh;
   background: #f5f7fb;
 }
 
+
+/* ============================================================
+   HR NAVBAR SPACE
+============================================================ */
+
+.hr-navbar {
+  position: fixed;
+
+  top: 0;
+  left: 200px;
+  right: 0;
+
+  height: 72px;
+
+  background: #ffffff;
+
+  border-bottom: 1px solid #e5e7eb;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 28px;
+
+  box-sizing: border-box;
+
+  z-index: 1000;
+}
+
+
+/* ============================================================
+   MAIN CONTENT
+============================================================ */
+
 .hr-main {
-  margin-left: 250px;
+  margin-left: 200px;
+
   min-height: 100vh;
+
   padding: 30px;
+
+  /* IMPORTANT:
+     Gives space below fixed navbar */
+  padding-top: 105px;
+
   box-sizing: border-box;
 }
 
-/* Header */
+
+/* ============================================================
+   DASHBOARD HEADER
+============================================================ */
 
 .hr-header {
   display: flex;
+
   justify-content: space-between;
+
   align-items: center;
+
   margin-bottom: 30px;
 }
 
+
 .hr-header h1 {
   margin: 0;
+
   font-size: 30px;
+
   color: #111827;
 }
+
 
 .hr-header p {
   margin: 8px 0 0;
+
   color: #64748b;
 }
 
-.hr-profile {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
 
-.hr-avatar {
-  width: 45px;
-  height: 45px;
-  border-radius: 50%;
-  background: #4f46e5;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-}
-
-.hr-profile strong {
-  display: block;
-  color: #111827;
-}
-
-.hr-profile span {
-  display: block;
-  margin-top: 3px;
-  color: #64748b;
-  font-size: 13px;
-}
-
-/* Statistics */
+/* ============================================================
+   STATISTICS
+============================================================ */
 
 .hr-stats {
   display: grid;
+
   grid-template-columns: repeat(4, 1fr);
+
   gap: 20px;
+
   margin-bottom: 25px;
 }
 
+
 .hr-stat-card {
   background: white;
+
   border-radius: 14px;
+
   padding: 22px;
+
   display: flex;
+
   align-items: center;
+
   gap: 16px;
+
   box-shadow: 0 3px 15px rgba(0, 0, 0, 0.05);
 }
+
 
 .stat-icon {
   width: 48px;
+
   height: 48px;
+
   border-radius: 12px;
+
   background: #eef0ff;
+
   display: flex;
+
   align-items: center;
+
   justify-content: center;
+
   font-size: 22px;
 }
 
+
 .hr-stat-card p {
   margin: 0;
+
   color: #64748b;
+
   font-size: 13px;
 }
 
+
 .hr-stat-card h2 {
   margin: 5px 0;
+
   color: #111827;
+
   font-size: 26px;
 }
 
+
 .hr-stat-card span {
   color: #94a3b8;
+
   font-size: 12px;
 }
 
-/* Panels */
+
+/* ============================================================
+   PANELS
+============================================================ */
 
 .hr-dashboard-grid {
   display: grid;
+
   grid-template-columns: 1.2fr 1fr;
+
   gap: 25px;
 }
 
+
 .hr-panel {
   background: white;
+
   border-radius: 14px;
+
   padding: 25px;
+
   box-shadow: 0 3px 15px rgba(0, 0, 0, 0.05);
 }
+
 
 .panel-header {
   margin-bottom: 20px;
 }
 
+
 .panel-header h2 {
   margin: 0;
+
   font-size: 19px;
+
   color: #111827;
 }
 
+
 .panel-header p {
   margin: 5px 0 0;
+
   color: #64748b;
+
   font-size: 13px;
 }
 
-/* Recruitment */
+
+/* ============================================================
+   RECRUITMENT
+============================================================ */
 
 .recruitment-row {
   display: flex;
+
   justify-content: space-between;
+
   padding: 14px 0;
+
   border-bottom: 1px solid #eef0f4;
+
   color: #475569;
 }
+
 
 .recruitment-row:last-child {
   border-bottom: none;
 }
 
+
 .recruitment-row strong {
   color: #111827;
 }
 
-/* Quick Actions */
+
+/* ============================================================
+   QUICK ACTIONS
+============================================================ */
 
 .quick-actions {
   display: grid;
+
   grid-template-columns: 1fr 1fr;
+
   gap: 14px;
 }
 
+
 .quick-actions button {
   padding: 18px;
+
   background: #f8f9ff;
+
   border: 1px solid #e5e7eb;
+
   border-radius: 10px;
+
   cursor: pointer;
+
   text-align: left;
+
   font-size: 14px;
+
   font-weight: 600;
+
   color: #334155;
 }
 
+
 .quick-actions button:hover {
   border-color: #4f46e5;
+
   background: #f1f2ff;
 }
 
+
 .quick-actions span {
   display: block;
+
   font-size: 22px;
+
   margin-bottom: 8px;
 }
 
-/* Responsive */
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
 
 @media (max-width: 1000px) {
+
   .hr-stats {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -197,103 +300,56 @@
   .hr-dashboard-grid {
     grid-template-columns: 1fr;
   }
+
 }
 
+
 @media (max-width: 700px) {
+
+  .hr-navbar {
+    left: 0;
+
+    padding: 0 15px;
+  }
+
+
   .hr-main {
     margin-left: 0;
+
     padding: 20px;
+
+    padding-top: 90px;
   }
+
 
   .hr-stats {
     grid-template-columns: 1fr;
   }
 
+
   .hr-header {
     align-items: flex-start;
+
     gap: 20px;
+
     flex-direction: column;
   }
+
 }
 
-.hr-profile-wrapper {
-  position: relative;
-}
 
-.hr-profile {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 8px;
-  text-align: left;
-}
+/* ============================================================
+   EXTRA SMALL SCREEN
+============================================================ */
 
-.hr-profile:hover {
-  background: #f5f5ff;
-}
+@media (max-width: 500px) {
 
-.hr-profile-info {
-  display: flex;
-  flex-direction: column;
-}
+  .hr-navbar-search {
+    width: 200px;
+  }
 
-.hr-profile-info strong {
-  font-size: 14px;
-  color: #111827;
-}
+  .hr-navbar-profile-info {
+    display: none;
+  }
 
-.hr-profile-info span {
-  font-size: 12px;
-  color: #6b7280;
-  margin-top: 2px;
-}
-
-.profile-arrow {
-  font-size: 18px;
-  color: #6b7280;
-  margin-left: 4px;
-}
-
-.hr-profile-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  width: 190px;
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
-  border: 1px solid #e5e7eb;
-  padding: 8px;
-  z-index: 1000;
-}
-
-.hr-profile-menu button {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 12px;
-  background: transparent;
-  border: none;
-  border-radius: 7px;
-  cursor: pointer;
-  font-size: 14px;
-  color: #374151;
-  text-align: left;
-}
-
-.hr-profile-menu button:hover {
-  background: #f5f5ff;
-}
-
-.hr-profile-menu .logout-option {
-  color: #ef4444;
-}
-
-.hr-profile-menu .logout-option:hover {
-  background: #fff1f2;
 }

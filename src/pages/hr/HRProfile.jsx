@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { User, Mail, Shield, Building2, Save } from "lucide-react";
 import "./HRProfile.css";
 import HRSidebar from "./HRSidebar";
+import HRNavbar from "./HRNavbar";
 
 function HRProfile() {
   const [fullName, setFullName] = useState("HR Manager");
@@ -15,48 +16,72 @@ function HRProfile() {
   return (
     <div className="hr-dashboard">
 
-      {/* HR Sidebar */}
+      {/* =====================================================
+          HR SIDEBAR
+      ===================================================== */}
       <HRSidebar />
 
-      {/* Main Content */}
+      {/* =====================================================
+          TOP NAVBAR
+      ===================================================== */}
+      <HRNavbar />
+
+      {/* =====================================================
+          MAIN CONTENT
+      ===================================================== */}
       <main className="hr-main">
 
         <div className="hr-profile-page">
 
-          {/* Page Header */}
+          {/* =====================================================
+              PAGE HEADER
+          ===================================================== */}
           <div className="hr-profile-page-header">
             <div>
               <span className="hr-page-label">ACCOUNT</span>
+
               <h1>My Profile</h1>
-              <p>View and update your HR manager profile.</p>
+
+              <p>
+                View and update your HR manager profile.
+              </p>
             </div>
           </div>
 
-          {/* Profile Card */}
+          {/* =====================================================
+              PROFILE CARD
+          ===================================================== */}
           <div className="hr-profile-card">
 
             {/* Profile Information */}
             <div className="hr-profile-top">
+
               <div className="large-hr-avatar">
                 HR
               </div>
 
               <div>
                 <h2>HR Manager</h2>
+
                 <p>{email}</p>
+
                 <span className="hr-role-badge">
                   HR Manager
                 </span>
               </div>
+
             </div>
 
             <div className="hr-profile-divider"></div>
 
-            {/* Profile Form */}
+            {/* =====================================================
+                PROFILE FORM
+            ===================================================== */}
             <div className="hr-profile-form">
 
               {/* Full Name */}
               <div className="hr-form-group full-width">
+
                 <label>
                   <User size={16} />
                   Full Name
@@ -67,10 +92,12 @@ function HRProfile() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                 />
+
               </div>
 
               {/* Email */}
               <div className="hr-form-group full-width">
+
                 <label>
                   <Mail size={16} />
                   Email
@@ -81,12 +108,15 @@ function HRProfile() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
+
               </div>
 
               {/* Role + Department */}
               <div className="hr-form-row">
 
+                {/* Role */}
                 <div className="hr-form-group">
+
                   <label>
                     <Shield size={16} />
                     Role
@@ -97,9 +127,12 @@ function HRProfile() {
                     value="HR Manager"
                     disabled
                   />
+
                 </div>
 
+                {/* Department */}
                 <div className="hr-form-group">
+
                   <label>
                     <Building2 size={16} />
                     Department
@@ -112,24 +145,29 @@ function HRProfile() {
                       setDepartment(e.target.value)
                     }
                   />
+
                 </div>
 
               </div>
 
               {/* Save Button */}
               <div className="hr-profile-save">
+
                 <button onClick={handleSave}>
                   <Save size={17} />
                   Save Changes
                 </button>
+
               </div>
 
             </div>
+
           </div>
 
         </div>
 
       </main>
+
     </div>
   );
 }

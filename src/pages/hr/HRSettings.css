@@ -1,168 +1,341 @@
+/* =========================================================
+   HR SETTINGS PAGE
+   ========================================================= */
+
 .hr-settings-page {
-  min-height: 100;
-  padding: 32px;
+  min-height: 100vh;
+
+  /* Space for the fixed top navbar */
+  padding: 95px 32px 32px;
+
   background: #f5f7fb;
+
   box-sizing: border-box;
 }
+
+
+/* =========================================================
+   PAGE HEADER
+   ========================================================= */
 
 .hr-settings-header {
   margin-bottom: 25px;
 }
 
+
 .hr-settings-header > span {
   color: #4f46e5;
+
   font-size: 11px;
+
   font-weight: 700;
+
   letter-spacing: 1px;
 }
 
+
 .hr-settings-header h1 {
   margin: 5px 0;
+
   color: #111827;
+
   font-size: 28px;
 }
 
+
 .hr-settings-header p {
   margin: 0;
+
   color: #64748b;
+
   font-size: 14px;
 }
+
+
+/* =========================================================
+   SETTINGS CARD
+   ========================================================= */
 
 .hr-settings-card {
   width: 70%;
+
   max-width: 850px;
+
   background: white;
+
   border: 1px solid #e5e7eb;
+
   border-radius: 10px;
+
   margin-bottom: 18px;
+
   overflow: hidden;
+
+  box-sizing: border-box;
 }
+
+
+/* =========================================================
+   SETTINGS SECTION HEADER
+   ========================================================= */
 
 .hr-settings-section-header {
   display: flex;
+
   align-items: center;
+
   gap: 10px;
+
   padding: 17px;
+
   border-bottom: 1px solid #e5e7eb;
+
   color: #5b4de6;
 }
 
+
 .hr-settings-section-header h2 {
   margin: 0;
+
   color: #111827;
+
   font-size: 14px;
 }
 
+
 .hr-settings-section-header p {
   margin: 2px 0 0;
+
   color: #94a3b8;
+
   font-size: 10px;
 }
+
+
+/* =========================================================
+   ORGANIZATION SETTINGS BODY
+   ========================================================= */
 
 .hr-settings-body {
   padding: 16px;
 }
 
+
 .hr-settings-body label {
   display: flex;
+
   flex-direction: column;
+
   gap: 7px;
+
   margin-bottom: 16px;
 }
+
 
 .hr-settings-body label:last-child {
   margin-bottom: 0;
 }
 
+
 .hr-settings-body label span {
   display: flex;
+
   align-items: center;
+
   gap: 5px;
+
   color: #475569;
+
   font-size: 11px;
+
   font-weight: 600;
 }
 
+
+/* =========================================================
+   INPUTS
+   ========================================================= */
+
 .hr-settings-body input {
   width: 100%;
+
   box-sizing: border-box;
+
   padding: 10px;
+
   border: 1px solid #dce1e9;
+
   border-radius: 6px;
+
   outline: none;
+
   font-size: 13px;
+
+  color: #334155;
+
+  background: white;
 }
+
 
 .hr-settings-body input:focus {
   border-color: #6366f1;
 }
 
+
+/* =========================================================
+   SYSTEM PREFERENCES
+   ========================================================= */
+
 .hr-preferences {
   padding: 4px 16px;
 }
 
+
 .preference-row {
   min-height: 62px;
+
   display: flex;
+
   align-items: center;
+
   justify-content: space-between;
+
   border-bottom: 1px solid #edf0f5;
+
+  gap: 20px;
 }
+
 
 .preference-row:last-child {
   border-bottom: none;
 }
 
+
 .preference-row div {
   display: flex;
+
   flex-direction: column;
+
   gap: 3px;
 }
 
+
 .preference-row strong {
   color: #374151;
+
   font-size: 12px;
 }
 
+
 .preference-row span {
   color: #94a3b8;
+
   font-size: 10px;
 }
 
+
+/* =========================================================
+   CHECKBOX
+   ========================================================= */
+
 .preference-row input[type="checkbox"] {
   width: 16px;
+
   height: 16px;
+
   cursor: pointer;
+
+  flex-shrink: 0;
 }
+
+
+/* =========================================================
+   SAVE BUTTON
+   ========================================================= */
 
 .hr-settings-save {
   width: 70%;
+
   max-width: 850px;
+
   display: flex;
+
   justify-content: flex-end;
+
+  box-sizing: border-box;
 }
+
 
 .hr-settings-save button {
   display: flex;
+
   align-items: center;
+
   gap: 7px;
+
   padding: 11px 17px;
+
   border: none;
+
   border-radius: 7px;
+
   background: #4f46e5;
+
   color: white;
+
   font-size: 13px;
+
   font-weight: 600;
+
   cursor: pointer;
+
+  transition: background 0.2s ease;
 }
+
 
 .hr-settings-save button:hover {
   background: #4338ca;
 }
 
-@media (max-width: 800px) {
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+  .hr-settings-page {
+    padding: 95px 20px 30px;
+  }
+
   .hr-settings-card,
   .hr-settings-save {
     width: 100%;
   }
+
+}
+
+
+@media (max-width: 600px) {
+
+  .hr-settings-page {
+    padding: 90px 15px 25px;
+  }
+
+  .hr-settings-section-header {
+    padding: 15px;
+  }
+
+  .hr-settings-body {
+    padding: 15px;
+  }
+
+  .hr-preferences {
+    padding: 4px 15px;
+  }
+
+  .preference-row {
+    min-height: 65px;
+  }
+
 }

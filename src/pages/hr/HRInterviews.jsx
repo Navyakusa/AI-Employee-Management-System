@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import HRSidebar from "./HRSidebar";
+import HRNavbar from "./HRNavbar";
 
 import "./HRDashboard.css";
 import "./HRJobs.css";
@@ -1008,10 +1009,16 @@ function HRInterviews() {
       <HRSidebar />
 
       {/* ====================================================
+          TOP NAVBAR
+      ==================================================== */}
+
+      <HRNavbar />
+
+      {/* ====================================================
           MAIN
       ==================================================== */}
 
-      <main className="hr-main">
+      <main className="hr-main hr-interviews-main">
 
         {/* ====================================================
             HEADER

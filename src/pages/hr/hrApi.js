@@ -445,6 +445,7 @@ export async function updateJob(
   // PUT /api/jobs/{id} returns Job directly
   return await res.json();
 }
+
 // PUT /api/jobs/{id}/close
 
 export async function closeJob(jobId) {

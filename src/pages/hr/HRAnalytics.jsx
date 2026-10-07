@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import HRSidebar from "./HRSidebar";
+import HRNavbar from "./HRNavbar";
 import "./HRDashboard.css";
 import "./HRJobs.css";
 import "./HRAnalytics.css";
@@ -121,7 +122,9 @@ function HRAnalytics() {
     <div className="hr-dashboard">
       <HRSidebar />
 
-      <main className="hr-main">
+      <HRNavbar />
+
+      <main className="hr-main hr-analytics-main">
         <header className="hr-header">
           <div>
             <h1>Analytics</h1>

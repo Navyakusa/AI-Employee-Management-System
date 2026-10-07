@@ -1,18 +1,37 @@
 import React, { useState } from "react";
-import { Building2, Mail, Globe, Settings, Save } from "lucide-react";
+import {
+  Building2,
+  Mail,
+  Globe,
+  Settings,
+  Save,
+} from "lucide-react";
+
 import "./HRSettings.css";
 import HRSidebar from "./HRSidebar";
+import HRNavbar from "./HRNavbar";
 
 
 function HRSettings() {
-  const [organizationName, setOrganizationName] = useState("TalentAI");
-  const [supportEmail, setSupportEmail] = useState("support@talentai.com");
-  const [website, setWebsite] = useState("www.talentai.com");
+
+  const [organizationName, setOrganizationName] =
+    useState("TalentAI");
+
+  const [supportEmail, setSupportEmail] =
+    useState("support@talentai.com");
+
+  const [website, setWebsite] =
+    useState("www.talentai.com");
 
 
-  const [allowRegistration, setAllowRegistration] = useState(true);
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [allowRegistration, setAllowRegistration] =
+    useState(true);
+
+  const [emailNotifications, setEmailNotifications] =
+    useState(true);
+
+  const [maintenanceMode, setMaintenanceMode] =
+    useState(false);
 
 
   const handleSave = () => {
@@ -23,38 +42,85 @@ function HRSettings() {
   return (
     <div className="hr-dashboard">
 
-      {/* HR Sidebar */}
+      {/* =====================================================
+          HR SIDEBAR
+      ===================================================== */}
+
       <HRSidebar />
 
-      {/* Main Content */}
+
+      {/* =====================================================
+          TOP NAVBAR
+      ===================================================== */}
+
+      <HRNavbar />
+
+
+      {/* =====================================================
+          MAIN CONTENT
+      ===================================================== */}
+
       <main className="hr-main">
 
         <div className="hr-settings-page">
 
-          {/* Page Header */}
+
+          {/* =====================================================
+              PAGE HEADER
+          ===================================================== */}
+
           <div className="hr-settings-header">
-            <span>SYSTEM CONFIGURATION</span>
-            <h1>Settings</h1>
-            <p>Manage organization and platform settings.</p>
+
+            <span>
+              SYSTEM CONFIGURATION
+            </span>
+
+            <h1>
+              Settings
+            </h1>
+
+            <p>
+              Manage organization and platform settings.
+            </p>
+
           </div>
 
 
-          {/* Organization Settings */}
+          {/* =====================================================
+              ORGANIZATION SETTINGS
+          ===================================================== */}
+
           <div className="hr-settings-card">
+
             <div className="hr-settings-section-header">
+
               <Building2 size={18} />
 
               <div>
-                <h2>Organization Settings</h2>
-                <p>Basic organization information.</p>
+
+                <h2>
+                  Organization Settings
+                </h2>
+
+                <p>
+                  Basic organization information.
+                </p>
+
               </div>
+
             </div>
 
 
             <div className="hr-settings-body">
 
+
+              {/* Organization Name */}
+
               <label>
-                <span>Organization Name</span>
+
+                <span>
+                  Organization Name
+                </span>
 
                 <input
                   value={organizationName}
@@ -62,12 +128,20 @@ function HRSettings() {
                     setOrganizationName(e.target.value)
                   }
                 />
+
               </label>
 
 
+              {/* Support Email */}
+
               <label>
+
                 <span>
-                  <Mail size={14} /> Support Email
+
+                  <Mail size={14} />
+
+                  Support Email
+
                 </span>
 
                 <input
@@ -76,12 +150,20 @@ function HRSettings() {
                     setSupportEmail(e.target.value)
                   }
                 />
+
               </label>
 
 
+              {/* Website */}
+
               <label>
+
                 <span>
-                  <Globe size={14} /> Website
+
+                  <Globe size={14} />
+
+                  Website
+
                 </span>
 
                 <input
@@ -90,36 +172,62 @@ function HRSettings() {
                     setWebsite(e.target.value)
                   }
                 />
+
               </label>
 
+
             </div>
+
           </div>
 
 
-          {/* System Preferences */}
+          {/* =====================================================
+              SYSTEM PREFERENCES
+          ===================================================== */}
+
           <div className="hr-settings-card">
 
+
             <div className="hr-settings-section-header">
+
               <Settings size={18} />
 
               <div>
-                <h2>System Preferences</h2>
-                <p>Configure platform behavior.</p>
+
+                <h2>
+                  System Preferences
+                </h2>
+
+                <p>
+                  Configure platform behavior.
+                </p>
+
               </div>
+
             </div>
 
 
             <div className="hr-preferences">
 
-              {/* Allow Registration */}
+
+              {/* =================================================
+                  ALLOW REGISTRATION
+              ================================================= */}
+
               <div className="preference-row">
 
                 <div>
-                  <strong>Allow User Registrations</strong>
+
+                  <strong>
+                    Allow User Registrations
+                  </strong>
+
                   <span>
                     Allow new users to create accounts.
                   </span>
+
                 </div>
+
 
                 <input
                   type="checkbox"
@@ -132,15 +240,24 @@ function HRSettings() {
               </div>
 
 
-              {/* Email Notifications */}
+              {/* =================================================
+                  EMAIL NOTIFICATIONS
+              ================================================= */}
+
               <div className="preference-row">
 
                 <div>
-                  <strong>Email Notifications</strong>
+
+                  <strong>
+                    Email Notifications
+                  </strong>
+
                   <span>
                     Enable platform email notifications.
                   </span>
+
                 </div>
+
 
                 <input
                   type="checkbox"
@@ -153,15 +270,24 @@ function HRSettings() {
               </div>
 
 
-              {/* Maintenance Mode */}
+              {/* =================================================
+                  MAINTENANCE MODE
+              ================================================= */}
+
               <div className="preference-row">
 
                 <div>
-                  <strong>Maintenance Mode</strong>
+
+                  <strong>
+                    Maintenance Mode
+                  </strong>
+
                   <span>
                     Temporarily restrict platform access.
                   </span>
+
                 </div>
+
 
                 <input
                   type="checkbox"
@@ -173,19 +299,28 @@ function HRSettings() {
 
               </div>
 
+
             </div>
+
           </div>
 
 
-          {/* Save Button */}
+          {/* =====================================================
+              SAVE BUTTON
+          ===================================================== */}
+
           <div className="hr-settings-save">
 
             <button onClick={handleSave}>
+
               <Save size={17} />
+
               Save Settings
+
             </button>
 
           </div>
+
 
         </div>
 

@@ -44,20 +44,6 @@ export const getEmployeeDashboardSummary = () =>
 // ================= ATTENDANCE =================
 // Attendance: id, employeeId, attendanceDate, checkInTime, checkOutTime, status, remarks
 //
-// CONFIRMED from AttendanceController.java source (not just Swagger's list):
-// - POST /attendance takes a full Attendance object in the body and saves
-//   EXACTLY what it's given — it does NOT derive employeeId/checkInTime
-//   from the logged-in user's JWT. The caller must supply them.
-// - There is NO "get my today's status" endpoint. GET /attendance/status
-//   is actually "filter all attendance records by a given status value"
-//   (?status=PRESENT), a required query param — not per-employee at all.
-// - The only per-employee read is GET /attendance/employee/{employeeId},
-//   which returns ALL of that employee's records; "today's record" has
-//   to be found by filtering this list client-side for today's date.
-//
-// SECURITY NOTE: because the client supplies employeeId and checkInTime,
-// this is currently spoofable (any employee could POST another
-// employee's id, or a fake time). Worth raising with the backend team —
 // ideally the controller should derive both from the authenticated user
 // and server clock instead of trusting the request body.
 export const getAttendanceForEmployee = (employeeId) =>

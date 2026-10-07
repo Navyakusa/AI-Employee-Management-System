@@ -1027,6 +1027,297 @@
 }
 
 
+
+
+/* =========================================================
+   HR TOP NAVBAR
+   Works with the shared HRNavbar component.
+   Sidebar remains 200px wide.
+   ========================================================= */
+
+.hr-navbar {
+  position: fixed !important;
+  top: 0 !important;
+  left: 200px !important;
+  right: 0 !important;
+  height: 72px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 20px;
+
+  padding: 0 28px !important;
+  box-sizing: border-box !important;
+
+  background: #ffffff !important;
+  border-bottom: 1px solid #e5e7eb !important;
+
+  z-index: 9998 !important;
+}
+
+/* Search area */
+
+.hr-navbar-search {
+  width: 360px;
+  max-width: 45%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 11px 14px;
+  background: #f8fafc;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.hr-navbar-search input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #334155;
+  font-size: 13px;
+}
+
+.hr-navbar-search input::placeholder {
+  color: #94a3b8;
+}
+
+/* Right side */
+
+.hr-navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-left: auto;
+}
+
+/* Notification */
+
+.hr-navbar-notification {
+  position: relative;
+
+  width: 40px;
+  height: 40px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.hr-navbar-notification:hover {
+  background: #f5f3ff;
+  color: #4f46e5;
+}
+
+.hr-navbar-notification-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+
+  width: 7px;
+  height: 7px;
+
+  background: #ef4444;
+  border-radius: 50%;
+}
+
+/* Profile */
+
+.hr-navbar-profile-wrapper {
+  position: relative;
+}
+
+.hr-navbar-profile {
+  min-width: 180px;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 7px 10px;
+
+  border: 1px solid #111827;
+  border-radius: 9px;
+
+  background: #ffffff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.hr-navbar-profile:hover {
+  background: #f8fafc;
+}
+
+.hr-navbar-avatar {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #eeecff;
+  color: #4f46e5;
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.hr-navbar-profile-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.hr-navbar-profile-info strong {
+  color: #111827;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.hr-navbar-profile-info span {
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.hr-navbar-profile-arrow {
+  color: #64748b;
+  font-size: 14px;
+}
+
+/* Profile dropdown */
+
+.hr-navbar-profile-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+
+  width: 190px;
+
+  padding: 8px;
+
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+
+  z-index: 10001;
+}
+
+.hr-navbar-profile-menu button {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 10px 12px;
+
+  border: none;
+  border-radius: 7px;
+
+  background: transparent;
+  color: #374151;
+
+  font-size: 13px;
+  text-align: left;
+
+  cursor: pointer;
+}
+
+.hr-navbar-profile-menu button:hover {
+  background: #f5f3ff;
+  color: #4f46e5;
+}
+
+.hr-navbar-profile-menu .logout-option {
+  color: #ef4444;
+}
+
+.hr-navbar-profile-menu .logout-option:hover {
+  background: #fff1f2;
+  color: #dc2626;
+}
+
+/* =========================================================
+   CONTENT BELOW TOP NAVBAR
+   ========================================================= */
+
+.hr-page {
+  padding-top: 100px !important;
+}
+
+/* =========================================================
+   NAVBAR RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .hr-navbar {
+    left: 200px !important;
+    padding: 0 20px !important;
+  }
+
+  .hr-navbar-search {
+    width: 280px;
+    max-width: 50%;
+  }
+
+  .hr-navbar-profile {
+    min-width: 160px;
+  }
+}
+
+@media (max-width: 700px) {
+  .hr-navbar {
+    left: 0 !important;
+    height: 64px !important;
+    padding: 0 15px !important;
+  }
+
+  .hr-navbar-search {
+    width: 100%;
+    max-width: none;
+  }
+
+  .hr-navbar-profile-info,
+  .hr-navbar-profile-arrow {
+    display: none;
+  }
+
+  .hr-navbar-profile {
+    min-width: auto;
+    width: 42px;
+    height: 42px;
+    padding: 4px;
+    justify-content: center;
+  }
+
+  .hr-navbar-right {
+    gap: 8px;
+  }
+
+  .hr-page {
+    padding-top: 84px !important;
+  }
+}
+
 /* =========================================================
    SIDEBAR
    ========================================================= */

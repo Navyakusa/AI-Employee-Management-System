@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import HRSidebar from "./HRSidebar";
+import HRNavbar from "./HRNavbar";
 import "./HRScreening.css";
 
 import {
@@ -8,6 +9,7 @@ import {
   screenResume,
   rankCandidatesForJob,
 } from "./hrApi";
+
 
 function HRScreening() {
   // ==========================================================
@@ -374,6 +376,14 @@ function HRScreening() {
 
       <HRSidebar />
 
+
+      {/* =====================================================
+          COMMON HR NAVBAR
+      ===================================================== */}
+
+      <HRNavbar />
+
+
       {/* =====================================================
           MAIN CONTENT
       ===================================================== */}
@@ -397,6 +407,7 @@ function HRScreening() {
 
         </header>
 
+
         {/* ===================================================
             PAGE ERROR
         =================================================== */}
@@ -406,6 +417,7 @@ function HRScreening() {
             {pageError}
           </div>
         )}
+
 
         {/* ===================================================
             SCREEN A CANDIDATE
@@ -429,6 +441,7 @@ function HRScreening() {
             </div>
 
           </div>
+
 
           <form
             className="screening-form"
@@ -476,6 +489,7 @@ function HRScreening() {
               </select>
 
             </div>
+
 
             {/* CANDIDATE */}
 
@@ -526,6 +540,7 @@ function HRScreening() {
 
             </div>
 
+
             {/* BUTTON */}
 
             <button
@@ -544,6 +559,7 @@ function HRScreening() {
 
           </form>
 
+
           {screenError && (
             <div className="error-message">
               {screenError}
@@ -551,6 +567,7 @@ function HRScreening() {
           )}
 
         </section>
+
 
         {/* ===================================================
             SCREENING RESULT
@@ -591,6 +608,7 @@ function HRScreening() {
 
               </div>
 
+
               {/* SCORE */}
 
               <div className="overall-score">
@@ -608,6 +626,7 @@ function HRScreening() {
               </div>
 
             </div>
+
 
             {/* =================================================
                 SCREENING RESULT + RECOMMENDATION
@@ -629,6 +648,7 @@ function HRScreening() {
 
               </div>
 
+
               <div className="summary-box">
 
                 <span className="summary-label">
@@ -645,6 +665,7 @@ function HRScreening() {
 
             </div>
 
+
             {/* =================================================
                 RESUME INFORMATION
             ================================================= */}
@@ -654,6 +675,7 @@ function HRScreening() {
               <h3>
                 Resume Analysis
               </h3>
+
 
               <div className="resume-info-grid">
 
@@ -717,6 +739,7 @@ function HRScreening() {
 
             </div>
 
+
             {/* =================================================
                 EXPERIENCE
             ================================================= */}
@@ -734,6 +757,7 @@ function HRScreening() {
               </strong>
 
             </div>
+
 
             {/* =================================================
                 SCREENING ID / DATE
@@ -766,6 +790,7 @@ function HRScreening() {
           </section>
         )}
 
+
         {/* ===================================================
             AI RANKINGS
         =================================================== */}
@@ -793,6 +818,7 @@ function HRScreening() {
 
           </div>
 
+
           {/* =================================================
               RANKING CONTROLS
           ================================================= */}
@@ -813,7 +839,10 @@ function HRScreening() {
                   setRankingResults([]);
                   setRankingError("");
                 }}
-                disabled={loadingJobs || rankingLoading}
+                disabled={
+                  loadingJobs ||
+                  rankingLoading
+                }
               >
 
                 <option value="">
@@ -841,6 +870,7 @@ function HRScreening() {
 
             </div>
 
+
             <button
               type="button"
               className="primary-button ranking-button"
@@ -858,6 +888,7 @@ function HRScreening() {
 
           </div>
 
+
           {/* =================================================
               RANKING ERROR
           ================================================= */}
@@ -867,6 +898,7 @@ function HRScreening() {
               {rankingError}
             </div>
           )}
+
 
           {/* =================================================
               RANKING RESULTS
@@ -878,6 +910,7 @@ function HRScreening() {
               <div className="ranking-results-header">
 
                 <div>
+
                   <h3>
                     Candidate Rankings
                   </h3>
@@ -906,6 +939,7 @@ function HRScreening() {
                         : `Job ${rankingJobId}`}
                     </strong>
                   </p>
+
                 </div>
 
                 <div className="ranking-count">
@@ -913,6 +947,7 @@ function HRScreening() {
                 </div>
 
               </div>
+
 
               <div className="ranking-table-wrapper">
 
@@ -929,6 +964,7 @@ function HRScreening() {
                     </tr>
 
                   </thead>
+
 
                   <tbody>
 
@@ -948,12 +984,14 @@ function HRScreening() {
                               )
                           );
 
+
                         const candidateName =
                           candidate
                             ? getCandidateName(
                                 candidate
                               )
                             : `Candidate ${item.candidateId}`;
+
 
                         return (
                           <tr key={item.id}>
@@ -967,6 +1005,7 @@ function HRScreening() {
                               </span>
 
                             </td>
+
 
                             {/* CANDIDATE */}
 
@@ -988,6 +1027,7 @@ function HRScreening() {
 
                             </td>
 
+
                             {/* MATCH SCORE */}
 
                             <td>
@@ -995,12 +1035,13 @@ function HRScreening() {
                               <span className="match-score">
                                 {Number(
                                   item.matchScore ??
-                                    0
+                                  0
                                 ).toFixed(2)}
                                 %
                               </span>
 
                             </td>
+
 
                             {/* MUST HAVE COVERAGE */}
 
@@ -1011,7 +1052,7 @@ function HRScreening() {
                                 <div className="coverage-value">
                                   {Number(
                                     item.mustHaveCoveragePct ??
-                                      0
+                                    0
                                   ).toFixed(0)}
                                   %
                                 </div>
@@ -1027,7 +1068,7 @@ function HRScreening() {
                                           0,
                                           Number(
                                             item.mustHaveCoveragePct ??
-                                              0
+                                            0
                                           )
                                         )
                                       )}%`,
@@ -1039,6 +1080,7 @@ function HRScreening() {
                               </div>
 
                             </td>
+
 
                             {/* MISSING SKILLS */}
 
@@ -1093,6 +1135,7 @@ function HRScreening() {
             </div>
           )}
 
+
           {/* =================================================
               EMPTY STATE
           ================================================= */}
@@ -1131,6 +1174,7 @@ function HRScreening() {
   );
 }
 
+
 // ============================================================
 // INFO CARD
 // ============================================================
@@ -1154,5 +1198,6 @@ function InfoCard({ title, value }) {
     </div>
   );
 }
+
 
 export default HRScreening;

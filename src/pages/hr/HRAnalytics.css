@@ -1,8 +1,17 @@
-/* Analytics page styles. Existing HR dashboard/job styles are reused. */
+/* =========================================================
+   TALENT AI - HR ANALYTICS
+   Existing Analytics styles + shared HR Top Navbar
+   ========================================================= */
+
+
+/* =========================================================
+   ANALYTICS PAGE
+   ========================================================= */
 
 .analytics-stat-grid {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
+
 
 .analytics-stat-grid .job-stat-card small {
   display: block;
@@ -11,23 +20,36 @@
   font-size: 11px;
 }
 
+
+/* =========================================================
+   ANALYTICS GRID
+   ========================================================= */
+
 .analytics-grid {
   display: grid;
   gap: 18px;
   margin-top: 18px;
 }
 
+
 .analytics-grid-two {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+
 
 .analytics-grid-three {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+
 .analytics-row-grid-2 {
   grid-template-columns: 2fr 1fr;
 }
+
+
+/* =========================================================
+   DISTRIBUTION
+   ========================================================= */
 
 .analytics-distribution-list,
 .analytics-trend-list {
@@ -36,112 +58,643 @@
   gap: 14px;
 }
 
+
 .analytics-distribution-row {
   display: flex;
   flex-direction: column;
   gap: 7px;
 }
 
+
 .analytics-distribution-label {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+
   font-size: 13px;
   color: #334155;
 }
+
 
 .analytics-distribution-label strong {
   color: #111827;
 }
 
+
+/* =========================================================
+   ANALYTICS BARS
+   ========================================================= */
+
 .analytics-bar-track,
 .analytics-trend-track {
   width: 100%;
   height: 8px;
+
   overflow: hidden;
+
   background: #e2e8f0;
+
   border-radius: 999px;
 }
+
 
 .analytics-bar,
 .analytics-trend-bar {
   height: 100%;
   min-width: 2px;
+
   background: #4f46e5;
+
   border-radius: 999px;
+
   transition: width 0.25s ease;
 }
 
+
+/* =========================================================
+   RECRUITMENT RATE CARDS
+   ========================================================= */
+
 .analytics-rate-grid {
   display: grid;
+
   grid-template-columns: repeat(4, minmax(0, 1fr));
+
   gap: 12px;
 }
 
+
 .analytics-rate-card {
   padding: 15px;
+
   border: 1px solid #e2e8f0;
+
   border-radius: 10px;
+
   background: #f8fafc;
 }
 
+
 .analytics-rate-card span {
   display: block;
+
   color: #64748b;
+
   font-size: 12px;
+
   margin-bottom: 7px;
 }
 
+
 .analytics-rate-card strong {
   display: block;
+
   color: #111827;
+
   font-size: 20px;
 }
 
+
+/* =========================================================
+   ANALYTICS TREND
+   ========================================================= */
+
 .analytics-trend-row {
   display: grid;
+
   grid-template-columns: 70px 1fr 38px;
+
   align-items: center;
+
   gap: 10px;
+
   font-size: 12px;
+
   color: #475569;
 }
 
+
 .analytics-trend-row strong {
   text-align: right;
+
   color: #111827;
 }
 
+
+/* =========================================================
+   EMPTY / ERROR
+   ========================================================= */
+
 .analytics-empty {
   color: #64748b;
+
   font-size: 13px;
+
   padding: 8px 0;
 }
+
 
 .analytics-error {
   color: #dc2626 !important;
 }
 
+
+/* =========================================================
+   ANALYTICS TOP NAVBAR
+   Shared with Dashboard / Jobs / Candidates /
+   AI Screening / Interviews / Offers / Employees
+   ========================================================= */
+
+.hr-navbar {
+  position: fixed !important;
+
+  top: 0 !important;
+  left: 200px !important;
+  right: 0 !important;
+
+  height: 72px !important;
+
+  display: flex !important;
+
+  align-items: center !important;
+
+  justify-content: space-between !important;
+
+  gap: 20px;
+
+  padding: 0 28px !important;
+
+  box-sizing: border-box !important;
+
+  background: #ffffff !important;
+
+  border-bottom: 1px solid #e5e7eb !important;
+
+  z-index: 9998 !important;
+}
+
+
+/* =========================================================
+   NAVBAR SEARCH
+   ========================================================= */
+
+.hr-navbar-search {
+  width: 360px;
+
+  max-width: 45%;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 11px 14px;
+
+  background: #f8fafc;
+
+  border: 1px solid #dbe2ea;
+
+  border-radius: 8px;
+
+  box-sizing: border-box;
+}
+
+
+.hr-navbar-search input {
+  width: 100%;
+
+  border: none;
+
+  outline: none;
+
+  background: transparent;
+
+  color: #334155;
+
+  font-size: 13px;
+}
+
+
+.hr-navbar-search input::placeholder {
+  color: #94a3b8;
+}
+
+
+/* =========================================================
+   NAVBAR RIGHT SIDE
+   ========================================================= */
+
+.hr-navbar-right {
+  display: flex;
+
+  align-items: center;
+
+  gap: 18px;
+
+  margin-left: auto;
+}
+
+
+/* =========================================================
+   NOTIFICATION
+   ========================================================= */
+
+.hr-navbar-notification {
+  position: relative;
+
+  width: 40px;
+
+  height: 40px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border: none;
+
+  border-radius: 8px;
+
+  background: transparent;
+
+  color: #64748b;
+
+  cursor: pointer;
+
+  font-size: 20px;
+}
+
+
+.hr-navbar-notification:hover {
+  background: #f5f3ff;
+
+  color: #4f46e5;
+}
+
+
+.hr-navbar-notification-badge {
+  position: absolute;
+
+  top: 5px;
+
+  right: 5px;
+
+  width: 7px;
+
+  height: 7px;
+
+  background: #ef4444;
+
+  border-radius: 50%;
+}
+
+
+/* =========================================================
+   PROFILE
+   ========================================================= */
+
+.hr-navbar-profile-wrapper {
+  position: relative;
+}
+
+
+.hr-navbar-profile {
+  min-width: 180px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 7px 10px;
+
+  border: 1px solid #111827;
+
+  border-radius: 9px;
+
+  background: #ffffff;
+
+  cursor: pointer;
+
+  text-align: left;
+}
+
+
+.hr-navbar-profile:hover {
+  background: #f8fafc;
+}
+
+
+.hr-navbar-avatar {
+  width: 34px;
+
+  height: 34px;
+
+  min-width: 34px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #eeecff;
+
+  color: #4f46e5;
+
+  font-size: 13px;
+
+  font-weight: 700;
+}
+
+
+.hr-navbar-profile-info {
+  display: flex;
+
+  flex-direction: column;
+
+  flex: 1;
+
+  min-width: 0;
+}
+
+
+.hr-navbar-profile-info strong {
+  color: #111827;
+
+  font-size: 13px;
+
+  line-height: 1.3;
+}
+
+
+.hr-navbar-profile-info span {
+  margin-top: 2px;
+
+  color: #64748b;
+
+  font-size: 11px;
+}
+
+
+.hr-navbar-profile-arrow {
+  color: #64748b;
+
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   PROFILE DROPDOWN
+   ========================================================= */
+
+.hr-navbar-profile-menu {
+  position: absolute;
+
+  top: calc(100% + 8px);
+
+  right: 0;
+
+  width: 190px;
+
+  padding: 8px;
+
+  background: #ffffff;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 10px;
+
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+
+  z-index: 10001;
+}
+
+
+.hr-navbar-profile-menu button {
+  width: 100%;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 10px 12px;
+
+  border: none;
+
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: #374151;
+
+  font-size: 13px;
+
+  text-align: left;
+
+  cursor: pointer;
+}
+
+
+.hr-navbar-profile-menu button:hover {
+  background: #f5f3ff;
+
+  color: #4f46e5;
+}
+
+
+.hr-navbar-profile-menu .logout-option {
+  color: #ef4444;
+}
+
+
+.hr-navbar-profile-menu .logout-option:hover {
+  background: #fff1f2;
+
+  color: #dc2626;
+}
+
+
+/* =========================================================
+   ANALYTICS MAIN CONTENT
+   SPACE FOR FIXED NAVBAR
+   ========================================================= */
+
+.hr-analytics-main {
+  padding-top: 102px !important;
+
+  box-sizing: border-box;
+
+  min-height: 100vh;
+
+  background: #f5f7fb;
+}
+
+
+/*
+   Keep the Analytics header below navbar.
+*/
+
+.hr-analytics-main .hr-header {
+  margin-top: 0;
+}
+
+
+/* =========================================================
+   TABLE / PANEL SAFETY
+   ========================================================= */
+
+.hr-analytics-main .jobs-panel {
+  box-sizing: border-box;
+}
+
+
+.hr-analytics-main .job-stat-card {
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   RESPONSIVE - 1200px
+   ========================================================= */
+
 @media (max-width: 1200px) {
+
   .analytics-stat-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(
+      3,
+      minmax(0, 1fr)
+    );
   }
+
 
   .analytics-grid-three {
     grid-template-columns: 1fr;
   }
+
 }
 
+
+/* =========================================================
+   RESPONSIVE - 1100px
+   ========================================================= */
+
+@media (max-width: 1100px) {
+
+  .hr-navbar {
+    padding: 0 20px !important;
+  }
+
+
+  .hr-navbar-search {
+    width: 300px;
+
+    max-width: 45%;
+  }
+
+
+  .hr-navbar-profile {
+    min-width: 165px;
+  }
+
+}
+
+
+/* =========================================================
+   RESPONSIVE - 900px
+   ========================================================= */
+
 @media (max-width: 900px) {
+
   .analytics-stat-grid,
   .analytics-grid-two,
   .analytics-rate-grid {
     grid-template-columns: 1fr;
   }
 
+
   .analytics-row-grid-2 {
     grid-template-columns: 1fr;
+
     gap: 4px;
   }
+
+
+  .hr-navbar {
+    left: 200px !important;
+  }
+
+
+  .hr-navbar-search {
+    width: 260px;
+
+    max-width: 45%;
+  }
+
+}
+
+
+/* =========================================================
+   RESPONSIVE - 700px
+   ========================================================= */
+
+@media (max-width: 700px) {
+
+  .hr-navbar {
+    left: 200px !important;
+
+    height: 64px !important;
+
+    padding: 0 15px !important;
+  }
+
+
+  .hr-navbar-search {
+    width: 100%;
+
+    max-width: 55%;
+  }
+
+
+  .hr-navbar-profile-info,
+  .hr-navbar-profile-arrow {
+    display: none;
+  }
+
+
+  .hr-navbar-profile {
+    min-width: 42px;
+
+    width: 42px;
+
+    height: 42px;
+
+    padding: 4px;
+
+    justify-content: center;
+  }
+
+
+  .hr-navbar-right {
+    gap: 8px;
+  }
+
+
+  .hr-analytics-main {
+    padding-top: 90px !important;
+  }
+
+
+  .analytics-trend-row {
+    grid-template-columns: 60px 1fr 35px;
+  }
+
 }

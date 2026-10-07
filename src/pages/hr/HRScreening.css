@@ -1609,3 +1609,33 @@
     width: 100% !important;
   }
 }
+
+.hr-screening-main {
+  margin-left: 200px;
+  min-height: 100vh;
+
+  padding-top: 102px;
+  padding-left: 30px;
+  padding-right: 30px;
+  padding-bottom: 30px;
+
+  box-sizing: border-box;
+  background: #f5f7fb;
+}
+
+@media (max-width: 1100px) {
+  .hr-screening-main {
+    padding-left: 25px;
+    padding-right: 25px;
+  }
+}
+
+@media (max-width: 700px) {
+  .hr-screening-main {
+    margin-left: 200px;
+    padding-top: 95px;
+    padding-left: 15px;
+    padding-right: 15px;
+    padding-bottom: 20px;
+  }
+}

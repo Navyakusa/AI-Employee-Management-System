@@ -154,7 +154,26 @@ function EmployeeDashboard() {
       if (checkedIn) {
         const historyRes = await getAttendanceForEmployee(employeeId);
         const list = historyRes.data?.data || [];
-        const todayRecord = list.find((r) => r.attendanceDate === todayIso());
+        const todayRecords = list.filter(
+  (r) => r.attendanceDate === todayIso()
+);
+
+// Prefer an active check-in record.
+// If none exists, use the latest today's record.
+const activeTodayRecord = todayRecords.find(
+  (r) => r.checkInTime && !r.checkOutTime
+);
+
+const latestTodayRecord = [...todayRecords].sort((a, b) =>
+  String(b.checkInTime || "").localeCompare(
+    String(a.checkInTime || "")
+  )
+)[0];
+
+const todayRecord =
+  activeTodayRecord || latestTodayRecord || null;
+
+setToday(todayRecord);
 
         if (todayRecord?.id) {
           await checkOut(todayRecord.id, { checkOutTime: nowTimeLocal() });

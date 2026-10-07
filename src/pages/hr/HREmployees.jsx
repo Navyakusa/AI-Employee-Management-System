@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import HRSidebar from "./HRSidebar";
+import HRNavbar from "./HRNavbar";
 import {
   fetchEmployees,
   fetchEmployeeById,
@@ -341,7 +342,9 @@ function HREmployees() {
     <div className="employees-layout">
       <HRSidebar />
 
-      <main className="employees-page">
+      <HRNavbar />
+
+      <main className="employees-page employees-page-with-navbar">
         <div className="employees-header">
           <div>
             <h1>Employees</h1>

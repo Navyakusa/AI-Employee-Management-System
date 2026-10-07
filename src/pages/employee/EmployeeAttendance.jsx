@@ -87,7 +87,26 @@ function EmployeeAttendance() {
 
       setHistory(list);
 
-      const todayRecord = list.find((r) => r.attendanceDate === todayIso());
+      const todayRecords = list.filter(
+  (r) => r.attendanceDate === todayIso()
+);
+
+// Prefer an active check-in record.
+// If none exists, use the latest today's record.
+const activeTodayRecord = todayRecords.find(
+  (r) => r.checkInTime && !r.checkOutTime
+);
+
+const latestTodayRecord = [...todayRecords].sort((a, b) =>
+  String(b.checkInTime || "").localeCompare(
+    String(a.checkInTime || "")
+  )
+)[0];
+
+const todayRecord =
+  activeTodayRecord || latestTodayRecord || null;
+
+setToday(todayRecord);
       setToday(todayRecord || null);
     } catch (err) {
       console.error("Failed to load attendance data", err);

@@ -22,6 +22,7 @@ import {
 } from "./hrApi";
 
 import HRSidebar from "./HRSidebar";
+import HRNavbar from "./HRNavbar";
 
 import "./HROffers.css";
 
@@ -789,9 +790,13 @@ function HROffers() {
 
       <HRSidebar />
 
+      {/* TOP NAVBAR */}
+
+      <HRNavbar />
+
       {/* MAIN CONTENT */}
 
-      <main className="hr-page-content">
+      <main className="hr-page-content hr-offers-with-navbar">
 
         <div className="hr-page">
 

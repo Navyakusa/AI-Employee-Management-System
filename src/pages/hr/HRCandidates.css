@@ -1,41 +1,591 @@
-/* Candidate page styles */
-.candidate-upload-panel{margin-bottom:25px}
-.candidate-upload-form{display:flex;flex-direction:column;gap:12px}
-.candidate-upload-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-.candidate-upload-row input[type="file"],.candidate-upload-select{flex:1;min-width:220px;padding:11px 12px;border:1px solid #d7dbea;border-radius:8px;font-size:14px;background:#fff;color:#111827;box-sizing:border-box}
-.candidate-upload-select:focus,.candidate-upload-row input[type="file"]:focus{border-color:#4f46e5;outline:none}
-.candidate-upload-help{margin:0;color:#64748b;font-size:13px;line-height:1.5}
-.candidate-upload-msg{margin:4px 0 0;font-size:13.5px;color:#475569;line-height:1.5}
-.candidate-row-grid{grid-template-columns:1fr 1.5fr 1fr 2fr}
-.candidate-id-cell{font-family:monospace;font-size:13px;color:#64748b}
-.candidate-name-button{border:none;background:transparent;padding:0;margin:0;color:#4338ca;cursor:pointer;font-weight:600;text-align:left}
-.candidate-name-button:hover{text-decoration:underline}
-.candidate-skills-cell{display:flex;flex-wrap:wrap;gap:6px}
-.skill-chip{background:#eef0ff;color:#4f46e5;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px}
-.no-skills-text{color:#94a3b8;font-size:13px}
-.candidate-modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;box-sizing:border-box}
-.candidate-modal{width:min(850px,95vw);max-height:90vh;overflow-y:auto;background:#fff;border-radius:14px;padding:28px;box-shadow:0 20px 50px rgba(0,0,0,.25);box-sizing:border-box}
-.candidate-modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
-.candidate-modal-header h2{margin:0;font-size:24px;color:#111827}
-.candidate-modal-header p{margin:6px 0 0;color:#64748b}
-.candidate-modal-close{border:none;background:#f1f5f9;width:36px;height:36px;border-radius:50%;font-size:20px;cursor:pointer}
-.candidate-modal-loading{padding:40px;text-align:center;color:#64748b}
-.candidate-modal-error{padding:16px;border-radius:8px;background:#fff1f2;border:1px solid #fecdd3;color:#be123c}
-.candidate-details-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
-.candidate-detail-item{padding:14px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0}
-.candidate-detail-label{font-size:12px;color:#64748b;margin-bottom:5px;font-weight:600}
-.candidate-detail-value{font-size:14px;color:#111827;word-break:break-word}
-.candidate-modal-section{margin-top:24px}
-.candidate-modal-section h3{margin:0 0 10px;color:#111827}
-.candidate-modal-skills{display:flex;flex-wrap:wrap;gap:8px}
-.candidate-links{display:flex;gap:12px;flex-wrap:wrap}
-.candidate-links a{color:#4338ca;font-weight:600;text-decoration:none}
-.candidate-links a:hover{text-decoration:underline}
-.candidate-modal-footer{display:flex;justify-content:flex-end;margin-top:28px}
-.candidate-close-button{padding:10px 22px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer;font-weight:600}
-@media(max-width:900px){
- .candidate-row-grid{grid-template-columns:1fr;gap:6px}
- .candidate-details-grid{grid-template-columns:1fr}
- .candidate-upload-row{flex-direction:column;align-items:stretch}
- .candidate-upload-row input[type="file"],.candidate-upload-select{width:100%;min-width:0}
+/* ============================================================
+   HR CANDIDATES PAGE
+============================================================ */
+
+
+/* ============================================================
+   MAIN CONTENT
+   Leaves space for:
+   - 200px sidebar
+   - 72px fixed navbar
+============================================================ */
+
+.hr-candidates-main {
+  margin-left: 200px;
+
+  min-height: 100vh;
+
+  padding-top: 102px;
+  padding-left: 30px;
+  padding-right: 30px;
+  padding-bottom: 30px;
+
+  box-sizing: border-box;
+
+  background: #f5f7fb;
+}
+
+
+/* ============================================================
+   CANDIDATE UPLOAD PANEL
+============================================================ */
+
+.candidate-upload-panel {
+  margin-bottom: 25px;
+}
+
+
+.candidate-upload-form {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 12px;
+}
+
+
+.candidate-upload-row {
+  display: flex;
+
+  gap: 12px;
+
+  flex-wrap: wrap;
+
+  align-items: center;
+}
+
+
+/* ============================================================
+   UPLOAD INPUT + SELECT
+============================================================ */
+
+.candidate-upload-row input[type="file"],
+.candidate-upload-select {
+  flex: 1;
+
+  min-width: 220px;
+
+  padding: 11px 12px;
+
+  border: 1px solid #d7dbea;
+
+  border-radius: 8px;
+
+  font-size: 14px;
+
+  background: #ffffff;
+
+  color: #111827;
+
+  box-sizing: border-box;
+}
+
+
+.candidate-upload-select:focus,
+.candidate-upload-row input[type="file"]:focus {
+  border-color: #4f46e5;
+
+  outline: none;
+}
+
+
+/* ============================================================
+   UPLOAD HELP TEXT
+============================================================ */
+
+.candidate-upload-help {
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 13px;
+
+  line-height: 1.5;
+}
+
+
+/* ============================================================
+   UPLOAD MESSAGE
+============================================================ */
+
+.candidate-upload-msg {
+  margin: 4px 0 0;
+
+  font-size: 13.5px;
+
+  color: #475569;
+
+  line-height: 1.5;
+}
+
+
+/* ============================================================
+   CANDIDATE TABLE
+============================================================ */
+
+.candidate-row-grid {
+  grid-template-columns:
+    1fr
+    1.5fr
+    1fr
+    2fr;
+}
+
+
+/* ============================================================
+   CANDIDATE ID
+============================================================ */
+
+.candidate-id-cell {
+  font-family: monospace;
+
+  font-size: 13px;
+
+  color: #64748b;
+}
+
+
+/* ============================================================
+   CANDIDATE NAME
+============================================================ */
+
+.candidate-name-button {
+  border: none;
+
+  background: transparent;
+
+  padding: 0;
+
+  margin: 0;
+
+  color: #4338ca;
+
+  cursor: pointer;
+
+  font-weight: 600;
+
+  text-align: left;
+
+  font-size: inherit;
+}
+
+
+.candidate-name-button:hover {
+  text-decoration: underline;
+}
+
+
+/* ============================================================
+   CANDIDATE SKILLS
+============================================================ */
+
+.candidate-skills-cell {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 6px;
+}
+
+
+/* ============================================================
+   SKILL CHIP
+============================================================ */
+
+.skill-chip {
+  background: #eef0ff;
+
+  color: #4f46e5;
+
+  font-size: 12px;
+
+  font-weight: 600;
+
+  padding: 3px 10px;
+
+  border-radius: 999px;
+}
+
+
+/* ============================================================
+   NO SKILLS
+============================================================ */
+
+.no-skills-text {
+  color: #94a3b8;
+
+  font-size: 13px;
+}
+
+
+/* ============================================================
+   CANDIDATE DETAILS MODAL
+============================================================ */
+
+.candidate-modal-overlay {
+  position: fixed;
+
+  inset: 0;
+
+  background: rgba(15, 23, 42, 0.55);
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  z-index: 99999;
+
+  padding: 20px;
+
+  box-sizing: border-box;
+}
+
+
+.candidate-modal {
+  width: min(850px, 95vw);
+
+  max-height: 90vh;
+
+  overflow-y: auto;
+
+  background: #ffffff;
+
+  border-radius: 14px;
+
+  padding: 28px;
+
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.25);
+
+  box-sizing: border-box;
+}
+
+
+/* ============================================================
+   MODAL HEADER
+============================================================ */
+
+.candidate-modal-header {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  margin-bottom: 24px;
+}
+
+
+.candidate-modal-header h2 {
+  margin: 0;
+
+  font-size: 24px;
+
+  color: #111827;
+}
+
+
+.candidate-modal-header p {
+  margin: 6px 0 0;
+
+  color: #64748b;
+}
+
+
+/* ============================================================
+   MODAL CLOSE ICON
+============================================================ */
+
+.candidate-modal-close {
+  border: none;
+
+  background: #f1f5f9;
+
+  width: 36px;
+
+  height: 36px;
+
+  border-radius: 50%;
+
+  font-size: 20px;
+
+  cursor: pointer;
+
+  color: #334155;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+
+.candidate-modal-close:hover {
+  background: #e2e8f0;
+
+  color: #111827;
+}
+
+
+/* ============================================================
+   MODAL LOADING
+============================================================ */
+
+.candidate-modal-loading {
+  padding: 40px;
+
+  text-align: center;
+
+  color: #64748b;
+}
+
+
+/* ============================================================
+   MODAL ERROR
+============================================================ */
+
+.candidate-modal-error {
+  padding: 16px;
+
+  border-radius: 8px;
+
+  background: #fff1f2;
+
+  border: 1px solid #fecdd3;
+
+  color: #be123c;
+}
+
+
+/* ============================================================
+   CANDIDATE DETAILS GRID
+============================================================ */
+
+.candidate-details-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 18px;
+}
+
+
+/* ============================================================
+   DETAIL ITEM
+============================================================ */
+
+.candidate-detail-item {
+  padding: 14px;
+
+  background: #f8fafc;
+
+  border-radius: 8px;
+
+  border: 1px solid #e2e8f0;
+}
+
+
+.candidate-detail-label {
+  font-size: 12px;
+
+  color: #64748b;
+
+  margin-bottom: 5px;
+
+  font-weight: 600;
+}
+
+
+.candidate-detail-value {
+  font-size: 14px;
+
+  color: #111827;
+
+  word-break: break-word;
+}
+
+
+/* ============================================================
+   MODAL SECTION
+============================================================ */
+
+.candidate-modal-section {
+  margin-top: 24px;
+}
+
+
+.candidate-modal-section h3 {
+  margin: 0 0 10px;
+
+  color: #111827;
+}
+
+
+/* ============================================================
+   MODAL SKILLS
+============================================================ */
+
+.candidate-modal-skills {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 8px;
+}
+
+
+/* ============================================================
+   CANDIDATE LINKS
+============================================================ */
+
+.candidate-links {
+  display: flex;
+
+  gap: 12px;
+
+  flex-wrap: wrap;
+}
+
+
+.candidate-links a {
+  color: #4338ca;
+
+  font-weight: 600;
+
+  text-decoration: none;
+}
+
+
+.candidate-links a:hover {
+  text-decoration: underline;
+}
+
+
+/* ============================================================
+   MODAL FOOTER
+============================================================ */
+
+.candidate-modal-footer {
+  display: flex;
+
+  justify-content: flex-end;
+
+  margin-top: 28px;
+}
+
+
+/* ============================================================
+   CLOSE BUTTON
+============================================================ */
+
+.candidate-close-button {
+  padding: 10px 22px;
+
+  border-radius: 8px;
+
+  border: 1px solid #d1d5db;
+
+  background: #ffffff;
+
+  cursor: pointer;
+
+  font-weight: 600;
+
+  color: #374151;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+
+.candidate-close-button:hover {
+  background: #f8fafc;
+
+  border-color: #9ca3af;
+}
+
+
+/* ============================================================
+   RESPONSIVE - 1100px
+============================================================ */
+
+@media (max-width: 1100px) {
+
+  .hr-candidates-main {
+    padding-left: 25px;
+
+    padding-right: 25px;
+  }
+
+}
+
+
+/* ============================================================
+   RESPONSIVE - 900px
+============================================================ */
+
+@media (max-width: 900px) {
+
+  .candidate-row-grid {
+    grid-template-columns: 1fr;
+
+    gap: 6px;
+  }
+
+
+  .candidate-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+
+  .candidate-upload-row {
+    flex-direction: column;
+
+    align-items: stretch;
+  }
+
+
+  .candidate-upload-row input[type="file"],
+  .candidate-upload-select {
+    width: 100%;
+
+    min-width: 0;
+  }
+
+}
+
+
+/* ============================================================
+   RESPONSIVE - 700px
+============================================================ */
+
+@media (max-width: 700px) {
+
+  .hr-candidates-main {
+    margin-left: 200px;
+
+    padding-top: 95px;
+
+    padding-left: 15px;
+
+    padding-right: 15px;
+
+    padding-bottom: 20px;
+  }
+
+
+  .candidate-modal {
+    width: 95vw;
+
+    padding: 20px;
+  }
+
+
+  .candidate-modal-header h2 {
+    font-size: 20px;
+  }
+
 }
