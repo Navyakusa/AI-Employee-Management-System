@@ -163,13 +163,11 @@ function LoginPage() {
       // =========================
       switch (backendRole) {
         case "HR":
-          navigate(
-            "/hr/dashboard",
-            {
-              replace: true,
-            }
-          );
-          break;
+case "HR_MANAGER":
+  navigate("/hr/dashboard", {
+    replace: true,
+  });
+  break;
 
         case "SUPER_ADMIN":
           navigate(

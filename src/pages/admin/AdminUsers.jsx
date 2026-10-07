@@ -1003,7 +1003,7 @@ const handleDeleteUser = async (userId) => {
                     </option>
 
                     <option value="HR Manager">
-                      HR Manager
+                      HR
                     </option>
 
                     <option value="Recruiter">

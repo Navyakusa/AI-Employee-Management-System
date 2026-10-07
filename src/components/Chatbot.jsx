@@ -45,9 +45,7 @@ function Chatbot() {
 
     const interval = setInterval(checkUser, 500);
 
-    return () => {
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, []);
 
   const sendMessage = async () => {
@@ -145,9 +143,58 @@ function Chatbot() {
                     : "bot-message"
                 }`}
               >
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-  {chatMessage.text}
-</ReactMarkdown>
+                <div className="chatbot-markdown">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      h1: ({ children }) => <h1>{children}</h1>,
+                      h2: ({ children }) => <h2>{children}</h2>,
+                      h3: ({ children }) => <h3>{children}</h3>,
+
+                      p: ({ children }) => <p>{children}</p>,
+
+                      ul: ({ children }) => <ul>{children}</ul>,
+                      ol: ({ children }) => <ol>{children}</ol>,
+                      li: ({ children }) => <li>{children}</li>,
+
+                      strong: ({ children }) => <strong>{children}</strong>,
+                      em: ({ children }) => <em>{children}</em>,
+
+                      blockquote: ({ children }) => (
+                        <blockquote>{children}</blockquote>
+                      ),
+
+                      code: ({ inline, children }) =>
+                        inline ? (
+                          <code className="inline-code">{children}</code>
+                        ) : (
+                          <pre>
+                            <code>{children}</code>
+                          </pre>
+                        ),
+
+                      a: ({ href, children }) => (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {children}
+                        </a>
+                      ),
+
+                      table: ({ children }) => (
+                        <div className="markdown-table-wrapper">
+                          <table>{children}</table>
+                        </div>
+                      ),
+                    }}
+                  >
+                    {chatMessage.sender === "bot"
+                      ? chatMessage.text.replace(/([.!?])\s+/g, "$1\n\n")
+                      : chatMessage.text}
+                  </ReactMarkdown>
+                </div>
               </div>
             ))}
 
