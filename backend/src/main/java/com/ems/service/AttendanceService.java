@@ -29,9 +29,50 @@ public class AttendanceService {
 
         try {
 
+            // Employee ID is required
+            if (attendance.getEmployeeId() == null) {
+
+                return new ResponseEntity<>(
+                        new ApiResponse<>(
+                                false,
+                                "Employee ID is required",
+                                null
+                        ),
+                        HttpStatus.BAD_REQUEST
+                );
+            }
+
+            // If date is not provided, use today's date
             if (attendance.getAttendanceDate() == null) {
                 attendance.setAttendanceDate(LocalDate.now());
             }
+
+            // =========================
+            // CHECK DUPLICATE ATTENDANCE
+            // =========================
+
+            long existingAttendance =
+                    attendanceRepository.countByEmployeeIdAndAttendanceDate(
+                            attendance.getEmployeeId(),
+                            attendance.getAttendanceDate()
+                    );
+
+            if (existingAttendance > 0) {
+
+                return new ResponseEntity<>(
+                        new ApiResponse<>(
+                                false,
+                                "Attendance already exists for this employee on "
+                                        + attendance.getAttendanceDate(),
+                                null
+                        ),
+                        HttpStatus.CONFLICT
+                );
+            }
+
+            // =========================
+            // SAVE ATTENDANCE
+            // =========================
 
             Attendance savedAttendance =
                     attendanceRepository.save(attendance);
@@ -289,8 +330,8 @@ public class AttendanceService {
 
 
     // =========================
-// UPDATE ATTENDANCE
-// =========================
+    // UPDATE ATTENDANCE
+    // =========================
 
     public ResponseEntity<ApiResponse<Attendance>> updateAttendance(
             Long id,
@@ -298,7 +339,7 @@ public class AttendanceService {
 
         try {
 
-            // 1. Find existing attendance record
+            // Find existing attendance record
             Attendance attendance =
                     attendanceRepository
                             .findById(id)
@@ -308,7 +349,8 @@ public class AttendanceService {
                                     )
                             );
 
-            // 2. Update only fields that are provided
+            // Update only fields that are provided
+
             if (updatedAttendance.getEmployeeId() != null) {
                 attendance.setEmployeeId(
                         updatedAttendance.getEmployeeId()
@@ -345,11 +387,10 @@ public class AttendanceService {
                 );
             }
 
-            // 3. Save existing record
+            // Save existing record
             Attendance savedAttendance =
                     attendanceRepository.save(attendance);
 
-            // 4. Return updated record
             ApiResponse<Attendance> response =
                     new ApiResponse<>(
                             true,
@@ -377,6 +418,8 @@ public class AttendanceService {
             );
         }
     }
+
+
     // =========================
     // DELETE ATTENDANCE
     // =========================

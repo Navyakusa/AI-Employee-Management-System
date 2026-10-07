@@ -8,7 +8,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Repository
-public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
+public interface AttendanceRepository
+        extends JpaRepository<Attendance, Long> {
 
     List<Attendance> findByEmployeeId(Long employeeId);
 
@@ -16,7 +17,14 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
 
     List<Attendance> findByStatusIgnoreCase(String status);
 
+    // Used by EmployeeDashboardService
     List<Attendance> findByEmployeeIdAndAttendanceDate(
+            Long employeeId,
+            LocalDate attendanceDate
+    );
+
+    // Used to prevent duplicate attendance records
+    long countByEmployeeIdAndAttendanceDate(
             Long employeeId,
             LocalDate attendanceDate
     );
