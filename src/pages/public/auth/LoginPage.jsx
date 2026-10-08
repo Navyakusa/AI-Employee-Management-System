@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { jwtDecode } from "jwt-decode";
 import {
   Link,
   useNavigate,
@@ -78,81 +79,30 @@ function LoginPage() {
         }
       );
 
-      const result = response.data;
+      const token = response.data?.data?.token;
 
-      // =========================
-      // CHECK RESPONSE
-      // =========================
-      if (!result?.success) {
-        setError(
-          result?.message ||
-            "Invalid email or password."
-        );
-        return;
-      }
+if (!token) {
+  setError("Login token was not received from backend.");
+  return;
+}
 
-      const userData = result.data;
+// Decode JWT
+const decodedToken = jwtDecode(token);
 
-      // =========================
-      // CHECK USER DATA
-      // =========================
-      if (!userData) {
-        setError(
-          "User data was not received from backend."
-        );
-        return;
-      }
+console.log("Decoded JWT:", decodedToken);
 
-      // =========================
-      // CHECK TOKEN
-      // =========================
-      if (!userData.token) {
-        setError(
-          "Login token was not received from backend."
-        );
-        return;
-      }
+const backendRole = decodedToken.role
+  ?.trim()
+  .toUpperCase();
 
-      // =========================
-      // CHECK BACKEND ROLE
-      // =========================
-      if (!userData.role) {
-        setError(
-          "User role was not received from backend."
-        );
-        return;
-      }
-
-      // =========================
-      // GET ROLE FROM BACKEND
-      // =========================
-      const backendRole =
-        userData.role
-          .trim()
-          .toUpperCase();
-
+if (!backendRole) {
+  setError("User role was not found in the token.");
+  return;
+}
       // =========================
       // SAVE AUTH DATA
       // =========================
-      localStorage.setItem(
-        "token",
-        userData.token
-      );
-
-      localStorage.setItem(
-        "role",
-        backendRole
-      );
-
-      localStorage.setItem(
-        "loggedInUser",
-        JSON.stringify({
-          userId: userData.userId,
-          userName: userData.userName,
-          email: userData.email,
-          role: backendRole,
-        })
-      );
+      localStorage.setItem("token", token);
 
       // =========================
       // ROLE BASED NAVIGATION

@@ -113,6 +113,11 @@ function RecruiterScreening() {
 
       const response = await apiClient.get("/ai-resume-screening/all");
       const result = response.data;
+      console.log("AI SCREENING API RESPONSE:", result);
+console.log(
+  "FIRST SCREENING SKILLS:",
+  result?.data?.[0]?.skills
+);
 
       if (!result?.success) {
         throw new Error(
