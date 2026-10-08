@@ -5,6 +5,7 @@ import com.ems.entity.Attendance;
 import com.ems.service.AttendanceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -96,6 +97,23 @@ public class AttendanceController {
     getAttendanceStatistics() {
 
         return attendanceService.getAttendanceStatistics();
+    }
+
+
+    // =========================
+    // MY MONTHLY ATTENDANCE STATISTICS
+    // =========================
+
+    @GetMapping("/my/statistics")
+    public ResponseEntity<ApiResponse<Map<String, Object>>>
+    getMyMonthlyAttendanceStatistics(
+            @RequestParam String month,
+            Authentication authentication) {
+
+        return attendanceService.getMyMonthlyAttendanceStatistics(
+                month,
+                authentication
+        );
     }
 
 

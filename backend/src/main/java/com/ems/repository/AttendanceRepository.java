@@ -17,15 +17,20 @@ public interface AttendanceRepository
 
     List<Attendance> findByStatusIgnoreCase(String status);
 
-    // Used by EmployeeDashboardService
     List<Attendance> findByEmployeeIdAndAttendanceDate(
             Long employeeId,
             LocalDate attendanceDate
     );
 
-    // Used to prevent duplicate attendance records
     long countByEmployeeIdAndAttendanceDate(
             Long employeeId,
             LocalDate attendanceDate
+    );
+
+    // NEW - Monthly attendance
+    List<Attendance> findByEmployeeIdAndAttendanceDateBetween(
+            Long employeeId,
+            LocalDate startDate,
+            LocalDate endDate
     );
 }

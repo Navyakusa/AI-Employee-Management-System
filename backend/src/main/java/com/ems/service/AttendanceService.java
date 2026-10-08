@@ -2,13 +2,17 @@ package com.ems.service;
 
 import com.ems.common.ApiResponse;
 import com.ems.entity.Attendance;
+import com.ems.entity.Employee;
 import com.ems.repository.AttendanceRepository;
+import com.ems.repository.EmployeeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +22,9 @@ public class AttendanceService {
 
     @Autowired
     private AttendanceRepository attendanceRepository;
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
 
 
     // =========================
@@ -563,6 +570,146 @@ public class AttendanceService {
         } catch (Exception e) {
 
             ApiResponse<Map<String, Long>> response =
+                    new ApiResponse<>(
+                            false,
+                            e.getMessage(),
+                            null
+                    );
+
+            return new ResponseEntity<>(
+                    response,
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+    }
+
+
+    // =========================
+    // MY MONTHLY ATTENDANCE STATISTICS
+    // =========================
+
+    public ResponseEntity<ApiResponse<Map<String, Object>>>
+    getMyMonthlyAttendanceStatistics(
+            String month,
+            Authentication authentication) {
+
+        try {
+
+            // Get logged-in user's email from JWT authentication
+            String email = authentication.getName();
+
+            // Find employee using email
+            Employee employee =
+                    employeeRepository
+                            .findByEmailIgnoreCase(email)
+                            .orElseThrow(() ->
+                                    new RuntimeException(
+                                            "Employee not found for email: "
+                                                    + email
+                                    )
+                            );
+
+            Long employeeId = employee.getId();
+
+            // Convert YYYY-MM to first and last date
+            YearMonth yearMonth =
+                    YearMonth.parse(month);
+
+            LocalDate startDate =
+                    yearMonth.atDay(1);
+
+            LocalDate endDate =
+                    yearMonth.atEndOfMonth();
+
+            // Get attendance only for this employee and month
+            List<Attendance> attendanceList =
+                    attendanceRepository
+                            .findByEmployeeIdAndAttendanceDateBetween(
+                                    employeeId,
+                                    startDate,
+                                    endDate
+                            );
+
+            long totalDays =
+                    attendanceList.size();
+
+            long presentDays =
+                    attendanceList.stream()
+                            .filter(record ->
+                                    record.getStatus() != null
+                                            && record.getStatus()
+                                            .equalsIgnoreCase("PRESENT")
+                            )
+                            .count();
+
+            long absentDays =
+                    attendanceList.stream()
+                            .filter(record ->
+                                    record.getStatus() != null
+                                            && record.getStatus()
+                                            .equalsIgnoreCase("ABSENT")
+                            )
+                            .count();
+
+            long leaveDays =
+                    attendanceList.stream()
+                            .filter(record ->
+                                    record.getStatus() != null
+                                            && record.getStatus()
+                                            .equalsIgnoreCase("ON_LEAVE")
+                            )
+                            .count();
+
+            double attendancePercentage =
+                    totalDays > 0
+                            ? ((double) presentDays / totalDays) * 100
+                            : 0.0;
+
+            Map<String, Object> statistics =
+                    new HashMap<>();
+
+            statistics.put(
+                    "totalDays",
+                    totalDays
+            );
+
+            statistics.put(
+                    "presentDays",
+                    presentDays
+            );
+
+            statistics.put(
+                    "absentDays",
+                    absentDays
+            );
+
+            statistics.put(
+                    "leaveDays",
+                    leaveDays
+            );
+
+            statistics.put(
+                    "attendancePercentage",
+                    Math.round(
+                            attendancePercentage * 10.0
+                    ) / 10.0
+            );
+
+            ApiResponse<Map<String, Object>> response =
+                    new ApiResponse<>(
+                            true,
+                            "Monthly attendance statistics fetched successfully",
+                            statistics
+                    );
+
+            return new ResponseEntity<>(
+                    response,
+                    HttpStatus.OK
+            );
+
+        } catch (Exception e) {
+
+            ApiResponse<Map<String, Object>> response =
                     new ApiResponse<>(
                             false,
                             e.getMessage(),
