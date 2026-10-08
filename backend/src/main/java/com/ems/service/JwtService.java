@@ -22,25 +22,37 @@ public class JwtService {
     // =========================
     // GENERATE TOKEN
     // =========================
-
-    public String generateToken(String email, String role) {
+    public String generateToken(
+            Long userId,
+            String userName,
+            String email,
+            String role) {
 
         Map<String, Object> claims = new HashMap<>();
 
+        claims.put("userId", userId);
+        claims.put("userName", userName);
+        claims.put("email", email);
         claims.put("role", role);
 
         return Jwts.builder()
                 .claims(claims)
+
+                // Keep email as subject because
+                // JwtAuthenticationFilter uses it
                 .subject(email)
+
                 .issuedAt(
                         new Date(System.currentTimeMillis())
                 )
+
                 .expiration(
                         new Date(
                                 System.currentTimeMillis()
                                         + 1000 * 60 * 60 * 24
                         )
                 )
+
                 .signWith(getSigningKey())
                 .compact();
     }
@@ -49,7 +61,6 @@ public class JwtService {
     // =========================
     // EXTRACT EMAIL
     // =========================
-
     public String extractEmail(String token) {
 
         return extractClaim(
@@ -60,9 +71,44 @@ public class JwtService {
 
 
     // =========================
+    // EXTRACT USER ID
+    // =========================
+    public Long extractUserId(String token) {
+
+        return extractClaim(
+                token,
+                claims -> claims.get("userId", Long.class)
+        );
+    }
+
+
+    // =========================
+    // EXTRACT USER NAME
+    // =========================
+    public String extractUserName(String token) {
+
+        return extractClaim(
+                token,
+                claims -> claims.get("userName", String.class)
+        );
+    }
+
+
+    // =========================
+    // EXTRACT ROLE
+    // =========================
+    public String extractRole(String token) {
+
+        return extractClaim(
+                token,
+                claims -> claims.get("role", String.class)
+        );
+    }
+
+
+    // =========================
     // EXTRACT EXPIRATION
     // =========================
-
     public Date extractExpiration(String token) {
 
         return extractClaim(
@@ -75,7 +121,6 @@ public class JwtService {
     // =========================
     // EXTRACT CLAIM
     // =========================
-
     public <T> T extractClaim(
             String token,
             Function<Claims, T> claimsResolver) {
@@ -90,7 +135,6 @@ public class JwtService {
     // =========================
     // EXTRACT ALL CLAIMS
     // =========================
-
     private Claims extractAllClaims(String token) {
 
         return Jwts.parser()
@@ -104,7 +148,6 @@ public class JwtService {
     // =========================
     // SIGNING KEY
     // =========================
-
     private SecretKey getSigningKey() {
 
         byte[] keyBytes =
@@ -121,7 +164,6 @@ public class JwtService {
     // =========================
     // CHECK EXPIRATION
     // =========================
-
     public boolean isTokenExpired(String token) {
 
         return extractExpiration(token)
@@ -132,7 +174,6 @@ public class JwtService {
     // =========================
     // VALIDATE TOKEN
     // =========================
-
     public boolean validateToken(
             String token,
             String email) {

@@ -9,9 +9,5 @@ import lombok.Setter;
 @AllArgsConstructor
 public class AuthResponseDto {
 
-    private Long userId;
-    private String userName;
-    private String email;
-    private String role;
     private String token;
 }

@@ -83,20 +83,14 @@ public class AuthService {
             }
 
             // Get role from database
-            String token =
-                    jwtService.generateToken(
-                            user.getEmail(),
-                            user.getRole()
-                    );
+            String token = jwtService.generateToken(
+                    user.getUserId(),
+                    user.getUserName(),
+                    user.getEmail(),
+                    user.getRole()
+            );
 
-            AuthResponseDto authResponse =
-                    new AuthResponseDto(
-                            user.getUserId(),
-                            user.getUserName(),
-                            user.getEmail(),
-                            user.getRole(),
-                            token
-                    );
+            AuthResponseDto authResponse = new AuthResponseDto(token);
 
             ApiResponse<AuthResponseDto> response =
                     new ApiResponse<>(
