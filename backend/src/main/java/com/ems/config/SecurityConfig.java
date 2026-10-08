@@ -251,7 +251,21 @@ public class SecurityConfig {
                                 )
 
                                 // =================================================
-                                // CANDIDATE APPLICATIONS
+                                // CANDIDATE MANAGEMENT
+                                // =================================================
+
+                                // Only HR, Recruiter and Super Admin
+                                // can view all candidates
+                                .requestMatchers(
+                                        HttpMethod.GET,
+                                        "/api/candidates/all"
+                                ).hasAnyRole(
+                                        "HR",
+                                        "RECRUITER",
+                                        "SUPER_ADMIN"
+                                )
+
+                                // Candidate Applications
                                 // =================================================
 
                                 .requestMatchers(
@@ -377,7 +391,6 @@ public class SecurityConfig {
                                         HttpMethod.PUT,
                                         "/api/interviews/*/reschedule"
                                 ).hasAnyRole(
-
                                         "HR",
                                         "HIRING_MANAGER",
                                         "RECRUITER",
@@ -617,16 +630,18 @@ public class SecurityConfig {
                                         HttpMethod.PUT,
                                         "/api/contact/messages/*/resolve"
                                 ).hasRole("SUPER_ADMIN")
-// =================================================
-// LEAVE MANAGEMENT
-// =================================================
 
-// Only HR can approve or reject leave
-                                        .requestMatchers(
-                                                HttpMethod.PUT,
-                                                "/api/leaves/*/approve",
-                                                "/api/leaves/*/reject"
-                                        ).hasRole("HR")
+                                // =================================================
+                                // LEAVE MANAGEMENT
+                                // =================================================
+
+                                // Only HR can approve or reject leave
+                                .requestMatchers(
+                                        HttpMethod.PUT,
+                                        "/api/leaves/*/approve",
+                                        "/api/leaves/*/reject"
+                                ).hasRole("HR")
+
                                 // =================================================
                                 // NOTIFICATIONS
                                 // =================================================
@@ -730,14 +745,16 @@ public class SecurityConfig {
                                 .requestMatchers(
                                         "/api/hiring-manager/**"
                                 ).hasRole("HIRING_MANAGER")
-// =================================================
-// CHATBOT
-// =================================================
 
-                                        .requestMatchers(
-                                                HttpMethod.POST,
-                                                "/api/chatbot/chat"
-                                        ).permitAll()
+                                // =================================================
+                                // CHATBOT
+                                // =================================================
+
+                                .requestMatchers(
+                                        HttpMethod.POST,
+                                        "/api/chatbot/chat"
+                                ).permitAll()
+
                                 // =================================================
                                 // EVERYTHING ELSE
                                 // =================================================
