@@ -1,4 +1,5 @@
-package com.ems.service;
+
+        package com.ems.service;
 
 import com.ems.common.ApiResponse;
 import com.ems.dto.*;
@@ -1131,14 +1132,60 @@ public class AIResumeScreeningService {
 
         try {
 
-            List<AIResumeScreening> screenings =
+            List<AIResumeScreening> allScreenings =
                     screeningRepository.findAll();
+
+            // Keep only the latest screening for each Candidate + Job.
+            // Older screening records remain in the database as history.
+            Map<String, AIResumeScreening> latestScreenings =
+                    new java.util.HashMap<>();
+
+            for (AIResumeScreening screening : allScreenings) {
+
+                String key =
+                        screening.getCandidateId()
+                                + "_"
+                                + screening.getJobId();
+
+                AIResumeScreening existing =
+                        latestScreenings.get(key);
+
+                if (existing == null) {
+                    latestScreenings.put(key, screening);
+                    continue;
+                }
+
+                LocalDateTime existingTime =
+                        existing.getScreenedAt();
+
+                LocalDateTime currentTime =
+                        screening.getScreenedAt();
+
+                boolean currentIsLatest = false;
+
+                if (existingTime == null && currentTime != null) {
+                    currentIsLatest = true;
+                } else if (existingTime != null && currentTime != null) {
+                    currentIsLatest = currentTime.isAfter(existingTime);
+
+                    // If times are identical, use the higher ID.
+                    if (!currentIsLatest &&
+                            currentTime.equals(existingTime)) {
+                        currentIsLatest =
+                                screening.getId() > existing.getId();
+                    }
+                }
+
+                if (currentIsLatest) {
+                    latestScreenings.put(key, screening);
+                }
+            }
 
             List<AIScreeningManagementDto> result =
                     new ArrayList<>();
 
             for (AIResumeScreening screening :
-                    screenings) {
+                    latestScreenings.values()) {
 
                 AIScreeningManagementDto dto =
                         new AIScreeningManagementDto();
@@ -1215,7 +1262,7 @@ public class AIResumeScreeningService {
             return ResponseEntity.ok(
                     new ApiResponse<>(
                             true,
-                            "AI screening management data retrieved successfully",
+                            "Latest AI screening management data retrieved successfully",
                             result
                     )
             );
