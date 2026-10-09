@@ -18,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -76,7 +77,8 @@ public class ResumeService {
     @Autowired
     private MlResumeParsingClient mlResumeParsingClient;
 
-    private static final String UPLOAD_DIR = "uploads/resumes";
+    @Value("${app.upload.resume-dir}")
+    private String resumeUploadDirectory;
 
 
     // ============================================================
@@ -157,21 +159,34 @@ public class ResumeService {
                         ));
             }
 
-            // 7. Create upload directory
-            Path uploadDirectory = Paths.get(UPLOAD_DIR);
+
+            // 7. Create an absolute upload directory
+            Path uploadDirectory = Paths.get(resumeUploadDirectory)
+                    .toAbsolutePath()
+                    .normalize();
 
             Files.createDirectories(uploadDirectory);
 
-            // 8. Generate unique file name
-            String storedFileName =
-                    UUID.randomUUID() + "." + extension;
+            // 8. Generate a unique file name
+            String storedFileName = UUID.randomUUID() + "." + extension;
 
-            // 9. Create complete file path
-            Path filePath =
-                    uploadDirectory.resolve(storedFileName);
+            // 9. Resolve the complete file path
+            Path filePath = uploadDirectory.resolve(storedFileName)
+                    .normalize();
 
-            // 10. Store original resume file
+            // Ensure the file stays inside the configured directory
+            if (!filePath.startsWith(uploadDirectory)) {
+                throw new IOException("Invalid resume file path");
+            }
+
+            // 10. Save the original resume file
             Files.copy(file.getInputStream(), filePath);
+
+            if (!Files.exists(filePath) || !Files.isReadable(filePath)) {
+                throw new IOException("Uploaded resume file could not be verified");
+            }
+
+            System.out.println("Resume saved successfully: " + filePath);
 
             // 11. Extract text
             String extractedText =

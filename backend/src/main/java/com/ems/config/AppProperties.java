@@ -15,5 +15,6 @@ public class AppProperties {
 
     public void setFrontendUrl(String frontendUrl) {
         this.frontendUrl = frontendUrl;
+
     }
 }

@@ -1,5 +1,4 @@
-
-        package com.ems.service;
+package com.ems.service;
 
 import com.ems.common.ApiResponse;
 import com.ems.dto.*;
@@ -249,6 +248,17 @@ public class AIResumeScreeningService {
             // 9. CALL PYTHON
             // =====================================================
 
+            System.out.println("========== SCREENING REQUEST TRACE ==========");
+            System.out.println("Source request candidateId = " + requestDto.getCandidateId());
+            System.out.println("Source request jobId       = " + requestDto.getJobId());
+            System.out.println("Selected resume ID         = " + resume.getId());
+            System.out.println("Selected resume filename   = " + resume.getFileName());
+            System.out.println("Selected resume text length= " + resumeText.length());
+            System.out.println("Selected resume text start = "
+                    + resumeText.substring(0, Math.min(250, resumeText.length())));
+            System.out.println("Python request job ID      = " + pythonJob.getJob_id());
+            System.out.println("==============================================");
+
             PythonScreeningResponseDto pythonResponse =
                     pythonAIClient.screenResume(
                             pythonRequest
@@ -323,6 +333,18 @@ public class AIResumeScreeningService {
             Map<String, Object> resumeProfile =
                     pythonResponse
                             .getExtracted_resume_profile();
+
+            System.out.println("========== PYTHON PROFILE TRACE ==========");
+            System.out.println("Python response job ID    = " + pythonResponse.getJob_id());
+            System.out.println("Python response resume ID = " + pythonResponse.getResume_id());
+            System.out.println("Python profile is null    = " + (resumeProfile == null));
+            if (resumeProfile != null) {
+                System.out.println("Python profile keys       = " + resumeProfile.keySet());
+                System.out.println("Python profile skills     = " + resumeProfile.get("skills"));
+                System.out.println("Python profile skills_cleaned = "
+                        + resumeProfile.get("skills_cleaned"));
+            }
+            System.out.println("==========================================");
 
             if (resumeProfile != null) {
                 System.out.println("=================================");
@@ -521,10 +543,17 @@ public class AIResumeScreeningService {
             // 16. SAVE
             // =====================================================
 
+
             AIResumeScreening savedScreening =
-                    screeningRepository.save(
-                            screening
-                    );
+                    screeningRepository.saveAndFlush(screening);
+
+            System.out.println("===== SAVED SCREENING VERIFICATION =====");
+            System.out.println("Saved Screening ID: " + savedScreening.getId());
+            System.out.println("Saved Candidate ID: " + savedScreening.getCandidateId());
+            System.out.println("Saved Job ID: " + savedScreening.getJobId());
+            System.out.println("Saved Skills: " + savedScreening.getSkills());
+            System.out.println("========================================");
+
             Candidate candidate =
                     candidateRepository
                             .findById(requestDto.getCandidateId())
@@ -560,6 +589,13 @@ public class AIResumeScreeningService {
                     screeningMapper.toResponseDto(
                             savedScreening
                     );
+
+            System.out.println("========== FINAL RESPONSE TRACE ==========");
+            System.out.println("Saved screening ID         = " + savedScreening.getId());
+            System.out.println("Saved screening skills     = " + savedScreening.getSkills());
+            System.out.println("DTO screening ID           = " + responseDto.getId());
+            System.out.println("DTO screening skills       = " + responseDto.getSkills());
+            System.out.println("==========================================");
 
             return ResponseEntity
                     .status(HttpStatus.CREATED)
