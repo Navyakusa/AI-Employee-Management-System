@@ -433,6 +433,51 @@ public class OfferService {
 
 
     // ============================================================
+    // APPROVE OFFER
+    // HR / SUPER_ADMIN
+    // ============================================================
+
+    public ResponseEntity<ApiResponse<OfferDto>> approveOffer(
+            Long offerId
+    ) {
+        try {
+            Offer offer = getOfferEntity(offerId);
+
+            if (offer.getStatus() != OfferStatus.PENDING) {
+                return ResponseEntity.badRequest().body(
+                        new ApiResponse<>(
+                                false,
+                                "Only pending offers can be approved",
+                                null
+                        )
+                );
+            }
+
+            offer.setStatus(OfferStatus.APPROVED);
+
+            Offer updated = offerRepository.save(offer);
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Offer approved successfully",
+                            convertToDto(updated)
+                    )
+            );
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(
+                    new ApiResponse<>(
+                            false,
+                            e.getMessage(),
+                            null
+                    )
+            );
+        }
+    }
+
+
+    // ============================================================
     // SEND OFFER
     // HR
     // ============================================================
@@ -484,6 +529,21 @@ public class OfferService {
                                 new ApiResponse<>(
                                         false,
                                         "Offer is already sent",
+                                        null
+                                )
+                        );
+            }
+
+            // NEW: Offer must be approved before sending
+            if (offer.getStatus() !=
+                    OfferStatus.APPROVED) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Offer must be approved before sending",
                                         null
                                 )
                         );
