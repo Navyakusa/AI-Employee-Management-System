@@ -80,7 +80,8 @@ def score_candidate(job: dict, resume: dict, explain: bool = False) -> dict:
     X_new = pd.DataFrame([feats], columns=feature_columns)
 
     probability = float(model.predict_proba(X_new)[0][1])
-    prediction = int(probability >= threshold)
+    SHORTLIST_THRESHOLD = 0.40  # Shortlist candidates scoring 40% or above
+    prediction = int(probability >= SHORTLIST_THRESHOLD)
     result = "Match" if prediction == 1 else "No Match"
 
     output = {
