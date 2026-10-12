@@ -538,12 +538,13 @@ def recommend_candidate_decision_endpoint(payload: CandidateDecisionRequest):
     tags=["chatbot"]
 )
 def chatbot_endpoint(payload: ChatbotRequest):
-
     try:
-
         response = get_chatbot_response(
             message=payload.message,
-            conversation_history=payload.conversation_history,
+            conversation_history=[
+                item.model_dump()
+                for item in payload.conversation_history
+            ],
             job_context=payload.job_context,
             role=payload.role
         )
@@ -553,17 +554,13 @@ def chatbot_endpoint(payload: ChatbotRequest):
         )
 
     except ValueError as exc:
-
         raise HTTPException(
             status_code=400,
             detail=str(exc)
         )
 
-    except Exception as exc:
-
-        logger.exception(
-            "Chatbot request failed"
-        )
+    except Exception:
+        logger.exception("Chatbot request failed")
 
         raise HTTPException(
             status_code=500,

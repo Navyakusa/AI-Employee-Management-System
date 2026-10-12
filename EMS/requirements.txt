@@ -8,6 +8,7 @@ shap>=0.44
 spacy>=3.7
 anthropic>=0.34
 openai>=1.40
+groq>=0.9   # used by app/Chatbot.py (POST /chat)
 python-multipart
 pypdf
 python-docx
