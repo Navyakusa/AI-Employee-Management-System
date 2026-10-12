@@ -1,7 +1,9 @@
-package com.ems.service;
+
+        package com.ems.service;
 
 import com.ems.entity.User;
 import com.ems.repository.UserRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -10,6 +12,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
@@ -29,6 +32,21 @@ public class CustomUserDetailsService implements UserDetailsService {
                         )
                 );
 
+        // Normalize the user's role for Spring Security
+        String role = user.getRole();
+
+        if (role == null || role.isBlank()) {
+            throw new UsernameNotFoundException(
+                    "No role assigned to user: " + email
+            );
+        }
+
+        role = role.trim().toUpperCase(Locale.ROOT);
+
+        if (!role.startsWith("ROLE_")) {
+            role = "ROLE_" + role;
+        }
+
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
                 user.getPassword(),
@@ -36,11 +54,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 true,
                 true,
                 true,
-                List.of(
-                        new SimpleGrantedAuthority(
-                                "ROLE_" + user.getRole()
-                        )
-                )
+                List.of(new SimpleGrantedAuthority(role))
         );
     }
 }

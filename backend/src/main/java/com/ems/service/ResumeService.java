@@ -88,290 +88,158 @@ public class ResumeService {
     public ResponseEntity<ApiResponse<ResumeResponseDto>> uploadResume(
             ResumeRequestDto request) {
 
+        Path uploadedFilePath = null;
+        boolean resumeRecordSaved = false;
+
         try {
-
-            // 1. Validate request
             if (request == null || request.getCandidateId() == null) {
-
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(new ApiResponse<>(
-                                false,
-                                "Candidate ID is required",
-                                null
-                        ));
+                return ResponseEntity.badRequest().body(
+                        new ApiResponse<>(false, "Candidate ID is required", null));
             }
 
             Long candidateId = request.getCandidateId();
-
             MultipartFile file = request.getFile();
 
-            // 2. Validate file
             if (file == null || file.isEmpty()) {
-
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(new ApiResponse<>(
-                                false,
-                                "Resume file is required",
-                                null
-                        ));
+                return ResponseEntity.badRequest().body(
+                        new ApiResponse<>(false, "Resume file is required", null));
             }
 
-            // 3. Get original file name
             String originalFileName = file.getOriginalFilename();
-
             if (originalFileName == null || originalFileName.isBlank()) {
-
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(new ApiResponse<>(
-                                false,
-                                "Invalid resume file name",
-                                null
-                        ));
+                return ResponseEntity.badRequest().body(
+                        new ApiResponse<>(false, "Invalid resume file name", null));
             }
 
-            // 4. Get safe file name
-            String fileName = Paths.get(originalFileName)
-                    .getFileName()
-                    .toString();
-
-            // 5. Get extension
-            String extension = "";
-
+            String fileName = Paths.get(originalFileName).getFileName().toString();
             int dotIndex = fileName.lastIndexOf('.');
-
-            if (dotIndex > 0) {
-
-                extension = fileName
-                        .substring(dotIndex + 1)
-                        .toLowerCase();
+            if (dotIndex <= 0) {
+                return ResponseEntity.badRequest().body(
+                        new ApiResponse<>(false,
+                                "Resume file must have an extension", null));
             }
 
-            // 6. Validate supported formats
-            if (!extension.equals("pdf")
-                    && !extension.equals("doc")
-                    && !extension.equals("docx")) {
-
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(new ApiResponse<>(
-                                false,
-                                "Only PDF, DOC, and DOCX files are supported",
-                                null
-                        ));
+            String extension = fileName.substring(dotIndex + 1)
+                    .toLowerCase(java.util.Locale.ROOT);
+            if (!List.of("pdf", "doc", "docx").contains(extension)) {
+                return ResponseEntity.badRequest().body(
+                        new ApiResponse<>(false,
+                                "Only PDF, DOC, and DOCX files are supported", null));
             }
 
-
-            // 7. Create an absolute upload directory
+            // Use the configured persistent directory on the backend server.
             Path uploadDirectory = Paths.get(resumeUploadDirectory)
-                    .toAbsolutePath()
-                    .normalize();
-
+                    .toAbsolutePath().normalize();
             Files.createDirectories(uploadDirectory);
+            if (!Files.isDirectory(uploadDirectory) || !Files.isWritable(uploadDirectory)) {
+                throw new IOException("Resume upload directory is not writable: "
+                        + uploadDirectory);
+            }
 
-            // 8. Generate a unique file name
             String storedFileName = UUID.randomUUID() + "." + extension;
-
-            // 9. Resolve the complete file path
-            Path filePath = uploadDirectory.resolve(storedFileName)
-                    .normalize();
-
-            // Ensure the file stays inside the configured directory
-            if (!filePath.startsWith(uploadDirectory)) {
+            uploadedFilePath = uploadDirectory.resolve(storedFileName).normalize();
+            if (!uploadedFilePath.startsWith(uploadDirectory)) {
                 throw new IOException("Invalid resume file path");
             }
 
-            // 10. Save the original resume file
-            Files.copy(file.getInputStream(), filePath);
-
-            if (!Files.exists(filePath) || !Files.isReadable(filePath)) {
+            try (java.io.InputStream inputStream = file.getInputStream()) {
+                Files.copy(inputStream, uploadedFilePath);
+            }
+            if (!Files.isRegularFile(uploadedFilePath)
+                    || !Files.isReadable(uploadedFilePath)
+                    || Files.size(uploadedFilePath) == 0) {
                 throw new IOException("Uploaded resume file could not be verified");
             }
 
-            System.out.println("Resume saved successfully: " + filePath);
+            System.out.println("Resume file saved successfully.");
+            System.out.println("Candidate ID: " + candidateId);
+            System.out.println("Stored file: " + storedFileName);
+            System.out.println("Physical path: " + uploadedFilePath);
 
-            // 11. Extract text
-            String extractedText =
-                    resumeTextExtractionService.extractText(
-                            filePath.toString(),
-                            extension
-                    );
-
-            // 12. Clean extracted text
-            String cleanedText =
-                    resumeTextCleaningService.cleanText(
-                            extractedText
-                    );
-
-            // 13. NLP processing
-            String processedText =
-                    resumeNlpProcessingService.processText(
-                            cleanedText
-                    );
-
-
-            // ========================================================
-            // 14. AI RESUME PARSING
-            // ========================================================
+            // Preserve the existing resume parsing and AI extraction workflow.
+            String extractedText = resumeTextExtractionService.extractText(
+                    uploadedFilePath.toString(), extension);
+            String cleanedText = resumeTextCleaningService.cleanText(extractedText);
+            String processedText = resumeNlpProcessingService.processText(cleanedText);
 
             String extractedSkills = "";
             String extractedEducation = "";
-            String extractedExperience = "";
-
             try {
-
                 ResumeParseResponseDto aiResult =
-                        mlResumeParsingClient.parseResume(
-                                processedText
-                        );
-
+                        mlResumeParsingClient.parseResume(processedText);
                 if (aiResult != null) {
-
-                    // ------------------------------------------------
-                    // Skills from AI
-                    // ------------------------------------------------
-
                     if (aiResult.getSkillsCleaned() != null
                             && !aiResult.getSkillsCleaned().isEmpty()) {
-
-                        extractedSkills =
-                                String.join(
-                                        ", ",
-                                        aiResult.getSkillsCleaned()
-                                );
+                        extractedSkills = String.join(", ", aiResult.getSkillsCleaned());
                     }
-
-                    // ------------------------------------------------
-                    // Education from AI
-                    // ------------------------------------------------
-
-                    if (aiResult.getDegree() != null
-                            && !aiResult.getDegree().isEmpty()) {
-
-                        extractedEducation =
-                                String.join(
-                                        ", ",
-                                        aiResult.getDegree()
-                                );
+                    if (aiResult.getDegree() != null && !aiResult.getDegree().isEmpty()) {
+                        extractedEducation = String.join(", ", aiResult.getDegree());
                     }
                 }
-
             } catch (Exception e) {
-
-                // AI service failed.
-                // We will use Java extraction as fallback.
-
-                System.err.println(
-                        "AI resume parsing failed. "
-                                + "Using fallback extraction."
-                );
+                System.err.println("AI resume parsing failed; using Java fallback: "
+                        + e.getMessage());
             }
 
-
-            // ========================================================
-            // 15. FALLBACK SKILL EXTRACTION
-            // ========================================================
-
-            if (extractedSkills == null
-                    || extractedSkills.isBlank()) {
-
-                extractedSkills =
-                        resumeSkillExtractionService.extractSkills(
-                                processedText
-                        );
+            if (extractedSkills == null || extractedSkills.isBlank()) {
+                extractedSkills = resumeSkillExtractionService.extractSkills(processedText);
             }
-
-
-            // ========================================================
-            // 16. EXPERIENCE EXTRACTION
-            // ========================================================
-
-            extractedExperience =
-                    resumeExperienceExtractionService.extractExperience(
-                            processedText
-                    );
-
-
-            // ========================================================
-            // 17. FALLBACK EDUCATION EXTRACTION
-            // ========================================================
-
-            if (extractedEducation == null
-                    || extractedEducation.isBlank()) {
-
+            String extractedExperience =
+                    resumeExperienceExtractionService.extractExperience(processedText);
+            if (extractedEducation == null || extractedEducation.isBlank()) {
                 extractedEducation =
-                        resumeEducationExtractionService.extractEducation(
-                                processedText
-                        );
+                        resumeEducationExtractionService.extractEducation(processedText);
             }
-
-
-            // ========================================================
-            // 18. Create Resume entity
-            // ========================================================
 
             Resume resume = resumeMapper.toEntity(request);
-
             resume.setFileName(fileName);
             resume.setFileType(extension);
-            resume.setFilePath(filePath.toString());
-
+            // Store a relative unique filename, not a machine-specific absolute path.
+            // View/download resolve it against resumeUploadDirectory.
+            resume.setFilePath(storedFileName);
             resume.setExtractedText(processedText);
             resume.setExtractedSkills(extractedSkills);
             resume.setExtractedExperience(extractedExperience);
             resume.setExtractedEducation(extractedEducation);
 
+            Resume savedResume = resumeRepository.save(resume);
+            resumeRecordSaved = true;
 
-            // ========================================================
-            // 19. Save resume
-            // ========================================================
+            System.out.println("Resume database record saved.");
+            System.out.println("Resume ID: " + savedResume.getId());
+            System.out.println("Candidate ID: " + candidateId);
+            System.out.println("Stored path: " + savedResume.getFilePath());
 
-            Resume savedResume =
-                    resumeRepository.save(resume);
+            // A structured-profile failure must not invalidate the saved resume.
+            try {
+                structuredCandidateProfileService.createProfile(savedResume);
+            } catch (Exception e) {
+                System.err.println("Resume saved, but structured profile creation failed: "
+                        + e.getMessage());
+            }
 
-
-            // ========================================================
-            // 20. Create structured candidate profile
-            // ========================================================
-
-            structuredCandidateProfileService.createProfile(
-                    savedResume
-            );
-
-
-            // ========================================================
-            // 21. Convert entity to response DTO
-            // ========================================================
-
-            ResumeResponseDto responseDto =
-                    resumeMapper.toResponseDto(savedResume);
-
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(new ApiResponse<>(
-                            true,
-                            "Resume uploaded and processed successfully",
-                            responseDto
-                    ));
-
-        } catch (IOException e) {
-
-            return ResponseEntity.status(
-                            HttpStatus.INTERNAL_SERVER_ERROR
-                    )
-                    .body(new ApiResponse<>(
-                            false,
-                            "Failed to upload or process resume",
-                            null
-                    ));
+            ResumeResponseDto responseDto = resumeMapper.toResponseDto(savedResume);
+            return ResponseEntity.status(HttpStatus.CREATED).body(
+                    new ApiResponse<>(true,
+                            "Resume uploaded and processed successfully", responseDto));
 
         } catch (Exception e) {
+            System.err.println("Resume upload failed: " + e.getMessage());
+            e.printStackTrace();
 
-            return ResponseEntity.status(
-                            HttpStatus.INTERNAL_SERVER_ERROR
-                    )
-                    .body(new ApiResponse<>(
-                            false,
-                            "Failed to process resume",
-                            null
-                    ));
+            // Remove an orphaned file only if no database record was saved.
+            if (!resumeRecordSaved && uploadedFilePath != null) {
+                try {
+                    Files.deleteIfExists(uploadedFilePath);
+                } catch (IOException cleanupException) {
+                    System.err.println("Could not clean up uploaded resume: "
+                            + cleanupException.getMessage());
+                }
+            }
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    new ApiResponse<>(false,
+                            "Failed to upload or process resume. Check backend logs.", null));
         }
     }
 
@@ -383,34 +251,19 @@ public class ResumeService {
     public ResponseEntity<ApiResponse<ResumeResponseDto>> createResume(
             ResumeRequestDto dto) {
 
-        try {
-
-            Resume resume = resumeMapper.toEntity(dto);
-
-            Resume savedResume =
-                    resumeRepository.save(resume);
-
-            ResumeResponseDto responseDto =
-                    resumeMapper.toResponseDto(savedResume);
-
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(new ApiResponse<>(
-                            true,
-                            "Resume created successfully",
-                            responseDto
-                    ));
-
-        } catch (Exception e) {
-
-            return ResponseEntity.status(
-                            HttpStatus.INTERNAL_SERVER_ERROR
-                    )
-                    .body(new ApiResponse<>(
+        // Never create a database-only resume record. All resume records must
+        // be created through the upload flow so the physical file is saved too.
+        if (dto == null || dto.getFile() == null || dto.getFile().isEmpty()) {
+            return ResponseEntity.badRequest().body(
+                    new ApiResponse<>(
                             false,
-                            "Failed to create resume",
+                            "Resume file is required. Use the resume upload endpoint.",
                             null
-                    ));
+                    )
+            );
         }
+
+        return uploadResume(dto);
     }
 
 
@@ -605,6 +458,40 @@ public class ResumeService {
     }
 
 
+    // Resolve both new filename-only records and legacy absolute-path records.
+    private Path resolveResumePath(String storedPath) throws IOException {
+        if (storedPath == null || storedPath.isBlank()) {
+            throw new IOException("Resume file path is missing");
+        }
+
+        // Normalize Windows-style legacy paths even if the backend later runs
+        // on a non-Windows operating system.
+        String portableStoredPath = storedPath.replace('\\', '/');
+        Path stored = Paths.get(portableStoredPath).normalize();
+        Path uploadDirectory = Paths.get(resumeUploadDirectory)
+                .toAbsolutePath().normalize();
+
+        // Legacy record: use the absolute path if the original file still exists.
+        if (stored.isAbsolute()
+                && Files.isRegularFile(stored)
+                && Files.isReadable(stored)) {
+            return stored;
+        }
+
+        // New records store only the generated filename. For old absolute paths
+        // whose original location is unavailable, try the filename in current storage.
+        Path fileName = stored.getFileName();
+        if (fileName == null) {
+            throw new IOException("Invalid resume file path");
+        }
+
+        Path resolved = uploadDirectory.resolve(fileName).normalize();
+        if (!resolved.startsWith(uploadDirectory)) {
+            throw new IOException("Invalid resume file path");
+        }
+        return resolved;
+    }
+
     // ============================================================
     // View Resume
     // ============================================================
@@ -641,10 +528,7 @@ public class ResumeService {
                         ));
             }
 
-            Path filePath = Paths
-                    .get(resume.getFilePath())
-                    .toAbsolutePath()
-                    .normalize();
+            Path filePath = resolveResumePath(resume.getFilePath());
 
             System.out.println(
                     "========== RESUME VIEW =========="
@@ -810,10 +694,7 @@ public class ResumeService {
                         ));
             }
 
-            Path filePath = Paths
-                    .get(resume.getFilePath())
-                    .toAbsolutePath()
-                    .normalize();
+            Path filePath = resolveResumePath(resume.getFilePath());
 
             if (!Files.exists(filePath)
                     || !Files.isReadable(filePath)) {
@@ -921,14 +802,16 @@ public class ResumeService {
 
                     try {
 
-                        Path filePath = Paths
-                                .get(resume.getFilePath())
-                                .toAbsolutePath()
-                                .normalize();
-
-                        fileAvailable =
-                                Files.exists(filePath)
-                                        && Files.isReadable(filePath);
+                        Path filePath = resolveResumePath(resume.getFilePath());
+                        fileAvailable = Files.isRegularFile(filePath)
+                                && Files.isReadable(filePath);
+                        System.out.println(
+                                "Resume ID: " + resume.getId()
+                                        + " | DB Path: " + resume.getFilePath()
+                                        + " | Resolved Path: " + filePath
+                                        + " | Exists: " + Files.exists(filePath)
+                                        + " | File Available: " + fileAvailable
+                        );
 
                     } catch (Exception ignored) {
 
@@ -938,6 +821,9 @@ public class ResumeService {
 
                 dto.setFileAvailable(
                         fileAvailable
+
+
+
                 );
 
 
