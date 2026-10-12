@@ -14,7 +14,6 @@ import EmployeeSidebar from "./EmployeeSidebar";
 import EmployeeTopbar from "./EmployeeTopbar";
 import {
   getMyDocuments,
-  getMyDocumentSummary,
   uploadEmployeeDocument,
   deleteEmployeeDocument,
 } from "../../services/employeeService";
@@ -64,18 +63,13 @@ function statusToBadgeClass(status) {
 
 function EmployeeDocuments() {
   const [documentsByType, setDocumentsByType] = useState({});
-  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [uploadingType, setUploadingType] = useState(null);
 
   const fetchAll = async () => {
     try {
-      const [docsRes, summaryRes] = await Promise.all([
-        getMyDocuments(),
-        getMyDocumentSummary(),
-      ]);
-
+      const docsRes = await getMyDocuments();
       const list = docsRes.data?.data || [];
       const byType = {};
       list.forEach((doc) => {
@@ -83,7 +77,6 @@ function EmployeeDocuments() {
       });
 
       setDocumentsByType(byType);
-      setSummary(summaryRes.data?.data || null);
     } catch (err) {
       console.error("Failed to load documents", err);
     } finally {
@@ -172,55 +165,84 @@ function EmployeeDocuments() {
 
 
         {/* =========================
-            SUMMARY (DocumentSummaryDto — confirmed shape)
+            SUMMARY
+            Use the actual document list as the source of truth.
+            This keeps the cards consistent with the rows below and
+            avoids showing backend summary values that can be stale
+            or count required categories as uploaded documents.
         ========================= */}
-        <section className="employee-documents-summary">
+        {(() => {
+          // Only count documents that belong to one of the document
+          // categories actually displayed below. The API can sometimes
+          // return extra/duplicate records with an unknown documentType;
+          // those records are not visible to the employee and should not
+          // affect the summary cards.
+          const uploadedDocuments = DOCUMENT_CATEGORIES
+            .map((category) => documentsByType[category.type])
+            .filter(Boolean);
 
-          <div className="document-summary-card">
-            <div className="document-summary-icon purple">
-              <FileText size={21} />
-            </div>
-            <div>
-              <span>Total Documents</span>
-              <strong>{summary?.totalDocuments ?? DOCUMENT_CATEGORIES.length}</strong>
-              <small>Required documents</small>
-            </div>
-          </div>
+          const verifiedDocuments = uploadedDocuments.filter(
+            (doc) => String(doc?.status || "").toLowerCase().includes("verif")
+          ).length;
+          const pendingDocuments = uploadedDocuments.filter(
+            (doc) => String(doc?.status || "").toLowerCase().includes("pend")
+          ).length;
+          const totalDocuments = uploadedDocuments.length;
+          const notUploadedDocuments = Math.max(
+            DOCUMENT_CATEGORIES.length - totalDocuments,
+            0
+          );
 
-          <div className="document-summary-card">
-            <div className="document-summary-icon green">
-              <CheckCircle2 size={21} />
-            </div>
-            <div>
-              <span>Verified</span>
-              <strong>{summary?.verifiedDocuments ?? 0}</strong>
-              <small>Documents verified</small>
-            </div>
-          </div>
+          return (
+            <section className="employee-documents-summary">
 
-          <div className="document-summary-card">
-            <div className="document-summary-icon orange">
-              <Clock3 size={21} />
-            </div>
-            <div>
-              <span>Pending</span>
-              <strong>{summary?.pendingDocuments ?? 0}</strong>
-              <small>Awaiting verification</small>
-            </div>
-          </div>
+              <div className="document-summary-card">
+                <div className="document-summary-icon purple">
+                  <FileText size={21} />
+                </div>
+                <div>
+                  <span>Total Documents</span>
+                  <strong>{totalDocuments}</strong>
+                  <small>Uploaded documents</small>
+                </div>
+              </div>
 
-          <div className="document-summary-card">
-            <div className="document-summary-icon red">
-              <Upload size={21} />
-            </div>
-            <div>
-              <span>Not Uploaded</span>
-              <strong>{summary?.notUploadedDocuments ?? 0}</strong>
-              <small>Documents required</small>
-            </div>
-          </div>
+              <div className="document-summary-card">
+                <div className="document-summary-icon green">
+                  <CheckCircle2 size={21} />
+                </div>
+                <div>
+                  <span>Verified</span>
+                  <strong>{verifiedDocuments}</strong>
+                  <small>Documents verified</small>
+                </div>
+              </div>
 
-        </section>
+              <div className="document-summary-card">
+                <div className="document-summary-icon orange">
+                  <Clock3 size={21} />
+                </div>
+                <div>
+                  <span>Pending</span>
+                  <strong>{pendingDocuments}</strong>
+                  <small>Awaiting verification</small>
+                </div>
+              </div>
+
+              <div className="document-summary-card">
+                <div className="document-summary-icon red">
+                  <Upload size={21} />
+                </div>
+                <div>
+                  <span>Not Uploaded</span>
+                  <strong>{notUploadedDocuments}</strong>
+                  <small>Documents required</small>
+                </div>
+              </div>
+
+            </section>
+          );
+        })()}
 
 
         {/* =========================

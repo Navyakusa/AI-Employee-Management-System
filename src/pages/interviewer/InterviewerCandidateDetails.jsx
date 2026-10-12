@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import {
   ArrowLeft,
@@ -19,83 +19,98 @@ import {
 import InterviewerSidebar from "./InterviewerSidebar";
 import InterviewerNavbar from "./InterviewerNavbar";
 
-import { getCandidateById } from "../../services/interviewerService";
+import {
+  getCandidateById,
+  getInterviewById,
+} from "../../services/interviewerService";
 
 import "./InterviewerDashboard.css";
 
-// CONFIRMED via backend source (InterviewerCandidateDetailsDto.java,
-// from GET /interviewer/candidate-details/{candidateId}):
-//   { candidateId, name, email, phone, location, education,
-//     experience, skills (comma-separated STRING, not an array),
-//     resume, linkedin, portfolio, expectedSalary, noticePeriod,
-//     source, applicationDate, jobId, appliedPosition, interviewId,
-//     interviewDateTime, interviewMode, interviewStatus,
-//     aiMatchScore, professionalSummary }
-// Note: aiMatchScore is currently hardcoded to null on the backend
-// (not computed yet) — the "AI Match Score" section already only
-// renders when matchScore isn't null, so this just naturally stays
-// hidden until backend implements it, with no crash either way.
-function splitSkillsString(skills) {
-  if (Array.isArray(skills)) {
-    return skills;
-  }
-
-  if (typeof skills === "string" && skills.trim()) {
-    return skills
-      .split(",")
-      .map((skill) => skill.trim())
-      .filter(Boolean);
-  }
-
-  return [];
-}
-
+/*
+  NOT YET CONFIRMED with backend — verify GET /candidates/{id} field
+  names against a real response and adjust the right-hand side below.
+  matchScore in particular may come from a separate AI-matching
+  endpoint rather than living on the Candidate object itself.
+*/
+/*
+  NOT YET CONFIRMED with backend — verify GET
+  /interviewer/candidate-details/{id} field names against a real
+  response and trim these fallback chains down once confirmed.
+  matchScore in particular may come from a separate AI-matching
+  endpoint rather than living on this DTO at all.
+*/
 function mapCandidate(raw) {
   return {
-    id: raw.candidateId,
-    name: String(raw.name ?? ""),
-    email: String(raw.email ?? ""),
-    phone: String(raw.phone ?? ""),
-    location: String(raw.location ?? ""),
-    job: String(raw.appliedPosition ?? ""),
-    experience: String(raw.experience ?? ""),
-    education: String(raw.education ?? ""),
-    matchScore: raw.aiMatchScore ?? null,
-    interviewStatus: String(raw.interviewStatus ?? ""),
-    resume: String(raw.resume ?? ""),
-    resumeId: null,
-    summary: String(raw.professionalSummary ?? ""),
-    skills: splitSkillsString(raw.skills),
-    // Not yet shown in the UI, but captured in case they're useful
-    // later — linkedin/portfolio/expectedSalary/noticePeriod/source
-    // are all real fields on this DTO with no UI section yet.
-    linkedin: raw.linkedin ?? "",
-    portfolio: raw.portfolio ?? "",
-    expectedSalary: raw.expectedSalary ?? null,
-    noticePeriod: raw.noticePeriod ?? "",
-    source: raw.source ?? "",
+    id: raw.id ?? raw.candidateId,
+    name: String(raw.name ?? raw.candidateName ?? ""),
+    email: String(raw.email ?? raw.candidateEmail ?? ""),
+    phone: String(raw.phone ?? raw.phoneNumber ?? raw.candidatePhone ?? ""),
+    location: String(raw.location ?? raw.candidateLocation ?? ""),
+    job: String(raw.job ?? raw.jobTitle ?? raw.appliedPosition ?? ""),
+    experience: String(raw.experience ?? raw.candidateExperience ?? ""),
+    education: String(raw.education ?? raw.candidateEducation ?? ""),
+    matchScore: raw.matchScore ?? raw.aiMatchScore ?? null,
+    interviewStatus: String(raw.interviewStatus ?? raw.status ?? ""),
+    resume: String(raw.resume ?? raw.resumeName ?? raw.resumeFileName ?? ""),
+    resumeId: raw.resumeId ?? null,
+    summary: String(raw.summary ?? raw.profileSummary ?? ""),
+    // Force an array regardless of what the backend actually sends —
+    // ?? only guards against null/undefined, not wrong types (e.g. a
+    // string or object instead of an array), which previously could
+    // crash the whole page since there's no error boundary here.
+    skills: Array.isArray(raw.skills) ? raw.skills : [],
   };
 }
 
 function InterviewerCandidateDetails() {
   const navigate = useNavigate();
   const { candidateId } = useParams();
+  const [searchParams] = useSearchParams();
+  const interviewId = searchParams.get("interviewId");
 
   const [candidate, setCandidate] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getCandidateById(candidateId)
-      .then((data) => {
-        console.log("Raw candidate-details response:", data);
-        setCandidate(data ? mapCandidate(data) : null);
-      })
-      .catch((err) => {
+    const loadCandidateDetails = async () => {
+      try {
+        // Candidate details provide the profile information. The interview
+        // endpoint provides the status for the specific interview selected
+        // from the candidates list. Using only /candidate-details/{id}
+        // previously caused every candidate to display the same status.
+        const [candidateData, interviewData] = await Promise.all([
+          getCandidateById(candidateId),
+          interviewId ? getInterviewById(interviewId).catch(() => null) : Promise.resolve(null),
+        ]);
+
+        console.log("Raw candidate-details response:", candidateData);
+        console.log("Interview status response:", interviewData);
+
+        if (!candidateData) {
+          setCandidate(null);
+          return;
+        }
+
+        const mappedCandidate = mapCandidate(candidateData);
+
+        // Always prefer the status belonging to the selected interview.
+        // Fall back to the candidate-details status only when the page was
+        // opened directly without an interviewId in the URL.
+        if (interviewData?.status) {
+          mappedCandidate.interviewStatus = String(interviewData.status);
+        }
+
+        setCandidate(mappedCandidate);
+      } catch (err) {
         console.error("Failed to load candidate details:", err);
         setCandidate(null);
-      })
-      .finally(() => setLoading(false));
-  }, [candidateId]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCandidateDetails();
+  }, [candidateId, interviewId]);
 
   if (loading) {
     return (
@@ -152,20 +167,14 @@ function InterviewerCandidateDetails() {
     .toUpperCase();
 
   const handleDownloadResume = () => {
-    // CONFIRMED: there is no separate resumeId field — "resume" on
-    // Candidate is just a single String column, format unconfirmed
-    // (could be a stored file path or a full URL). If it looks like a
-    // URL, open it directly; otherwise there's nothing actionable to
-    // do with it yet — ask backend what this string actually contains.
-    if (candidate.resume && /^https?:\/\//i.test(candidate.resume)) {
-      window.open(candidate.resume, "_blank", "noopener,noreferrer");
-    } else if (candidate.resume) {
-      alert(
-        `Resume on file: "${candidate.resume}" — this isn't a URL, so ask backend what format this field holds (a stored file path? a doc id to fetch separately?) before this can download anything.`
-      );
-    } else {
-      alert("This candidate has no resume on file yet.");
-    }
+    // NOT YET CONFIRMED: swap this for a real download once backend
+    // confirms the resumeId field name and the /resumes/{id}/view
+    // response shape (direct file bytes vs. a URL to open).
+    alert(
+      candidate.resumeId
+        ? `Resume download will be connected later (resumeId: ${candidate.resumeId})`
+        : "This candidate has no resume on file yet."
+    );
   };
 
   return (

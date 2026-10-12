@@ -80,6 +80,37 @@ function EmployeeLeave() {
       // LEAVE SUMMARY
       // -----------------------------------------------------
       setSummary(summaryRes.data?.data || null);
+      const requests = leavesRes.data?.data || [];
+      setLeaveRequests(requests);
+
+      // Use the actual leave request list for request counts. The backend
+      // summary can become stale/inconsistent with the rows shown below.
+      const normalizeStatus = (status) =>
+        String(status || "").trim().toUpperCase();
+
+      const pendingRequests = requests.filter(
+        (request) => normalizeStatus(request.status) === "PENDING"
+      ).length;
+
+      const approvedRequests = requests.filter(
+        (request) => normalizeStatus(request.status) === "APPROVED"
+      );
+
+      const usedLeave = approvedRequests.reduce((total, request) => {
+        const days = Number(request.days);
+        return total + (Number.isFinite(days) ? days : 0);
+      }, 0);
+
+      const backendSummary = summaryRes.data?.data || {};
+      setSummary({
+        ...backendSummary,
+        pendingRequests,
+        approvedLeave: approvedRequests.length,
+        usedLeave,
+      });
+
+      // LeaveTypeDto: { leaveType: string }
+      setLeaveTypes((typesRes.data?.data || []).map((t) => t.leaveType));
     } catch (err) {
       console.error("Failed to load leave data:", err);
 

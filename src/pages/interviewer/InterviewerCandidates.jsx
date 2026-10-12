@@ -224,7 +224,9 @@ function InterviewerCandidates() {
                               className="interviewer-candidates-view-button"
                               onClick={() =>
                                 navigate(
-                                  `/interviewer/candidates/${candidate.id}`
+                                  `/interviewer/candidates/${candidate.id}?interviewId=${encodeURIComponent(
+                                    candidate.interviewId ?? ""
+                                  )}`
                                 )
                               }
                             >
