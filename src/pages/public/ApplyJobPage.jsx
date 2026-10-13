@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { jwtDecode } from "jwt-decode";
 import {
   Link,
   useNavigate,
@@ -60,6 +61,7 @@ function ApplyJobPage() {
   const [resume, setResume] = useState(null);
   const [errors, setErrors] = useState({});
 
+  
   // =========================================================
   // PROTECT APPLY PAGE
   // ONLY LOGGED-IN CANDIDATES CAN ACCESS
@@ -67,11 +69,25 @@ function ApplyJobPage() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    const role = localStorage.getItem("role");
+    let role = null;
+
+    if (token) {
+      try {
+        const decodedToken = jwtDecode(token);
+        role = decodedToken.role?.trim().toUpperCase();
+
+        if (role) {
+          localStorage.setItem("role", role);
+        }
+      } catch (error) {
+        console.error("Invalid login token:", error);
+        localStorage.removeItem("token");
+        localStorage.removeItem("role");
+      }
+    }
 
     const isCandidate =
-      token &&
-      role?.toUpperCase() === "CANDIDATE";
+      Boolean(token) && role === "CANDIDATE";
 
     if (!isCandidate) {
       sessionStorage.setItem(
@@ -96,16 +112,33 @@ function ApplyJobPage() {
 
   useEffect(() => {
     const loadPageData = async () => {
-      const token = localStorage.getItem("token");
-      const role = localStorage.getItem("role");
+      
+const token = localStorage.getItem("token");
+let role = null;
 
-      const isCandidate =
-        token &&
-        role?.toUpperCase() === "CANDIDATE";
+if (token) {
+  try {
+    const decodedToken = jwtDecode(token);
+    role = decodedToken.role?.trim().toUpperCase();
 
-      if (!isCandidate) {
-        return;
-      }
+    if (role) {
+      localStorage.setItem("role", role);
+    }
+  } catch (error) {
+    console.error("Invalid login token:", error);
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+  }
+}
+
+const isCandidate =
+  Boolean(token) && role === "CANDIDATE";
+
+if (!isCandidate) {
+  setPageLoading(false);
+  return;
+}
+
 
       try {
         setPageLoading(true);

@@ -22,7 +22,7 @@ function RecruiterResumes() {
   // Candidate ID is still required by backend,
   // but recruiter will NOT type it manually.
   const [uploadCandidateId, setUploadCandidateId] = useState("");
-
+  const [uploadApplicationId, setUploadApplicationId] = useState("");
   const [uploadFile, setUploadFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -79,7 +79,39 @@ function RecruiterResumes() {
         );
       }
 
-      setResumes(result.data);
+      
+console.log("TOTAL RESUMES:", result.data.length);
+
+console.log(
+  "MINNIE - ALL RECORDS:",
+  result.data.filter(
+    (item) =>
+      Number(item.candidateId) === 36
+  )
+);
+
+console.log(
+  "MINNIE - JOB ID 1:",
+  result.data.filter(
+    (item) =>
+      Number(item.candidateId) === 36 &&
+      Number(item.jobId) === 1
+  )
+);
+
+setResumes(result.data);
+
+const minnieRecords = result.data.filter(
+  (item) => Number(item.candidateId) === 36
+);
+
+console.log(
+  "MINNIE COMPLETE RECORDS:",
+  JSON.stringify(minnieRecords, null, 2)
+);
+
+setResumes(result.data);
+
     } catch (err) {
       console.error(
         "Error fetching resume management data:",
@@ -593,7 +625,17 @@ function RecruiterResumes() {
 
       return;
     }
+    const parsedApplicationId = Number(uploadApplicationId);
 
+if (
+  !Number.isInteger(parsedApplicationId) ||
+  parsedApplicationId <= 0
+) {
+  setUploadError(
+    "Please enter a valid application ID for the selected candidate and job."
+  );
+  return;
+}
     if (!uploadFile) {
       setUploadError(
         "Please select a resume file."
@@ -637,38 +679,40 @@ function RecruiterResumes() {
     }
 
     try {
-      setUploading(true);
+  setUploading(true);
 
-      const formData =
-        new FormData();
+  const formData = new FormData();
 
-      formData.append(
-        "candidateId",
-        uploadCandidateId
-      );
+  formData.append(
+    "candidateId",
+    uploadCandidateId
+  );
 
-      formData.append(
-        "file",
-        uploadFile
-      );
+  // ADD THIS LINE to send the application ID
+  formData.append(
+    "applicationId",
+    String(parsedApplicationId)
+  );
 
-      // Do NOT manually set multipart Content-Type.
-      // Axios/browser will create the correct boundary.
-      const response =
-        await apiClient.post(
-          "/resumes/upload",
-          formData
-        );
+  formData.append(
+    "file",
+    uploadFile
+  );
 
-      const result =
-        response.data;
+  // Do NOT manually set multipart Content-Type.
+  // Axios/browser will create the correct boundary.
+  const response = await apiClient.post(
+    "/resumes/upload",
+    formData
+  );
 
-      if (!result?.success) {
-        throw new Error(
-          result?.message ||
-            "Unable to upload resume."
-        );
-      }
+  const result = response.data;
+
+  if (!result?.success) {
+    throw new Error(
+      result?.message || "Unable to upload resume."
+    );
+  }
 
       setUploadSuccess(
         result.message ||
@@ -678,6 +722,7 @@ function RecruiterResumes() {
       await fetchResumes();
 
       setUploadCandidateId("");
+      setUploadApplicationId("");
       setCandidateSearch("");
       setCandidates([]);
       setShowCandidateResults(false);
@@ -725,6 +770,7 @@ function RecruiterResumes() {
     setUploadSuccess("");
 
     setUploadCandidateId("");
+    setUploadApplicationId("");
     setCandidateSearch("");
     setCandidates([]);
     setShowCandidateResults(false);
@@ -748,6 +794,7 @@ function RecruiterResumes() {
     setShowUploadModal(false);
 
     setUploadCandidateId("");
+    setUploadApplicationId("");
     setCandidateSearch("");
     setCandidates([]);
     setShowCandidateResults(false);

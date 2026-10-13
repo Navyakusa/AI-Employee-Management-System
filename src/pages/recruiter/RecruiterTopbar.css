@@ -72,50 +72,50 @@
   gap: 14px;
 }
 
-/* =========================
-   NOTIFICATION
-========================= */
-
 .recruiter-notification-btn {
   position: relative;
-
-  width: 40px;
-  height: 40px;
-
-  border: 1px solid #e1e5ed;
-
-  border-radius: 9px;
-
-  background: #ffffff;
-
-  color: #68748a;
-
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-
+  width: 54px;
+  height: 52px;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #111827;
   cursor: pointer;
-
-  transition: 0.2s;
+  flex-shrink: 0;
 }
 
 .recruiter-notification-btn:hover {
-  background: #f5f7ff;
-  color: #536bd8;
+  background: #f8fafc;
+}
+.recruiter-notification-btn svg {
+  display: block;
+  flex-shrink: 0;
+  color: #111827;
+  stroke: currentColor;
 }
 
-.notification-dot {
+.notification-badge {
   position: absolute;
-
-  top: 8px;
-  right: 8px;
-
-  width: 6px;
-  height: 6px;
-
-  border-radius: 50%;
-
-  background: #ef4444;
+  top: -7px;
+  right: -7px;
+  min-width: 25px;
+  height: 25px;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #ef2929;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  box-sizing: border-box;
 }
 
 /* =========================
@@ -286,4 +286,34 @@
 .recruiter-profile-dropdown
 .recruiter-logout-btn strong {
   color: #d64f4f;
+}
+.recruiter-notification-btn {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.recruiter-notification-btn > svg {
+  color: #111827 !important;
+  stroke: #111827 !important;
+  fill: none !important;
+}
+
+.recruiter-notification-btn .notification-badge {
+  position: absolute !important;
+  top: -7px !important;
+  right: -7px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 25px !important;
+  height: 25px !important;
+  padding: 0 6px !important;
+  border: 2px solid #fff !important;
+  border-radius: 50% !important;
+  background: #ef2929 !important;
+  color: #fff !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  box-sizing: border-box !important;
 }

@@ -102,7 +102,9 @@ if (!backendRole) {
       // =========================
       // SAVE AUTH DATA
       // =========================
-      localStorage.setItem("token", token);
+      // SAVE AUTH DATA
+localStorage.setItem("token", token);
+localStorage.setItem("role", backendRole);
 
       // =========================
       // ROLE BASED NAVIGATION
@@ -207,8 +209,8 @@ case "HR_MANAGER":
           // UNKNOWN ROLE
           // =========================
           setError(
-            `No dashboard configured for role: ${userData.role}`
-          );
+  `No dashboard configured for role: ${backendRole}`
+);
 
           // Remove authentication data because
           // there is no configured dashboard.

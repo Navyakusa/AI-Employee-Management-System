@@ -12,7 +12,6 @@ import {
 import RecruiterSidebar from "./RecruiterSidebar";
 import RecruiterTopbar from "./RecruiterTopbar";
 import apiClient from "../../services/apiClient";
-
 import "./RecruiterNotifications.css";
 
 // =========================================================
@@ -25,6 +24,7 @@ const getNotificationType = (type) => {
   if (value.includes("interview")) return "interview";
   if (value.includes("resume")) return "resume";
   if (value.includes("screen")) return "screening";
+
   if (
     value.includes("candidate") ||
     value.includes("application") ||
@@ -112,16 +112,17 @@ function RecruiterNotifications() {
 
       setNotifications(items);
 
-      // The list is the source of truth for the displayed count.
       setUnreadCount(
-        items.filter((notification) => notification.readStatus === false)
-          .length
+        items.filter(
+          (notification) => notification.readStatus === false
+        ).length
       );
     } catch (err) {
       console.error("Fetch notifications error:", err);
 
       setNotifications([]);
       setUnreadCount(0);
+
       setError(
         getApiErrorMessage(err, "Failed to load notifications.")
       );
@@ -142,12 +143,8 @@ function RecruiterNotifications() {
 
       const result = response.data;
 
-      if (!result?.success) {
-        return;
-      }
+      if (!result?.success) return;
 
-      // The unread-count response format has not been verified yet.
-      // Support a numeric value or a named count field.
       const data = result.data;
 
       const count =
@@ -155,11 +152,10 @@ function RecruiterNotifications() {
           ? data
           : data?.unreadCount ?? data?.count;
 
-      if (typeof count === "number" && Number.isFinite(count)) {
-        setUnreadCount(count);
+      if (count !== undefined && Number.isFinite(Number(count))) {
+        setUnreadCount(Math.max(0, Number(count)));
       }
     } catch (err) {
-      // Keep the count calculated from the notification list.
       console.error("Fetch unread count error:", err);
     }
   };
@@ -167,6 +163,31 @@ function RecruiterNotifications() {
   useEffect(() => {
     fetchNotifications();
     fetchUnreadCount();
+
+    const intervalId = setInterval(fetchUnreadCount, 15000);
+
+    const handleFocus = () => {
+      fetchUnreadCount();
+    };
+
+    const handleNotificationsUpdated = () => {
+      fetchUnreadCount();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener(
+      "notifications-updated",
+      handleNotificationsUpdated
+    );
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener(
+        "notifications-updated",
+        handleNotificationsUpdated
+      );
+    };
   }, []);
 
   // =========================================================
@@ -222,6 +243,10 @@ function RecruiterNotifications() {
         )
       );
 
+      setUnreadCount((current) => Math.max(0, current - 1));
+
+      window.dispatchEvent(new Event("notifications-updated"));
+
       await fetchUnreadCount();
     } catch (err) {
       console.error("Mark notification as read error:", err);
@@ -269,6 +294,9 @@ function RecruiterNotifications() {
       );
 
       setUnreadCount(0);
+
+      window.dispatchEvent(new Event("notifications-updated"));
+
       await fetchUnreadCount();
     } catch (err) {
       console.error("Mark all notifications as read error:", err);
@@ -295,6 +323,11 @@ function RecruiterNotifications() {
       setActionError("");
       setProcessingIds((current) => [...current, notificationId]);
 
+      const notificationToDelete = notifications.find(
+        (notification) =>
+          notification.notificationId === notificationId
+      );
+
       const response = await apiClient.delete(
         `/notifications/${notificationId}`
       );
@@ -311,6 +344,12 @@ function RecruiterNotifications() {
             notification.notificationId !== notificationId
         )
       );
+
+      if (notificationToDelete?.readStatus === false) {
+        setUnreadCount((current) => Math.max(0, current - 1));
+      }
+
+      window.dispatchEvent(new Event("notifications-updated"));
 
       await fetchUnreadCount();
     } catch (err) {
@@ -332,15 +371,11 @@ function RecruiterNotifications() {
 
   return (
     <div className="recruiter-notifications-page">
-      {/* SIDEBAR */}
       <RecruiterSidebar />
 
-      {/* TOPBAR */}
       <RecruiterTopbar />
 
-      {/* MAIN CONTENT */}
       <main className="recruiter-notifications-main">
-        {/* HEADER */}
         <div className="recruiter-notifications-header">
           <div>
             <span className="recruiter-page-label">
@@ -366,7 +401,6 @@ function RecruiterNotifications() {
           )}
         </div>
 
-        {/* ERRORS */}
         {(error || actionError) && (
           <div
             role="alert"
@@ -383,7 +417,6 @@ function RecruiterNotifications() {
           </div>
         )}
 
-        {/* SUMMARY */}
         <div className="notification-summary">
           <div className="notification-summary-card">
             <div className="summary-icon">
@@ -408,7 +441,6 @@ function RecruiterNotifications() {
           </div>
         </div>
 
-        {/* NOTIFICATION CARD */}
         <section className="notifications-card">
           <div className="notifications-card-header">
             <div>
@@ -422,7 +454,6 @@ function RecruiterNotifications() {
             <Bell size={20} />
           </div>
 
-          {/* LIST */}
           <div className="notifications-list">
             {loading ? (
               <div className="empty-notifications">
@@ -448,6 +479,7 @@ function RecruiterNotifications() {
               notifications.map((notification) => {
                 const type = getNotificationType(notification.type);
                 const unread = notification.readStatus === false;
+
                 const processing = processingIds.includes(
                   notification.notificationId
                 );
@@ -459,12 +491,10 @@ function RecruiterNotifications() {
                       unread ? "unread" : ""
                     }`}
                   >
-                    {/* ICON */}
                     <div className={`notification-icon ${type}`}>
                       {getIcon(type)}
                     </div>
 
-                    {/* CONTENT */}
                     <div className="notification-content">
                       <div className="notification-title-row">
                         <h3>
@@ -483,7 +513,6 @@ function RecruiterNotifications() {
                       </span>
                     </div>
 
-                    {/* ACTIONS */}
                     <div className="notification-actions">
                       {unread && (
                         <button

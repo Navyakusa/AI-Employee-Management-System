@@ -546,7 +546,7 @@ function JobDetailsPage() {
 
               <h3>Job Overview</h3>
 
-
+              <div className="job-summary-grid">
               <div className="job-summary-item">
 
                 <Building2 size={20} />
@@ -668,7 +668,7 @@ function JobDetailsPage() {
                     {getClosingDate()}
                   </strong>
                 </div>
-
+</div>
               </div>
 
 
@@ -692,6 +692,7 @@ function JobDetailsPage() {
                   Position Closed
                 </button>
               )}
+              
 
             </div>
 

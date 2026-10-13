@@ -142,36 +142,20 @@ console.log(
 // Screening 81  -> hidden
 // Screening 82  -> displayed
 // ---------------------------------------------------------
-const latestScreeningMap = new Map();
 
-screeningRecords.forEach((screening) => {
-  const key = `${screening.candidateId}-${screening.jobId}`;
+const allScreenings = [...screeningRecords];
 
-  const existing = latestScreeningMap.get(key);
-
-  if (
-    !existing ||
-    Number(screening.id || 0) > Number(existing.id || 0)
-  ) {
-    latestScreeningMap.set(key, screening);
-  }
-});
-
-const latestScreenings = Array.from(
-  latestScreeningMap.values()
-);
-
-// Latest screening first
-latestScreenings.sort(
+allScreenings.sort(
   (a, b) => Number(b.id || 0) - Number(a.id || 0)
 );
 
-setScreenings(latestScreenings);
+setScreenings(allScreenings);
 
 await Promise.all([
   fetchCandidates(),
-  fetchJobs(latestScreenings),
+  fetchJobs(allScreenings),
 ]);
+
     } catch (err) {
       console.error("AI screening fetch error:", err);
 
@@ -214,10 +198,11 @@ const fetchAvailableApplications = async () => {
     // candidateId and jobId.
     // ---------------------------------------------------------
     const validRecords = result.data.filter(
-      (resume) =>
-        isValidId(resume.candidateId) &&
-        isValidId(resume.jobId)
-    );
+  (resume) =>
+    isValidId(resume.applicationId) &&
+    isValidId(resume.candidateId) &&
+    isValidId(resume.jobId)
+);
 
     // ---------------------------------------------------------
     // STEP 2:
@@ -270,20 +255,16 @@ const fetchAvailableApplications = async () => {
     // structure already used by the existing React dropdown.
     // ---------------------------------------------------------
     const applications = Array.from(
-      uniqueApplicationsMap.values()
-    ).map((resume) => ({
-      applicationId: resume.applicationId ?? null,
-      candidateId: Number(resume.candidateId),
-      candidateName:
-        resume.candidateName || "Unknown Candidate",
-      candidateEmail:
-        resume.candidateEmail || "",
-      jobId: Number(resume.jobId),
-      jobTitle:
-        resume.position || `Job #${resume.jobId}`,
-      resumeId: resume.resumeId ?? null,
-    }));
-
+  uniqueApplicationsMap.values()
+).map((resume) => ({
+  applicationId: resume.applicationId ?? null,
+  resumeId: resume.resumeId ?? null,
+  candidateId: Number(resume.candidateId),
+  candidateName: resume.candidateName || "Unknown Candidate",
+  candidateEmail: resume.candidateEmail || "",
+  jobId: Number(resume.jobId),
+  jobTitle: resume.position || `Job #${resume.jobId}`,
+}));
     // Optional sorting only changes display order.
     // It does not change API data or screening behavior.
     applications.sort((a, b) => {
@@ -586,77 +567,80 @@ const fetchAvailableApplications = async () => {
 
   // POST /api/ai-resume-screening/screen
   const handleSubmitScreening = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    setScreeningError("");
-    setScreeningSuccess("");
+  setScreeningError("");
+  setScreeningSuccess("");
+  if (
+  !selectedApplication ||
+  !isValidId(selectedApplication.applicationId) ||
+  !isValidId(selectedApplication.resumeId) ||
+  !isValidId(candidateId) ||
+  !isValidId(jobId)
+) {
+  setScreeningError(
+    "Application ID or Resume ID is missing. Please select a valid application."
+  );
+  return;
+}
 
-    if (!isValidId(candidateId) || !isValidId(jobId)) {
+  try {
+    setScreeningLoading(true);
+
+const response = await apiClient.post(
+  "/ai-resume-screening/screen",
+  {
+    applicationId: Number(selectedApplication.applicationId),
+    resumeId: Number(selectedApplication.resumeId),
+    candidateId: Number(candidateId),
+    jobId: Number(jobId),
+  }
+);
+
+    const result = response.data;
+
+    if (!result?.success) {
+      throw new Error(
+        result?.message || "AI screening failed."
+      );
+    }
+
+    setScreeningSuccess(
+      result.message ||
+        "AI resume screening completed successfully."
+    );
+
+    await fetchScreenings();
+
+    setTimeout(() => {
+      setShowScreeningModal(false);
+      setCandidateId("");
+      setJobId("");
+      setSelectedApplicationKey("");
+      setScreeningSuccess("");
+    }, 1200);
+  } catch (err) {
+    console.error("AI screening POST error:", err);
+
+    if (err.response?.status === 401) {
       setScreeningError(
-        "Please select a candidate and job application."
+        "Your session has expired. Please login again."
       );
-      return;
+    } else if (err.response?.status === 403) {
+      setScreeningError(
+        "You are not authorized to run AI screening."
+      );
+    } else {
+      setScreeningError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to perform AI resume screening."
+      );
     }
-
-    const candidateIdNumber = Number(candidateId);
-    const jobIdNumber = Number(jobId);
-
-    try {
-      setScreeningLoading(true);
-
-      const response = await apiClient.post(
-        "/ai-resume-screening/screen",
-        {
-          candidateId: candidateIdNumber,
-          jobId: jobIdNumber,
-        }
-      );
-
-      const result = response.data;
-
-      if (!result?.success) {
-        throw new Error(
-          result?.message || "AI screening failed."
-        );
-      }
-
-      setScreeningSuccess(
-        result?.message ||
-          "AI resume screening completed successfully."
-      );
-
-      await fetchScreenings();
-
-      setTimeout(() => {
-        setShowScreeningModal(false);
-        setCandidateId("");
-        setJobId("");
-        setSelectedApplicationKey("");
-        setScreeningSuccess("");
-      }, 1200);
-    } catch (err) {
-      console.error("AI screening POST error:", err);
-
-      if (err.response?.status === 401) {
-        setScreeningError(
-          "Your session has expired. Please login again."
-        );
-      } else if (err.response?.status === 403) {
-        setScreeningError(
-          "You are not authorized to run AI screening."
-        );
-      } else {
-        setScreeningError(
-          err.response?.data?.message ||
-            err.message ||
-            "Failed to perform AI resume screening."
-        );
-      }
-    } finally {
-      setScreeningLoading(false);
-    }
-  };
-
+  } finally {
+    setScreeningLoading(false);
+  }
+};
   // Resolve selected candidate/job for the Run Screening modal.
   const selectedApplication =
     selectedApplicationKey !== ""
