@@ -18,95 +18,54 @@ public class EmployeeDocumentController {
 
     private final EmployeeDocumentService documentService;
 
-    public EmployeeDocumentController(
-            EmployeeDocumentService documentService) {
-
+    public EmployeeDocumentController(EmployeeDocumentService documentService) {
         this.documentService = documentService;
     }
 
-
-    // =========================================================
     // UPLOAD DOCUMENT
-    // =========================================================
-
-    @PostMapping(
-            value = "/upload",
-            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
-    )
-    public ResponseEntity<ApiResponse<EmployeeDocumentResponseDto>>
-    uploadDocument(
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<EmployeeDocumentResponseDto>> uploadDocument(
             @RequestParam String documentType,
             @RequestParam MultipartFile file,
             Authentication authentication) {
-
-        return documentService.uploadDocument(
-                documentType,
-                file,
-                authentication
-        );
+        return documentService.uploadDocument(documentType, file, authentication);
     }
 
-
-    // =========================================================
     // GET MY DOCUMENTS
-    // =========================================================
-
     @GetMapping("/my")
-    public ResponseEntity<ApiResponse<List<EmployeeDocumentResponseDto>>>
-    getMyDocuments(
+    public ResponseEntity<ApiResponse<List<EmployeeDocumentResponseDto>>> getMyDocuments(
             Authentication authentication) {
-
-        return documentService.getMyDocuments(
-                authentication
-        );
+        return documentService.getMyDocuments(authentication);
     }
 
-
-    // =========================================================
     // GET DOCUMENT SUMMARY
-    // =========================================================
-
     @GetMapping("/my/summary")
-    public ResponseEntity<ApiResponse<DocumentSummaryDto>>
-    getDocumentSummary(
+    public ResponseEntity<ApiResponse<DocumentSummaryDto>> getDocumentSummary(
             Authentication authentication) {
-
-        return documentService.getDocumentSummary(
-                authentication
-        );
+        return documentService.getDocumentSummary(authentication);
     }
 
-
-    // =========================================================
     // GET MY DOCUMENT BY ID
-    // =========================================================
-
     @GetMapping("/{documentId}")
-    public ResponseEntity<ApiResponse<EmployeeDocumentResponseDto>>
-    getMyDocumentById(
+    public ResponseEntity<ApiResponse<EmployeeDocumentResponseDto>> getMyDocumentById(
             @PathVariable Long documentId,
             Authentication authentication) {
-
-        return documentService.getMyDocumentById(
-                documentId,
-                authentication
-        );
+        return documentService.getMyDocumentById(documentId, authentication);
     }
 
-
-    // =========================================================
-    // DELETE MY DOCUMENT
-    // =========================================================
-
-    @DeleteMapping("/{documentId}")
-    public ResponseEntity<ApiResponse<Void>>
-    deleteMyDocument(
+    // DOWNLOAD OR PREVIEW DOCUMENT FILE
+    @GetMapping("/{documentId}/download")
+    public ResponseEntity<?> downloadMyDocument(
             @PathVariable Long documentId,
             Authentication authentication) {
+        return documentService.downloadMyDocument(documentId, authentication);
+    }
 
-        return documentService.deleteMyDocument(
-                documentId,
-                authentication
-        );
+    // DELETE MY DOCUMENT
+    @DeleteMapping("/{documentId}")
+    public ResponseEntity<ApiResponse<Void>> deleteMyDocument(
+            @PathVariable Long documentId,
+            Authentication authentication) {
+        return documentService.deleteMyDocument(documentId, authentication);
     }
 }

@@ -8,13 +8,20 @@ import com.ems.entity.Employee;
 import com.ems.entity.EmployeeDocument;
 import com.ems.repository.EmployeeDocumentRepository;
 import com.ems.repository.EmployeeRepository;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -500,6 +507,143 @@ public class EmployeeDocumentService {
         }
     }
 
+
+
+    // =========================================================
+    // DOWNLOAD / PREVIEW MY DOCUMENT
+    // =========================================================
+
+    public ResponseEntity<?> downloadMyDocument(
+            Long documentId,
+            Authentication authentication) {
+
+        try {
+            Employee employee = getLoggedInEmployee(authentication);
+
+            if (employee == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false, "Employee not found", null));
+            }
+
+            EmployeeDocument document = documentRepository
+                    .findByIdAndEmployeeId(documentId, employee.getId())
+                    .orElse(null);
+
+            if (document == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false, "Document not found", null));
+            }
+
+            if (document.getFilePath() == null
+                    || document.getFilePath().isBlank()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false, "Document file not found", null));
+            }
+
+            Path configuredDirectory = uploadDirectory.toAbsolutePath().normalize();
+            Path storedPath = Paths.get(document.getFilePath())
+                    .toAbsolutePath().normalize();
+
+            // Reject paths that escape the configured employee-documents directory.
+            if (!storedPath.startsWith(configuredDirectory)) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false, "Document file not found", null));
+            }
+
+            // Check the real paths too, so a symlink cannot escape the storage directory.
+            if (!Files.isDirectory(configuredDirectory)
+                    || !Files.isRegularFile(storedPath)
+                    || !Files.isReadable(storedPath)) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false, "Document file not found", null));
+            }
+
+            Path realDirectory = configuredDirectory.toRealPath();
+            Path realFile = storedPath.toRealPath();
+
+            if (!realFile.startsWith(realDirectory)
+                    || !Files.isRegularFile(realFile)
+                    || !Files.isReadable(realFile)) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false, "Document file not found", null));
+            }
+
+            String originalFileName = document.getFileName();
+            if (originalFileName == null || originalFileName.isBlank()) {
+                originalFileName = "document";
+            }
+            // Keep only a filename; never expose the stored physical path.
+            originalFileName = Paths.get(originalFileName).getFileName().toString();
+
+            MediaType mediaType = getDocumentMediaType(originalFileName, document.getFileType());
+            String extension = getFileExtension(originalFileName);
+            boolean inline = extension.equals(".pdf")
+                    || extension.equals(".jpg")
+                    || extension.equals(".jpeg")
+                    || extension.equals(".png");
+
+            byte[] fileBytes = Files.readAllBytes(realFile);
+            ContentDisposition disposition = ContentDisposition
+                    .builder(inline ? "inline" : "attachment")
+                    .filename(originalFileName, StandardCharsets.UTF_8)
+                    .build();
+
+            return ResponseEntity.ok()
+                    .contentType(mediaType)
+                    .contentLength(fileBytes.length)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                    .body(fileBytes);
+
+        } catch (IOException | RuntimeException e) {
+            // Do not return exception details or physical paths to the client.
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>(
+                            false, "Document file not found", null));
+        }
+    }
+
+    private MediaType getDocumentMediaType(
+            String fileName,
+            String storedFileType) {
+
+        String extension = getFileExtension(fileName);
+        switch (extension) {
+            case ".pdf":
+                return MediaType.APPLICATION_PDF;
+            case ".jpg":
+            case ".jpeg":
+                return MediaType.IMAGE_JPEG;
+            case ".png":
+                return MediaType.IMAGE_PNG;
+            case ".doc":
+                return MediaType.parseMediaType("application/msword");
+            case ".docx":
+                return MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+            default:
+                // The current upload API stores the extension in fileType.
+                if (storedFileType != null) {
+                    String normalized = storedFileType.toLowerCase(Locale.ROOT);
+                    if (normalized.equals("pdf") || normalized.equals(".pdf")) {
+                        return MediaType.APPLICATION_PDF;
+                    }
+                    if (normalized.equals("jpg") || normalized.equals(".jpg")
+                            || normalized.equals("jpeg") || normalized.equals(".jpeg")) {
+                        return MediaType.IMAGE_JPEG;
+                    }
+                    if (normalized.equals("png") || normalized.equals(".png")) {
+                        return MediaType.IMAGE_PNG;
+                    }
+                }
+                return MediaType.APPLICATION_OCTET_STREAM;
+        }
+    }
 
     // =========================================================
     // DELETE MY DOCUMENT

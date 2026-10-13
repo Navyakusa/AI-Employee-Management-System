@@ -1,3 +1,4 @@
+
 package com.ems.dto;
 
 import jakarta.validation.constraints.NotNull;
@@ -15,4 +16,9 @@ public class AIResumeScreeningRequestDto {
 
     @NotNull(message = "Job ID is required")
     private Long jobId;
+
+    // Pass the exact resume and application to be screened.
+    private Long resumeId;
+
+    private Long applicationId;
 }

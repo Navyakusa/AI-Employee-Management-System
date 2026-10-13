@@ -1,12 +1,15 @@
 package com.ems.service;
 
 import com.ems.common.ApiResponse;
+import com.ems.common.ApplicationStatus;
 import com.ems.dto.*;
 import com.ems.entity.AIResumeScreening;
+import com.ems.entity.Application;
 import com.ems.entity.Job;
 import com.ems.entity.Resume;
 import com.ems.mapper.AIResumeScreeningMapper;
 import com.ems.repository.AIResumeScreeningRepository;
+import com.ems.repository.ApplicationRepository;
 import com.ems.repository.CandidateRepository;
 import com.ems.repository.JobRepository;
 import com.ems.repository.ResumeRepository;
@@ -36,6 +39,9 @@ public class AIResumeScreeningService {
     private NotificationService notificationService;
     @Autowired
     private AIResumeScreeningRepository screeningRepository;
+
+    @Autowired
+    private ApplicationRepository applicationRepository;
 
     @Autowired
     private AIResumeScreeningMapper screeningMapper;
@@ -83,20 +89,46 @@ public class AIResumeScreeningService {
 
 
             // =====================================================
-            // 2. GET LATEST RESUME
+            // 2. GET AND VALIDATE THE EXACT RESUME
             // =====================================================
 
-            Resume resume =
-                    resumeRepository
-                            .findFirstByCandidateIdOrderByIdDesc(
-                                    requestDto.getCandidateId()
-                            )
-                            .orElseThrow(() ->
-                                    new RuntimeException(
-                                            "Resume not found for candidate ID: "
-                                                    + requestDto.getCandidateId()
-                                    )
-                            );
+            if (requestDto.getResumeId() == null) {
+                throw new RuntimeException(
+                        "Resume ID is required. Select the exact resume before screening."
+                );
+            }
+
+            Resume resume = resumeRepository
+                    .findById(requestDto.getResumeId())
+                    .orElseThrow(() -> new RuntimeException(
+                            "Resume not found: " + requestDto.getResumeId()
+                    ));
+
+            if (!resume.getCandidateId().equals(requestDto.getCandidateId())) {
+                throw new RuntimeException(
+                        "The selected resume does not belong to this candidate."
+                );
+            }
+
+            if (requestDto.getApplicationId() != null) {
+                Application requestedApplication = applicationRepository
+                        .findById(requestDto.getApplicationId())
+                        .orElseThrow(() -> new RuntimeException(
+                                "Application not found: " + requestDto.getApplicationId()
+                        ));
+
+                if (!requestedApplication.getCandidateId().equals(requestDto.getCandidateId())
+                        || !requestedApplication.getJobId().equals(requestDto.getJobId())) {
+                    throw new RuntimeException(
+                            "Application does not match the requested candidate and job."
+                    );
+                }
+
+                // A candidate may reuse the same resume for multiple job applications.
+                // The request is validated against the exact candidate + job application;
+                // do not reject the resume merely because its optional applicationId
+                // points to another application for the same candidate.
+            }
 
 
             // =====================================================
@@ -546,6 +578,40 @@ public class AIResumeScreeningService {
 
             AIResumeScreening savedScreening =
                     screeningRepository.saveAndFlush(screening);
+
+            // Update the matching application only when it is still APPLIED.
+            // Preserve later workflow states such as SHORTLISTED, ACCEPTED, or REJECTED.
+            Application application = null;
+
+            if (requestDto.getApplicationId() != null) {
+                application = applicationRepository
+                        .findById(requestDto.getApplicationId())
+                        .orElse(null);
+            }
+
+            if (application != null
+                    && application.getStatus() == ApplicationStatus.APPLIED) {
+
+                application.setStatus(ApplicationStatus.AI_SCREENED);
+                applicationRepository.save(application);
+
+                System.out.println(
+                        "Application " + application.getApplicationId()
+                                + " status updated to AI_SCREENED");
+
+            } else if (application == null) {
+
+                System.out.println(
+                        "No application found for candidate "
+                                + requestDto.getCandidateId()
+                                + " and job " + requestDto.getJobId());
+
+            } else {
+
+                System.out.println(
+                        "Application status preserved: "
+                                + application.getStatus());
+            }
 
             System.out.println("===== SAVED SCREENING VERIFICATION =====");
             System.out.println("Saved Screening ID: " + savedScreening.getId());

@@ -98,6 +98,23 @@ public class ResumeService {
             }
 
             Long candidateId = request.getCandidateId();
+
+            // If this resume belongs to a specific application, validate that
+            // the application exists and belongs to the supplied candidate.
+            if (request.getApplicationId() != null) {
+                Application application = applicationRepository
+                        .findById(request.getApplicationId())
+                        .orElseThrow(() -> new RuntimeException(
+                                "Application not found: " + request.getApplicationId()
+                        ));
+
+                if (!application.getCandidateId().equals(candidateId)) {
+                    return ResponseEntity.badRequest().body(
+                            new ApiResponse<>(false,
+                                    "Application does not belong to the supplied candidate", null));
+                }
+            }
+
             MultipartFile file = request.getFile();
 
             if (file == null || file.isEmpty()) {
@@ -201,6 +218,7 @@ public class ResumeService {
             resume.setExtractedSkills(extractedSkills);
             resume.setExtractedExperience(extractedExperience);
             resume.setExtractedEducation(extractedEducation);
+            resume.setApplicationId(request.getApplicationId());
 
             Resume savedResume = resumeRepository.save(resume);
             resumeRecordSaved = true;
@@ -377,10 +395,6 @@ public class ResumeService {
                                 null
                         ));
             }
-
-            existingResume.setCandidateId(
-                    dto.getCandidateId()
-            );
 
             Resume updatedResume =
                     resumeRepository.save(existingResume);
@@ -751,298 +765,167 @@ public class ResumeService {
 
 
     // ============================================================
-    // Resume Management
+    // Resume Management - one row per job application
     // ============================================================
 
     public ResponseEntity<ApiResponse<List<ResumeManagementDto>>>
     getResumeManagementData() {
-
         try {
+            List<Application> applications = applicationRepository.findAll();
+            List<Resume> allResumes = resumeRepository.findAll();
+            List<ResumeManagementDto> result = new ArrayList<>();
 
-            List<Resume> resumes =
-                    resumeRepository.findAll();
+            // IMPORTANT: iterate applications, not resumes. One candidate may
+            // have multiple applications, and each application must get its own row.
+            for (Application application : applications) {
+                if (application == null || application.getCandidateId() == null) {
+                    continue;
+                }
 
-            List<ResumeManagementDto> result =
-                    new ArrayList<>();
+                Long candidateId = application.getCandidateId();
+                Resume matchingResume = null;
 
-            for (Resume resume : resumes) {
-
-                ResumeManagementDto dto =
-                        new ResumeManagementDto();
-
-                dto.setResumeId(
-                        resume.getId()
-                );
-
-                dto.setCandidateId(
-                        resume.getCandidateId()
-                );
-
-                dto.setExperience(
-                        resume.getExtractedExperience()
-                );
-
-                dto.setSkills(
-                        resume.getExtractedSkills()
-                );
-
-                dto.setUploadedAt(
-                        resume.getUploadedAt()
-                );
-
-
-                // ==============================
-                // Physical File Availability
-                // ==============================
-
-                boolean fileAvailable = false;
-
-                if (resume.getFilePath() != null
-                        && !resume.getFilePath().isBlank()) {
-
-                    try {
-
-                        Path filePath = resolveResumePath(resume.getFilePath());
-                        fileAvailable = Files.isRegularFile(filePath)
-                                && Files.isReadable(filePath);
-                        System.out.println(
-                                "Resume ID: " + resume.getId()
-                                        + " | DB Path: " + resume.getFilePath()
-                                        + " | Resolved Path: " + filePath
-                                        + " | Exists: " + Files.exists(filePath)
-                                        + " | File Available: " + fileAvailable
-                        );
-
-                    } catch (Exception ignored) {
-
-                        fileAvailable = false;
+                // First preference: resume explicitly linked to this application.
+                for (Resume resume : allResumes) {
+                    if (resume.getApplicationId() != null
+                            && resume.getApplicationId().equals(application.getApplicationId())
+                            && candidateId.equals(resume.getCandidateId())) {
+                        matchingResume = resume;
+                        break;
                     }
                 }
 
-                dto.setFileAvailable(
-                        fileAvailable
+                // A candidate's resume can be used to apply for multiple jobs.
+                // If no exact link exists, reuse a resume owned by that candidate;
+                // application/job identity always comes from the current Application.
+                if (matchingResume == null) {
+                    for (Resume resume : allResumes) {
+                        if (candidateId.equals(resume.getCandidateId())) {
+                            matchingResume = resume;
+                            break;
+                        }
+                    }
+                }
 
+                ResumeManagementDto dto = new ResumeManagementDto();
+                dto.setCandidateId(candidateId);
+                dto.setApplicationId(application.getApplicationId());
+                dto.setJobId(application.getJobId());
 
+                if (application.getStatus() != null) {
+                    dto.setStatus(application.getStatus().name());
+                }
 
-                );
-
-
-                // ==============================
-                // Candidate
-                // ==============================
-
-                Candidate candidate =
-                        candidateRepository
-                                .findById(
-                                        resume.getCandidateId()
-                                )
-                                .orElse(null);
-
+                Candidate candidate = candidateRepository.findById(candidateId).orElse(null);
                 if (candidate != null) {
-
-                    dto.setCandidateName(
-                            candidate.getName()
-                    );
-
-                    dto.setCandidateEmail(
-                            candidate.getEmail()
-                    );
+                    dto.setCandidateName(candidate.getName());
+                    dto.setCandidateEmail(candidate.getEmail());
                 }
 
-
-                // ==============================
-                // Latest Application
-                // ==============================
-
-                Application application =
-                        applicationRepository
-                                .findFirstByCandidateIdOrderByAppliedAtDesc(
-                                        resume.getCandidateId()
-                                )
-                                .orElse(null);
-
-                if (application != null) {
-
-                    dto.setApplicationId(
-                            application.getApplicationId()
-                    );
-
-                    dto.setJobId(
-                            application.getJobId()
-                    );
-
-                    if (application.getStatus() != null) {
-
-                        dto.setStatus(
-                                application
-                                        .getStatus()
-                                        .name()
-                        );
-                    }
-
-
-                    // ==============================
-                    // Job / Position
-                    // ==============================
-
-                    Job job =
-                            jobRepository
-                                    .findById(
-                                            application.getJobId()
-                                    )
-                                    .orElse(null);
-
+                if (application.getJobId() != null) {
+                    Job job = jobRepository.findById(application.getJobId()).orElse(null);
                     if (job != null) {
-
-                        dto.setPosition(
-                                job.getTitle()
-                        );
+                        dto.setPosition(job.getTitle());
                     }
+                }
 
+                if (matchingResume != null) {
+                    dto.setResumeId(matchingResume.getId());
+                    dto.setExperience(matchingResume.getExtractedExperience());
+                    dto.setSkills(matchingResume.getExtractedSkills());
+                    dto.setUploadedAt(matchingResume.getUploadedAt());
 
-                    // ==============================
-                    // AI Match
-                    // ==============================
+                    boolean fileAvailable = false;
+                    if (matchingResume.getFilePath() != null
+                            && !matchingResume.getFilePath().isBlank()) {
+                        try {
+                            Path filePath = resolveResumePath(matchingResume.getFilePath());
+                            fileAvailable = Files.isRegularFile(filePath)
+                                    && Files.isReadable(filePath);
+                        } catch (Exception ignored) {
+                            fileAvailable = false;
+                        }
+                    }
+                    dto.setFileAvailable(fileAvailable);
+                } else {
+                    dto.setFileAvailable(false);
+                }
 
-                    AIResumeScreening screening =
-                            aiResumeScreeningRepository
-                                    .findFirstByCandidateIdAndJobIdOrderByIdDesc(
-                                            resume.getCandidateId(),
-                                            application.getJobId()
-                                    )
-                                    .orElse(null);
-
+                // Screening is matched to this candidate + this application's job,
+                // never to whichever application happens to be the candidate's latest.
+                if (application.getJobId() != null) {
+                    AIResumeScreening screening = aiResumeScreeningRepository
+                            .findFirstByCandidateIdAndJobIdOrderByIdDesc(
+                                    candidateId, application.getJobId())
+                            .orElse(null);
                     if (screening != null) {
-
-                        dto.setAiMatch(
-                                screening.getScreeningScore()
-                        );
+                        dto.setAiMatch(screening.getScreeningScore());
                     }
                 }
 
                 result.add(dto);
             }
 
-            return ResponseEntity.ok(
-                    new ApiResponse<>(
-                            true,
-                            "Resume management data retrieved successfully",
-                            result
-                    )
-            );
-
+            return ResponseEntity.ok(new ApiResponse<>(
+                    true, "Resume management data retrieved successfully", result));
         } catch (Exception e) {
-
             e.printStackTrace();
-
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            new ApiResponse<>(
-                                    false,
-                                    "Failed to retrieve resume management data",
-                                    null
-                            )
-                    );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    new ApiResponse<>(false, "Failed to retrieve resume management data", null));
         }
     }
 
 
     // ============================================================
-    // Resume Statistics
+    // Resume Statistics - application-based counts
     // ============================================================
 
-    public ResponseEntity<ApiResponse<ResumeStatsDto>>
-    getResumeStats() {
-
+    public ResponseEntity<ApiResponse<ResumeStatsDto>> getResumeStats() {
         try {
-
-            long totalResumes =
-                    resumeRepository.count();
-
+            long totalResumes = resumeRepository.count();
             long shortlisted = 0;
             long underScreening = 0;
             long highMatch = 0;
 
-            List<Resume> resumes =
-                    resumeRepository.findAll();
+            // Count application statuses per application, not per resume.
+            for (Application application : applicationRepository.findAll()) {
+                if (application == null || application.getCandidateId() == null) {
+                    continue;
+                }
 
-            for (Resume resume : resumes) {
-
-                Application application =
-                        applicationRepository
-                                .findFirstByCandidateIdOrderByAppliedAtDesc(
-                                        resume.getCandidateId()
-                                )
-                                .orElse(null);
-
-                if (application != null) {
-
-                    // Shortlisted
-                    if (application.getStatus() != null
-                            && application.getStatus()
-                            .name()
-                            .equalsIgnoreCase("SHORTLISTED")) {
-
+                if (application.getStatus() != null) {
+                    if (application.getStatus().name().equalsIgnoreCase("SHORTLISTED")) {
                         shortlisted++;
                     }
-
-                    // Under Screening
-                    if (application.getStatus() != null
-                            && application.getStatus()
-                            .name()
-                            .equalsIgnoreCase("SCREENING")) {
-
+                    if (application.getStatus().name().equalsIgnoreCase("SCREENING")) {
                         underScreening++;
                     }
+                }
 
-                    // AI Match
-                    AIResumeScreening screening =
-                            aiResumeScreeningRepository
-                                    .findFirstByCandidateIdAndJobIdOrderByIdDesc(
-                                            resume.getCandidateId(),
-                                            application.getJobId()
-                                    )
-                                    .orElse(null);
-
-                    if (screening != null
-                            && screening.getScreeningScore() != null
-                            && screening.getScreeningScore() >= 80.0) {
-
+                if (application.getJobId() != null) {
+                    AIResumeScreening screening = aiResumeScreeningRepository
+                            .findFirstByCandidateIdAndJobIdOrderByIdDesc(
+                                    application.getCandidateId(), application.getJobId())
+                            .orElse(null);
+                    if (screening != null && screening.getScreeningScore() != null
+                            && screening.getScreeningScore().doubleValue() >= 80.0) {
                         highMatch++;
                     }
                 }
             }
 
-            ResumeStatsDto stats =
-                    new ResumeStatsDto(
-                            totalResumes,
-                            shortlisted,
-                            underScreening,
-                            highMatch
-                    );
+            ResumeStatsDto stats = new ResumeStatsDto();
+            stats.setTotalResumes(totalResumes);
+            stats.setShortlisted(shortlisted);
+            stats.setUnderScreening(underScreening);
+            stats.setHighMatch(highMatch);
 
-            return ResponseEntity.ok(
-                    new ApiResponse<>(
-                            true,
-                            "Resume statistics retrieved successfully",
-                            stats
-                    )
-            );
-
+            return ResponseEntity.ok(new ApiResponse<>(
+                    true, "Resume statistics retrieved successfully", stats));
         } catch (Exception e) {
-
             e.printStackTrace();
-
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            new ApiResponse<>(
-                                    false,
-                                    "Failed to retrieve resume statistics",
-                                    null
-                            )
-                    );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    new ApiResponse<>(false, "Failed to retrieve resume statistics", null));
         }
     }
 
@@ -1051,141 +934,66 @@ public class ResumeService {
     // Search Resumes
     // ============================================================
 
-    public ResponseEntity<ApiResponse<List<ResumeManagementDto>>>
-    searchResumes(String keyword) {
-
+    public ResponseEntity<ApiResponse<List<ResumeManagementDto>>> searchResumes(String keyword) {
         try {
-
             ResponseEntity<ApiResponse<List<ResumeManagementDto>>> response =
                     getResumeManagementData();
 
             List<ResumeManagementDto> resumes =
-                    response.getBody() != null
+                    response.getBody() != null && response.getBody().getData() != null
                             ? response.getBody().getData()
                             : new ArrayList<>();
 
-            String search =
-                    keyword == null
-                            ? ""
-                            : keyword.trim().toLowerCase();
+            String search = keyword == null ? "" : keyword.trim().toLowerCase(java.util.Locale.ROOT);
 
-            List<ResumeManagementDto> filtered =
-                    resumes.stream()
-                            .filter(resume ->
+            List<ResumeManagementDto> filtered = resumes.stream()
+                    .filter(resume ->
+                            containsIgnoreCase(resume.getCandidateName(), search)
+                                    || containsIgnoreCase(resume.getCandidateEmail(), search)
+                                    || containsIgnoreCase(resume.getPosition(), search)
+                                    || containsIgnoreCase(resume.getSkills(), search))
+                    .toList();
 
-                                    containsIgnoreCase(
-                                            resume.getCandidateName(),
-                                            search
-                                    )
-
-                                            ||
-
-                                            containsIgnoreCase(
-                                                    resume.getCandidateEmail(),
-                                                    search
-                                            )
-
-                                            ||
-
-                                            containsIgnoreCase(
-                                                    resume.getPosition(),
-                                                    search
-                                            )
-
-                                            ||
-
-                                            containsIgnoreCase(
-                                                    resume.getSkills(),
-                                                    search
-                                            )
-                            )
-                            .toList();
-
-            return ResponseEntity.ok(
-                    new ApiResponse<>(
-                            true,
-                            "Resume search completed successfully",
-                            filtered
-                    )
-            );
-
+            return ResponseEntity.ok(new ApiResponse<>(
+                    true, "Resume search completed successfully", filtered));
         } catch (Exception e) {
-
             e.printStackTrace();
-
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            new ApiResponse<>(
-                                    false,
-                                    "Failed to search resumes",
-                                    null
-                            )
-                    );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Failed to search resumes", null));
         }
     }
 
-
-    // ============================================================
-    // Contains Ignore Case
-    // ============================================================
-
-    private boolean containsIgnoreCase(
-            String value,
-            String search) {
-
-        return value != null
-                && value.toLowerCase().contains(search);
+    private boolean containsIgnoreCase(String value, String search) {
+        return value != null && value.toLowerCase(java.util.Locale.ROOT).contains(search);
     }
-
 
     // ============================================================
     // Filter Resumes By Status
     // ============================================================
 
-    public ResponseEntity<ApiResponse<List<ResumeManagementDto>>>
-    getResumesByStatus(String status) {
-
+    public ResponseEntity<ApiResponse<List<ResumeManagementDto>>> getResumesByStatus(String status) {
         try {
-
             ResponseEntity<ApiResponse<List<ResumeManagementDto>>> response =
                     getResumeManagementData();
 
             List<ResumeManagementDto> resumes =
-                    response.getBody() != null
+                    response.getBody() != null && response.getBody().getData() != null
                             ? response.getBody().getData()
                             : new ArrayList<>();
 
-            List<ResumeManagementDto> filtered =
-                    resumes.stream()
-                            .filter(resume ->
-                                    resume.getStatus() != null
-                                            && resume.getStatus()
-                                            .equalsIgnoreCase(status)
-                            )
-                            .toList();
+            List<ResumeManagementDto> filtered = resumes.stream()
+                    .filter(resume -> resume.getStatus() != null
+                            && status != null
+                            && resume.getStatus().equalsIgnoreCase(status.trim()))
+                    .toList();
 
-            return ResponseEntity.ok(
-                    new ApiResponse<>(
-                            true,
-                            "Resumes filtered successfully",
-                            filtered
-                    )
-            );
-
+            return ResponseEntity.ok(new ApiResponse<>(
+                    true, "Resumes filtered successfully", filtered));
         } catch (Exception e) {
-
             e.printStackTrace();
-
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            new ApiResponse<>(
-                                    false,
-                                    "Failed to filter resumes",
-                                    null
-                            )
-                    );
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Failed to filter resumes", null));
         }
     }
+
 }

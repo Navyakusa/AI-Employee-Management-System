@@ -47,14 +47,29 @@ public class OnboardingDocumentController {
         return ResponseEntity.status(201).body(result);
     }
 
-    @GetMapping("/{onboardingId}/documents")
-    @PreAuthorize("hasAnyRole('HR', 'SUPER_ADMIN')")
-    public ResponseEntity<List<OnboardingDocumentResponseDto>> getDocuments(
-            @PathVariable Long onboardingId) {
 
-        return ResponseEntity.ok(
-                documentService.getDocuments(onboardingId));
+    @GetMapping("/{onboardingId}/documents")
+    @PreAuthorize("hasAnyRole('HR', 'SUPER_ADMIN', 'CANDIDATE')")
+    public ResponseEntity<List<OnboardingDocumentResponseDto>> getDocuments(
+            @PathVariable Long onboardingId,
+            Authentication authentication) {
+
+        boolean isCandidate = authentication.getAuthorities().stream()
+                .anyMatch(authority ->
+                        authority.getAuthority().equals("ROLE_CANDIDATE"));
+
+        List<OnboardingDocumentResponseDto> documents;
+
+        if (isCandidate) {
+            documents = documentService.getDocumentsForCandidate(
+                    onboardingId, authentication.getName());
+        } else {
+            documents = documentService.getDocuments(onboardingId);
+        }
+
+        return ResponseEntity.ok(documents);
     }
+
 
     @GetMapping("/documents/{documentId}/file")
     @PreAuthorize("hasAnyRole('HR', 'SUPER_ADMIN')")

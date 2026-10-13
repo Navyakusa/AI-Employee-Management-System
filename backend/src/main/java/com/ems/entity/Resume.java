@@ -1,3 +1,4 @@
+
 package com.ems.entity;
 
 import jakarta.persistence.*;
@@ -17,10 +18,12 @@ public class Resume {
 
     private Long candidateId;
 
+    // The application this resume belongs to.
+    // Nullable to support older resume records until verified.
+    private Long applicationId;
+
     private String fileName;
-
     private String fileType;
-
     private String filePath;
 
     @Column(columnDefinition = "TEXT")
@@ -34,14 +37,8 @@ public class Resume {
 
     @Column(columnDefinition = "TEXT")
     private String extractedEducation;
-    private LocalDateTime uploadedAt;
 
-    @PrePersist
-    public void prePersist() {
-        if (uploadedAt == null) {
-            uploadedAt = LocalDateTime.now();
-        }
-    }
+    private LocalDateTime uploadedAt;
 
     private Double screeningScore;
 
@@ -53,4 +50,10 @@ public class Resume {
 
     private LocalDateTime screenedAt;
 
+    @PrePersist
+    public void prePersist() {
+        if (uploadedAt == null) {
+            uploadedAt = LocalDateTime.now();
+        }
+    }
 }

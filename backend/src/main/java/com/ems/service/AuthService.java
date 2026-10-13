@@ -1,7 +1,9 @@
+
 package com.ems.service;
 
 import com.ems.common.ApiResponse;
 import com.ems.dto.AuthResponseDto;
+import com.ems.dto.ChangePasswordDto;
 import com.ems.dto.ForgotPasswordRequestDto;
 import com.ems.dto.LoginDto;
 import com.ems.dto.ResetPasswordRequestDto;
@@ -13,14 +15,17 @@ import com.ems.exception.InvalidCredentialsException;
 import com.ems.repository.CandidateRepository;
 import com.ems.repository.PasswordResetTokenRepository;
 import com.ems.repository.UserRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -43,7 +48,6 @@ public class AuthService {
     @Autowired
     private CandidateRepository candidateRepository;
 
-
     // =========================================================
     // LOGIN
     // =========================================================
@@ -52,7 +56,6 @@ public class AuthService {
             LoginDto loginDto) {
 
         try {
-
             User user = userRepository
                     .findByEmailIgnoreCase(loginDto.getEmail())
                     .orElseThrow(() ->
@@ -61,28 +64,23 @@ public class AuthService {
                             )
                     );
 
-            boolean passwordMatches =
-                    passwordEncoder.matches(
-                            loginDto.getPassword(),
-                            user.getPassword()
-                    );
+            boolean passwordMatches = passwordEncoder.matches(
+                    loginDto.getPassword(),
+                    user.getPassword()
+            );
 
             if (!passwordMatches) {
-
                 throw new InvalidCredentialsException(
                         "Invalid email or password"
                 );
             }
 
-            // Check whether account is active
             if (Boolean.FALSE.equals(user.getActive())) {
-
                 throw new InvalidCredentialsException(
                         "Your account is inactive"
                 );
             }
 
-            // Get role from database
             String token = jwtService.generateToken(
                     user.getUserId(),
                     user.getUserName(),
@@ -92,171 +90,99 @@ public class AuthService {
 
             AuthResponseDto authResponse = new AuthResponseDto(token);
 
-            ApiResponse<AuthResponseDto> response =
+            return ResponseEntity.ok(
                     new ApiResponse<>(
                             true,
                             "Login successful",
                             authResponse
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.OK
+                    )
             );
 
         } catch (InvalidCredentialsException e) {
-
-            ApiResponse<AuthResponseDto> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    e.getMessage(),
+                                    null
+                            )
                     );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.UNAUTHORIZED
-            );
         }
     }
-
 
     // =========================================================
     // SIGNUP
     // =========================================================
-
-    // =========================================================
-// SIGNUP
-// =========================================================
 
     @Transactional
     public ResponseEntity<ApiResponse<User>> signup(
             SignupDto signupDto) {
 
         try {
-
-            boolean emailExists =
-                    userRepository
-                            .findByEmailIgnoreCase(
-                                    signupDto.getEmail()
-                            )
-                            .isPresent();
+            boolean emailExists = userRepository
+                    .findByEmailIgnoreCase(signupDto.getEmail())
+                    .isPresent();
 
             if (emailExists) {
-
-                ApiResponse<User> response =
-                        new ApiResponse<>(
-                                false,
-                                "Email already registered",
-                                null
+                return ResponseEntity
+                        .status(HttpStatus.CONFLICT)
+                        .body(
+                                new ApiResponse<>(
+                                        false,
+                                        "Email already registered",
+                                        null
+                                )
                         );
-
-                return new ResponseEntity<>(
-                        response,
-                        HttpStatus.CONFLICT
-                );
             }
 
-            // =================================================
-            // CREATE USER
-            // =================================================
-
             User user = new User();
-
-            user.setUserName(
-                    signupDto.getUserName()
-            );
-
-            user.setEmail(
-                    signupDto.getEmail()
-            );
-
+            user.setUserName(signupDto.getUserName());
+            user.setEmail(signupDto.getEmail());
             user.setPassword(
-                    passwordEncoder.encode(
-                            signupDto.getPassword()
-                    )
+                    passwordEncoder.encode(signupDto.getPassword())
             );
 
-            // =================================================
-            // PUBLIC SIGNUP ALWAYS CREATES CANDIDATE
-            // Do NOT take role from frontend
-            // =================================================
-
+            // Public signup creates a candidate account.
             user.setRole("CANDIDATE");
-
-            user.setDepartment(
-                    signupDto.getDepartment()
-            );
-
+            user.setDepartment(signupDto.getDepartment());
             user.setActive(true);
 
-            User savedUser =
-                    userRepository.save(user);
+            User savedUser = userRepository.save(user);
 
-            // =================================================
-            // CREATE CANDIDATE PROFILE
-            // =================================================
-
-            Candidate candidate =
-                    new Candidate();
-
-            candidate.setName(
-                    signupDto.getUserName()
-            );
-
-            candidate.setEmail(
-                    signupDto.getEmail()
-            );
-
-            candidate.setStatus(
-                    "ACTIVE"
-            );
-
-            candidate.setApplicationDate(
-                    LocalDateTime.now()
-            );
-
-            candidate.setSource(
-                    "SIGNUP"
-            );
+            Candidate candidate = new Candidate();
+            candidate.setName(signupDto.getUserName());
+            candidate.setEmail(signupDto.getEmail());
+            candidate.setStatus("ACTIVE");
+            candidate.setApplicationDate(LocalDateTime.now());
+            candidate.setSource("SIGNUP");
 
             candidateRepository.save(candidate);
 
-            // =================================================
-            // RESPONSE
-            // =================================================
-
-            ApiResponse<User> response =
-                    new ApiResponse<>(
-                            true,
-                            "User registered successfully",
-                            savedUser
+            return ResponseEntity
+                    .status(HttpStatus.CREATED)
+                    .body(
+                            new ApiResponse<>(
+                                    true,
+                                    "User registered successfully",
+                                    savedUser
+                            )
                     );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.CREATED
-            );
 
         } catch (Exception e) {
-
             e.printStackTrace();
 
-            ApiResponse<User> response =
-                    new ApiResponse<>(
-                            false,
-                            "Registration failed: "
-                                    + e.getMessage(),
-                            null
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Registration failed: " + e.getMessage(),
+                                    null
+                            )
                     );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.INTERNAL_SERVER_ERROR
-            );
         }
     }
-
 
     // =========================================================
     // FORGOT PASSWORD
@@ -267,66 +193,43 @@ public class AuthService {
             ForgotPasswordRequestDto request) {
 
         try {
+            String email = request.getEmail()
+                    .trim()
+                    .toLowerCase();
 
-            String email =
-                    request.getEmail()
-                            .trim()
-                            .toLowerCase();
+            User user = userRepository
+                    .findByEmailIgnoreCase(email)
+                    .orElse(null);
 
-            User user =
-                    userRepository
-                            .findByEmailIgnoreCase(email)
-                            .orElse(null);
-
-            /*
-             * Do not reveal whether an email exists.
-             */
+            // Do not reveal whether an email is registered.
             if (user == null) {
-
                 return ResponseEntity.ok(
                         new ApiResponse<>(
                                 true,
-                                "If the email is registered, "
-                                        + "password reset instructions "
-                                        + "have been sent",
+                                "If the email is registered, password reset instructions have been sent",
                                 null
                         )
                 );
             }
 
-            // Delete old reset tokens
-            passwordResetTokenRepository
-                    .deleteByUserId(
-                            user.getUserId()
-                    );
+            passwordResetTokenRepository.deleteByUserId(
+                    user.getUserId()
+            );
 
-            // Generate reset token
-            String resetToken =
-                    java.util.UUID.randomUUID().toString();
+            String resetToken = UUID.randomUUID().toString();
 
             PasswordResetToken passwordResetToken =
                     new PasswordResetToken();
 
-            passwordResetToken.setToken(
-                    resetToken
-            );
-
-            passwordResetToken.setUserId(
-                    user.getUserId()
-            );
-
+            passwordResetToken.setToken(resetToken);
+            passwordResetToken.setUserId(user.getUserId());
             passwordResetToken.setExpiryDate(
-                    LocalDateTime.now()
-                            .plusMinutes(30)
+                    LocalDateTime.now().plusMinutes(30)
             );
-
             passwordResetToken.setUsed(false);
 
-            passwordResetTokenRepository.save(
-                    passwordResetToken
-            );
+            passwordResetTokenRepository.save(passwordResetToken);
 
-            // Send reset email
             emailNotificationService.sendPasswordResetEmail(
                     user.getEmail(),
                     user.getUserName(),
@@ -336,15 +239,12 @@ public class AuthService {
             return ResponseEntity.ok(
                     new ApiResponse<>(
                             true,
-                            "If the email is registered, "
-                                    + "password reset instructions "
-                                    + "have been sent",
+                            "If the email is registered, password reset instructions have been sent",
                             null
                     )
             );
 
         } catch (Exception e) {
-
             e.printStackTrace();
 
             return ResponseEntity
@@ -359,7 +259,6 @@ public class AuthService {
         }
     }
 
-
     // =========================================================
     // RESET PASSWORD
     // =========================================================
@@ -369,19 +268,14 @@ public class AuthService {
             ResetPasswordRequestDto request) {
 
         try {
-
             PasswordResetToken resetToken =
                     passwordResetTokenRepository
-                            .findByToken(
-                                    request.getToken()
-                            )
+                            .findByToken(request.getToken())
                             .orElse(null);
 
-            // Token does not exist
             if (resetToken == null) {
-
                 return ResponseEntity
-                        .status(HttpStatus.BAD_REQUEST)
+                        .badRequest()
                         .body(
                                 new ApiResponse<>(
                                         false,
@@ -391,11 +285,9 @@ public class AuthService {
                         );
             }
 
-            // Token already used
             if (resetToken.isUsed()) {
-
                 return ResponseEntity
-                        .status(HttpStatus.BAD_REQUEST)
+                        .badRequest()
                         .body(
                                 new ApiResponse<>(
                                         false,
@@ -405,12 +297,11 @@ public class AuthService {
                         );
             }
 
-            // Token expired
             if (resetToken.getExpiryDate()
                     .isBefore(LocalDateTime.now())) {
 
                 return ResponseEntity
-                        .status(HttpStatus.BAD_REQUEST)
+                        .badRequest()
                         .body(
                                 new ApiResponse<>(
                                         false,
@@ -420,18 +311,13 @@ public class AuthService {
                         );
             }
 
-            // Find user
-            User user =
-                    userRepository
-                            .findById(
-                                    resetToken.getUserId()
-                            )
-                            .orElse(null);
+            User user = userRepository
+                    .findById(resetToken.getUserId())
+                    .orElse(null);
 
             if (user == null) {
-
                 return ResponseEntity
-                        .status(HttpStatus.BAD_REQUEST)
+                        .badRequest()
                         .body(
                                 new ApiResponse<>(
                                         false,
@@ -441,21 +327,13 @@ public class AuthService {
                         );
             }
 
-            // Encode new password
             user.setPassword(
-                    passwordEncoder.encode(
-                            request.getNewPassword()
-                    )
+                    passwordEncoder.encode(request.getNewPassword())
             );
-
             userRepository.save(user);
 
-            // Mark token as used
             resetToken.setUsed(true);
-
-            passwordResetTokenRepository.save(
-                    resetToken
-            );
+            passwordResetTokenRepository.save(resetToken);
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
@@ -466,7 +344,6 @@ public class AuthService {
             );
 
         } catch (Exception e) {
-
             e.printStackTrace();
 
             return ResponseEntity
@@ -479,5 +356,130 @@ public class AuthService {
                             )
                     );
         }
+    }
+
+    // =========================================================
+    // CHANGE PASSWORD
+    // =========================================================
+
+    @Transactional
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            ChangePasswordDto request,
+            Authentication authentication) {
+
+        // 1. Verify authentication
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || "anonymousUser".equals(authentication.getPrincipal())) {
+
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Authentication is required",
+                                    null
+                            )
+                    );
+        }
+
+        // 2. Validate request fields
+        if (request == null
+                || request.getCurrentPassword() == null
+                || request.getNewPassword() == null
+                || request.getConfirmPassword() == null
+                || request.getCurrentPassword().isBlank()
+                || request.getNewPassword().isBlank()
+                || request.getConfirmPassword().isBlank()) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "All password fields are required",
+                                    null
+                            )
+                    );
+        }
+
+        // 3. Check password confirmation
+        if (!request.getNewPassword()
+                .equals(request.getConfirmPassword())) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "New password and confirmation do not match",
+                                    null
+                            )
+                    );
+        }
+
+        // 4. Ensure the new password differs from the current password
+        if (request.getCurrentPassword()
+                .equals(request.getNewPassword())) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "New password must differ from current password",
+                                    null
+                            )
+                    );
+        }
+
+        // 5. Find the authenticated user
+        User user = userRepository
+                .findByEmailIgnoreCase(authentication.getName())
+                .orElse(null);
+
+        if (user == null) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "User account not found",
+                                    null
+                            )
+                    );
+        }
+
+        // 6. Verify the current password
+        if (!passwordEncoder.matches(
+                request.getCurrentPassword(),
+                user.getPassword())) {
+
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Current password is incorrect",
+                                    null
+                            )
+                    );
+        }
+
+        // 7. Encode and save the new password
+        user.setPassword(
+                passwordEncoder.encode(request.getNewPassword())
+        );
+
+        userRepository.save(user);
+
+        // 8. Return success
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Password changed successfully",
+                        null
+                )
+        );
     }
 }
