@@ -1,3 +1,4 @@
+
 import { useLocation, useNavigate } from "react-router-dom";
 
 import {
@@ -6,6 +7,7 @@ import {
   FileCheck2,
   CalendarDays,
   BadgeCheck,
+  ClipboardCheck,
 } from "lucide-react";
 
 import "./CandidateDashboard.css";
@@ -40,6 +42,11 @@ function CandidateSidebar() {
       icon: BadgeCheck,
       path: "/candidate/offers",
     },
+    {
+      label: "Onboarding",
+      icon: ClipboardCheck,
+      path: "/candidate/onboarding",
+    },
   ];
 
   const isActive = (path) => {
@@ -53,7 +60,6 @@ function CandidateSidebar() {
   return (
     <aside className="candidate-sidebar">
       {/* LOGO */}
-
       <div className="candidate-sidebar-logo">
         <div className="candidate-sidebar-logo-icon">
           AI
@@ -66,7 +72,6 @@ function CandidateSidebar() {
       </div>
 
       {/* NAVIGATION */}
-
       <nav className="candidate-sidebar-nav">
         {menuItems.map((item) => {
           const Icon = item.icon;
@@ -81,7 +86,6 @@ function CandidateSidebar() {
               onClick={() => navigate(item.path)}
             >
               <Icon size={19} />
-
               <span>{item.label}</span>
             </button>
           );

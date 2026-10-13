@@ -50,6 +50,13 @@ export const getAttendanceForEmployee = (employeeId) =>
   axiosInstance.get(`/attendance/employee/${employeeId}`);
 export const getAttendanceStatistics = () =>
   axiosInstance.get("/attendance/statistics");
+
+export const getMyMonthlyAttendanceStatistics = (month) =>
+  axiosInstance.get("/attendance/my/statistics", {
+    params: { month },
+  });
+
+  
 // payload must include: { employeeId, attendanceDate, checkInTime, status }
 export const checkIn = (payload) => axiosInstance.post("/attendance", payload);
 // payload must include at least: { checkOutTime }

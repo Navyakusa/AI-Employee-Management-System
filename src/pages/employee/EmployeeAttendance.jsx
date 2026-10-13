@@ -12,11 +12,13 @@ import EmployeeTopbar from "./EmployeeTopbar";
 import {
   getEmployeeProfile,
   getAttendanceForEmployee,
+  getMyMonthlyAttendanceStatistics,
   checkIn,
   checkOut,
 } from "../../services/employeeService";
 import "./EmployeeAttendance.css";
 
+// Returns today's date in YYYY-MM-DD format
 function todayIso() {
   const now = new Date();
 
@@ -27,85 +29,38 @@ function todayIso() {
   return `${year}-${month}-${day}`;
 }
 
+// Returns the current month in YYYY-MM format.
+// Example: October 2026 -> 2026-10
+function currentMonthIso() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+
+  return `${year}-${month}`;
+}
+
+// Returns the current local time in HH:mm:ss format
 function nowTimeLocal() {
   return new Date().toTimeString().slice(0, 8);
 }
 
-/*
- * Calculate working hours.
- *
- * Rules:
- *
- * 1. No check-in:
- *      "--"
- *
- * 2. Today + employee is checked in:
- *      Check-in → current time
- *
- * 3. Today + employee has checked out:
- *      Check-in → actual checkout
- *
- * 4. Previous day + checkout exists:
- *      Check-in → actual checkout
- *
- * 5. Previous day + no checkout:
- *      Check-in → 6:00 PM
- *
- * The attendance date is always used when creating
- * the start/end Date objects so that previous days
- * are not accidentally calculated using today's date.
- */
-function formatWorkingHours(
-  attendanceDate,
-  checkInTime,
-  checkOutTime,
-  now
-) {
-  if (!checkInTime || !attendanceDate) {
-    return "--";
-  }
+// The Attendance entity has no workingHours field.
+// We calculate working hours on the frontend using checkIn/checkOut.
+function formatWorkingHours(checkInTime, checkOutTime, now) {
+  if (!checkInTime) return "--";
 
-  const [ch, cm, cs = 0] = String(checkInTime)
-    .split(":")
-    .map(Number);
+  const [ch, cm, cs] = checkInTime.split(":").map(Number);
 
-  if (
-    Number.isNaN(ch) ||
-    Number.isNaN(cm) ||
-    Number.isNaN(cs)
-  ) {
-    return "--";
-  }
-
-  /*
-   * Create the check-in Date using the actual
-   * attendance date.
-   */
-  const start = new Date(`${attendanceDate}T00:00:00`);
-
-  start.setHours(ch, cm, cs, 0);
+  const start = new Date();
+  start.setHours(ch, cm, cs || 0, 0);
 
   let end;
 
-  /*
-   * If checkout exists, use the actual checkout time.
-   */
   if (checkOutTime) {
-    const [oh, om, os = 0] = String(checkOutTime)
-      .split(":")
-      .map(Number);
+    const [oh, om, os] = checkOutTime.split(":").map(Number);
 
-    if (
-      Number.isNaN(oh) ||
-      Number.isNaN(om) ||
-      Number.isNaN(os)
-    ) {
-      return "--";
-    }
-
-    end = new Date(`${attendanceDate}T00:00:00`);
-
-    end.setHours(oh, om, os, 0);
+    end = new Date();
+    end.setHours(oh, om, os || 0, 0);
   } else {
     /*
      * No checkout.
@@ -125,14 +80,9 @@ function formatWorkingHours(
     }
   }
 
-  let diffMs = end.getTime() - start.getTime();
+  let diffMs = end - start;
 
-  /*
-   * Prevent negative working hours.
-   */
-  if (diffMs < 0) {
-    diffMs = 0;
-  }
+  if (diffMs < 0) diffMs = 0;
 
   const totalMinutes = Math.floor(diffMs / 60000);
 
@@ -212,6 +162,10 @@ function EmployeeAttendance() {
   const [employeeId, setEmployeeId] = useState(null);
   const [today, setToday] = useState(null);
   const [history, setHistory] = useState([]);
+
+  // Stores monthly attendance statistics returned by backend
+  const [monthlyAttendance, setMonthlyAttendance] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -226,17 +180,14 @@ function EmployeeAttendance() {
     setError("");
 
     try {
-      /*
-       * Get employee profile.
-       */
+      // --------------------------------------------------
+      // 1. Get logged-in employee profile
+      // --------------------------------------------------
       const profileRes = await getEmployeeProfile();
 
-      const profileData =
-        profileRes.data?.data || {};
+      const profileData = profileRes.data?.data || {};
 
-      const id =
-        profileData.id ||
-        profileData.employeeId;
+      const id = profileData.id || profileData.employeeId;
 
       if (!id) {
         setError(
@@ -250,53 +201,62 @@ function EmployeeAttendance() {
 
       setEmployeeId(id);
 
-      /*
-       * Get employee attendance history.
-       */
-      const historyRes =
-        await getAttendanceForEmployee(id);
+      // --------------------------------------------------
+      // 2. Get employee attendance history
+      // --------------------------------------------------
+      const historyRes = await getAttendanceForEmployee(id);
 
-      const list =
-        historyRes.data?.data || [];
+      const list = historyRes.data?.data || [];
 
       setHistory(list);
 
- 
+      // --------------------------------------------------
+      // 3. Find today's attendance record
+      // --------------------------------------------------
       const todayRecords = list.filter(
-  (r) => r.attendanceDate === todayIso()
-);
-
-// Prefer an active check-in record.
-// If none exists, use the latest today's record.
-const activeTodayRecord = todayRecords.find(
-  (r) => r.checkInTime && !r.checkOutTime
-);
-
-const latestTodayRecord = [...todayRecords].sort((a, b) =>
-  String(b.checkInTime || "").localeCompare(
-    String(a.checkInTime || "")
-  )
-)[0];
-
-const todayRecord =
-  activeTodayRecord || latestTodayRecord || null;
-
-setToday(todayRecord);
-
-
-      /*
-       * Reset current time after API response.
-       *
-       * This makes sure working hours are calculated
-       * using the actual current time when the data
-       * arrives.
-       */
-      setNow(new Date());
-    } catch (err) {
-      console.error(
-        "Failed to load attendance data",
-        err
+        (r) => r.attendanceDate === todayIso()
       );
+
+      // Prefer an active check-in record.
+      const activeTodayRecord = todayRecords.find(
+        (r) => r.checkInTime && !r.checkOutTime
+      );
+
+      // If there is no active record, use the latest
+      // attendance record for today.
+      const latestTodayRecord = [...todayRecords].sort((a, b) =>
+        String(b.checkInTime || "").localeCompare(
+          String(a.checkInTime || "")
+        )
+      )[0];
+
+      const todayRecord =
+        activeTodayRecord || latestTodayRecord || null;
+
+
+
+      setToday(todayRecord);
+
+      // --------------------------------------------------
+      // 4. Get current month's attendance statistics
+      // --------------------------------------------------
+
+      // If no month is selected, use current month.
+      const month = selectedMonth || currentMonthIso();
+
+      // Example:
+      // GET /api/attendance/my/statistics?month=2026-10
+      const monthlyRes =
+        await getMyMonthlyAttendanceStatistics(month);
+
+      const monthlyData =
+        monthlyRes.data?.data || null;
+
+      setMonthlyAttendance(monthlyData);
+
+
+    } catch (err) {
+      console.error("Failed to load attendance data", err);
 
       setError(
         "Failed to load attendance data. See console for details."
@@ -306,56 +266,64 @@ setToday(todayRecord);
     }
   };
 
-  /*
-   * Initial load.
-   */
+  // --------------------------------------------------
+  // Fetch only monthly attendance statistics
+  // --------------------------------------------------
+  const fetchMonthlyAttendance = async (month) => {
+    try {
+      const monthlyRes =
+        await getMyMonthlyAttendanceStatistics(month);
+
+      const monthlyData =
+        monthlyRes.data?.data || null;
+
+      setMonthlyAttendance(monthlyData);
+
+    } catch (err) {
+      console.error(
+        "Failed to load monthly attendance statistics",
+        err
+      );
+
+      setError(
+        "Failed to load monthly attendance statistics."
+      );
+    }
+  };
+
+  // Load attendance information when page opens
   useEffect(() => {
     fetchAll();
   }, []);
 
-  /*
-   * Employee is currently checked in when:
-   *
-   * check-in exists
-   * AND
-   * check-out does not exist.
-   */
+  // Employee is currently checked in when:
+  // check-in exists AND check-out does not exist.
   const checkedIn = Boolean(
-    today?.checkInTime &&
-      !today?.checkOutTime
+    today?.checkInTime && !today?.checkOutTime
   );
 
-  /*
-   * Keep the current working hours live.
-   *
-   * Every 30 seconds:
-   * - update current time
-   * - refresh attendance if currently checked in
-   */
+  // Update working hours every 30 seconds while checked in.
   useEffect(() => {
-    const interval = setInterval(() => {
-      setNow(new Date());
+    if (!checkedIn) return;
 
-      if (checkedIn) {
-        fetchAll();
-      }
-    }, 30000);
+    const interval = setInterval(
+      () => setNow(new Date()),
+      30000
+    );
 
     return () => clearInterval(interval);
   }, [checkedIn]);
 
-  /*
-   * Handle Check In / Check Out.
-   */
+  // --------------------------------------------------
+  // Check In / Check Out
+  // --------------------------------------------------
   const handleAttendance = async () => {
     setBusy(true);
     setError("");
 
     try {
       if (checkedIn) {
-        /*
-         * CHECK OUT
-         */
+        // CHECK OUT
         if (!today?.id) {
           throw new Error(
             "No attendance record id available for checkout."
@@ -365,10 +333,9 @@ setToday(todayRecord);
         await checkOut(today.id, {
           checkOutTime: nowTimeLocal(),
         });
+
       } else {
-        /*
-         * CHECK IN
-         */
+        // CHECK IN
         await checkIn({
           employeeId,
           attendanceDate: todayIso(),
@@ -377,15 +344,11 @@ setToday(todayRecord);
         });
       }
 
-      /*
-       * Reload data after check-in/check-out.
-       */
+      // Reload attendance after check-in/check-out
       await fetchAll();
+
     } catch (err) {
-      console.error(
-        "Attendance action failed",
-        err
-      );
+      console.error("Attendance action failed", err);
 
       setError(
         "Could not update attendance. Please try again."
@@ -395,45 +358,35 @@ setToday(todayRecord);
     }
   };
 
-  /*
-   * Today's working hours.
-   */
+  // Calculate today's working hours
   const todaysWorkingHours = today
     ? formatWorkingHours(
-        today.attendanceDate,
         today.checkInTime,
         today.checkOutTime,
         now
       )
     : "--";
 
-  /*
-   * Apply month filter.
-   */
+  // Filter history when a month is selected
   const filteredHistory = selectedMonth
-    ? history.filter((record) =>
-        String(record.attendanceDate || "")
-          .startsWith(selectedMonth)
+    ? history.filter((r) =>
+        r.attendanceDate.startsWith(selectedMonth)
       )
     : history;
 
-  /*
-   * Sort newest attendance first.
-   */
-  const sortedHistory = [...filteredHistory].sort(
-    (a, b) =>
-      String(b.attendanceDate || "").localeCompare(
-        String(a.attendanceDate || "")
-      )
+  // Sort newest attendance first
+  const sortedHistory = [...filteredHistory].sort((a, b) =>
+    a.attendanceDate < b.attendanceDate ? 1 : -1
   );
 
-  /*
-   * Loading screen.
-   */
+  // --------------------------------------------------
+  // Loading screen
+  // --------------------------------------------------
   if (loading) {
     return (
       <div className="employee-attendance-layout">
         <EmployeeSidebar />
+
         <EmployeeTopbar />
 
         <main className="employee-attendance-main">
@@ -473,12 +426,7 @@ setToday(todayRecord);
             </p>
           </div>
 
-          {/* MONTH FILTER */}
-          <div
-            style={{
-              position: "relative",
-            }}
-          >
+          <div style={{ position: "relative" }}>
 
             <button
               type="button"
@@ -488,9 +436,7 @@ setToday(todayRecord);
                 cursor: "pointer",
               }}
               onClick={() =>
-                setShowMonthFilter(
-                  (prev) => !prev
-                )
+                setShowMonthFilter((prev) => !prev)
               }
               title="Filter attendance history by month"
             >
@@ -530,11 +476,19 @@ setToday(todayRecord);
                 <input
                   type="month"
                   value={selectedMonth}
-                  onChange={(e) =>
-                    setSelectedMonth(
-                      e.target.value
-                    )
-                  }
+                  onChange={(e) => {
+                    const month = e.target.value;
+
+                    setSelectedMonth(month);
+
+                    if (month) {
+                      fetchMonthlyAttendance(month);
+                    } else {
+                      fetchMonthlyAttendance(
+                        currentMonthIso()
+                      );
+                    }
+                  }}
                   style={{
                     width: "100%",
                     boxSizing: "border-box",
@@ -551,7 +505,14 @@ setToday(todayRecord);
                   type="button"
                   onClick={() => {
                     setSelectedMonth("");
+
                     setShowMonthFilter(false);
+
+                    // When filter is cleared,
+                    // return the card to current month.
+                    fetchMonthlyAttendance(
+                      currentMonthIso()
+                    );
                   }}
                   style={{
                     width: "100%",
@@ -576,7 +537,9 @@ setToday(todayRecord);
 
         </div>
 
-        {/* ERROR */}
+        {/* =========================
+            ERROR MESSAGE
+        ========================= */}
         {error && (
           <div
             style={{
@@ -618,8 +581,7 @@ setToday(todayRecord);
               </strong>
 
               <small>
-                {today?.attendanceDate ||
-                  todayIso()}
+                {today?.attendanceDate || todayIso()}
               </small>
 
             </div>
@@ -683,10 +645,16 @@ setToday(todayRecord);
 
               <span>Monthly Attendance</span>
 
-              <strong>--</strong>
+              <strong>
+                {monthlyAttendance?.attendancePercentage != null
+                  ? `${monthlyAttendance.attendancePercentage}%`
+                  : "--"}
+              </strong>
 
               <small>
-                This month
+                {selectedMonth
+                  ? selectedMonth
+                  : "This month"}
               </small>
 
             </div>
@@ -705,9 +673,7 @@ setToday(todayRecord);
 
             <div>
 
-              <h2>
-                Today's Attendance
-              </h2>
+              <h2>Today's Attendance</h2>
 
               <p>
                 Your attendance details for today
@@ -740,9 +706,7 @@ setToday(todayRecord);
 
               <div>
 
-                <span>
-                  Check In
-                </span>
+                <span>Check In</span>
 
                 <strong>
                   {today?.checkInTime || "--"}
@@ -761,9 +725,7 @@ setToday(todayRecord);
 
               <div>
 
-                <span>
-                  Check Out
-                </span>
+                <span>Check Out</span>
 
                 <strong>
                   {today?.checkOutTime || "--"}
@@ -781,10 +743,15 @@ setToday(todayRecord);
               </div>
 
               <div>
+                <span>Working Hours</span>
+                <strong>{todaysWorkingHours}</strong>
+              </div>
 
-                <span>
-                  Working Hours
-                </span>
+              </div>
+
+              <div>
+
+                <span>Working Hours</span>
 
                 <strong>
                   {todaysWorkingHours}
@@ -794,7 +761,6 @@ setToday(todayRecord);
 
             </div>
 
-          </div>
 
           {/* CHECK IN / CHECK OUT BUTTON */}
           <button
@@ -806,8 +772,7 @@ setToday(todayRecord);
             }
             onClick={handleAttendance}
             disabled={
-              busy ||
-              Boolean(today?.checkOutTime)
+              busy || Boolean(today?.checkOutTime)
             }
           >
 
@@ -843,9 +808,7 @@ setToday(todayRecord);
 
             <div>
 
-              <h2>
-                Attendance History
-              </h2>
+              <h2>Attendance History</h2>
 
               <p>
                 {selectedMonth
@@ -861,7 +824,6 @@ setToday(todayRecord);
 
             <table className="attendance-table">
 
-              {/* TABLE HEADER */}
               <thead>
 
                 <tr>
@@ -890,89 +852,73 @@ setToday(todayRecord);
 
               </thead>
 
-              {/* TABLE BODY */}
               <tbody>
 
                 {sortedHistory.length === 0 ? (
 
                   <tr>
-
                     <td colSpan={5}>
-                      No attendance records
-                      for this period.
+                      No attendance records for this period.
                     </td>
-
                   </tr>
 
                 ) : (
 
-                  sortedHistory.map(
-                    (record) => {
+                  sortedHistory.map((record) => (
 
-                      const normalizedStatus =
-                        normalizeStatus(
-                          record.status
-                        );
+                    <tr key={record.id}>
 
-                      return (
+                      <td>
+                        <strong>
+                          {record.attendanceDate}
+                        </strong>
+                      </td>
 
-                        <tr key={record.id}>
+                      <td>
+                        {record.checkInTime || "--"}
+                      </td>
 
-                          {/* DATE */}
-                          <td>
-                            <strong>
-                              {record.attendanceDate}
-                            </strong>
-                          </td>
+                      <td>
+                        {record.checkOutTime || "--"}
+                      </td>
 
-                          {/* CHECK IN */}
-                          <td>
-                            {record.checkInTime ||
-                              "--"}
-                          </td>
+                      <td>
+                        {formatWorkingHours(
+                          record.checkInTime,
+                          record.checkOutTime,
+                          now
+                        )}
+                      </td>
 
-                          {/* CHECK OUT */}
-                          <td>
-                            {record.checkOutTime ||
-                              "--"}
-                          </td>
+                      <td>
 
-                          {/* WORKING HOURS */}
-                          <td>
-                            {formatWorkingHours(
-                              record.attendanceDate,
-                              record.checkInTime,
-                              record.checkOutTime,
-                              now
-                            )}
-                          </td>
+                        <span
+                          className={`attendance-status-badge ${
+                            (record.status || "")
+                              .toLowerCase()
+                              .replace(" ", "-")
+                          }`}
+                        >
 
-                          {/* STATUS */}
-                          <td>
+                          {record.status === "Present" && (
+                            <CheckCircle2 size={13} />
+                          )}
 
-                            <span
-                              className={`attendance-status-badge ${getStatusClass(
-                                record.status
-                              )}`}
-                            >
+                          {(record.status === "Late" ||
+                            record.status ===
+                              "Early Departure") && (
+                            <AlertCircle size={13} />
+                          )}
 
-                              {getStatusIcon(
-                                record.status
-                              )}
+                          {record.status || "--"}
 
-                              {normalizedStatus
-                                ? normalizedStatus
-                                : "--"}
+                        </span>
 
-                            </span>
+                      </td>
 
-                          </td>
+                    </tr>
 
-                        </tr>
-
-                      );
-                    }
-                  )
+                  ))
 
                 )}
 

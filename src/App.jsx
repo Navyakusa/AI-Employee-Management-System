@@ -21,6 +21,8 @@ import RecruiterInterviews from "./pages/recruiter/RecruiterInterviews";
 
 import CandidateDashboard from "./pages/candidate/CandidateDashboard";
 
+import CandidateOnboarding from "./pages/candidate/CandidateOnboarding";
+
 // =====================================================
 // Employee Pages
 // =====================================================
@@ -47,6 +49,7 @@ import HRAnalytics from "./pages/hr/HRAnalytics";
 import HRInterviews from "./pages/hr/HRInterviews";
 import HROffers from "./pages/hr/HROffers";
 import HREmployees from "./pages/hr/HREmployees";
+import HROnboarding from "./pages/hr/HROnboarding";
 import HRProfile from "./pages/hr/HRProfile";
 import HRSettings from "./pages/hr/HRSettings";
 import HRLeaveRequests from "./pages/hr/HRLeaveRequests";
@@ -264,6 +267,11 @@ function App() {
         <Route
           path="/hr/employees"
           element={<HREmployees />}
+        />
+
+        <Route
+          path="/hr/onboarding"
+          element={<HROnboarding />}
         />
 
         <Route
@@ -654,6 +662,12 @@ function App() {
           path="/candidate/settings"
           element={<CandidateSettings />}
         />
+        
+<Route
+  path="/candidate/onboarding"
+  element={<CandidateOnboarding />}
+/>
+
 
 
         {/* =====================================================
