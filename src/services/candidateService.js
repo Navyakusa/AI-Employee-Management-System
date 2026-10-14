@@ -159,19 +159,33 @@ export const rejectOffer = async (offerId) =>
 
 /* ---------------- ONBOARDING ---------------- */
 
-/* ---------------- ONBOARDING ---------------- */
-
 // Get the logged-in candidate's onboarding record.
 export const getMyOnboarding = async () =>
   unwrap(await axiosInstance.get("/onboarding/my"));
 
 // Get documents for that onboarding record.
+// The backend returns a direct JSON array, so don't use unwrap()
+// here because unwrap() only reads response.data.data.
 export const getMyOnboardingDocuments = async (onboardingId) => {
-  const documents = unwrap(
-    await axiosInstance.get(`/onboarding/${onboardingId}/documents`)
+  const response = await axiosInstance.get(
+    `/onboarding/${onboardingId}/documents`
   );
 
-  return documents || [];
+  const data = response?.data;
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (Array.isArray(data?.data)) {
+    return data.data;
+  }
+
+  if (Array.isArray(data?.content)) {
+    return data.content;
+  }
+
+  return [];
 };
 
 // Upload a document for onboarding.
@@ -183,10 +197,12 @@ export const uploadOnboardingDocument = async (
   const formData = new FormData();
   formData.append("file", file);
 
-  return unwrap(
-    await axiosInstance.post(
-      `/onboarding/${onboardingId}/documents?documentType=${encodeURIComponent(documentType)}`,
-      formData
-    )
+  const response = await axiosInstance.post(
+    `/onboarding/${onboardingId}/documents?documentType=${encodeURIComponent(
+      documentType
+    )}`,
+    formData
   );
+
+  return response?.data?.data ?? response?.data ?? null;
 };

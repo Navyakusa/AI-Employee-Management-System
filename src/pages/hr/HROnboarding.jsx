@@ -1,6 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import HRSidebar from "./HRSidebar";
 import HRNavbar from "./HRNavbar";
+
 import {
   Check,
   X,
@@ -9,16 +17,22 @@ import {
   Users,
   AlertCircle,
 } from "lucide-react";
+
 import "./HROnboarding.css";
 
 const API_BASE =
   import.meta.env.VITE_API_URL || "http://localhost:8080/api";
 
+// Add the logged-in user's JWT to requests.
 function tokenHeaders() {
   const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+
+  return token
+    ? { Authorization: `Bearer ${token}` }
+    : {};
 }
 
+// Send a request and safely parse the response.
 async function requestJson(url, options = {}) {
   const response = await fetch(url, {
     ...options,
@@ -30,6 +44,7 @@ async function requestJson(url, options = {}) {
   });
 
   const raw = await response.text();
+
   let body = null;
 
   try {
@@ -42,12 +57,13 @@ async function requestJson(url, options = {}) {
     throw new Error(
       body?.message ||
         body?.error ||
-        (typeof body === "string"
+        (typeof body === "string" && body
           ? body
           : `Request failed (${response.status})`)
     );
   }
 
+  // Support both wrapped and unwrapped backend responses.
   return body?.data ?? body;
 }
 
@@ -62,7 +78,11 @@ function statusClass(status) {
     return "rejected";
   }
 
-  if (value === "STARTED" || value === "PENDING") {
+  if (
+    value === "STARTED" ||
+    value === "PENDING" ||
+    value === "HR_VERIFICATION"
+  ) {
     return "pending";
   }
 
@@ -97,11 +117,13 @@ export default function HROnboarding() {
   const selectedRecord = useMemo(
     () =>
       records.find(
-        (item) => String(item.onboardingId) === String(selectedId)
+        (item) =>
+          String(item.onboardingId) === String(selectedId)
       ),
     [records, selectedId]
   );
 
+  // Load onboarding records visible to HR.
   const loadRecords = useCallback(async () => {
     setLoadingRecords(true);
     setError("");
@@ -119,7 +141,8 @@ export default function HROnboarding() {
         if (
           current &&
           list.some(
-            (item) => String(item.onboardingId) === String(current)
+            (item) =>
+              String(item.onboardingId) === String(current)
           )
         ) {
           return current;
@@ -130,12 +153,15 @@ export default function HROnboarding() {
           : "";
       });
     } catch (err) {
-      setError(err.message || "Unable to load onboarding records.");
+      setError(
+        err.message || "Unable to load onboarding records."
+      );
     } finally {
       setLoadingRecords(false);
     }
   }, []);
 
+  // Load documents for the selected onboarding record.
   const loadDocuments = useCallback(async (onboardingId) => {
     if (!onboardingId) {
       setDocuments([]);
@@ -153,7 +179,9 @@ export default function HROnboarding() {
 
       setDocuments(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err.message || "Unable to load onboarding documents.");
+      setError(
+        err.message || "Unable to load onboarding documents."
+      );
       setDocuments([]);
     } finally {
       setLoadingDocuments(false);
@@ -168,7 +196,12 @@ export default function HROnboarding() {
     loadDocuments(selectedId);
   }, [selectedId, loadDocuments]);
 
-  async function updateDocument(document, status, reason = "") {
+  // Verify or reject a document through the existing backend API.
+  async function updateDocument(
+    document,
+    status,
+    reason = ""
+  ) {
     if (!document?.id) {
       setError("Document ID is missing.");
       return;
@@ -196,22 +229,28 @@ export default function HROnboarding() {
           body: JSON.stringify({
             status,
             rejectionReason:
-              status === "REJECTED" ? trimmedReason : "",
+              status === "REJECTED"
+                ? trimmedReason
+                : "",
           }),
         }
       );
 
-      // Update the displayed row using the successful API response.
+      // Immediately update the displayed document status.
       setDocuments((current) =>
         current.map((item) =>
           item.id === document.id
             ? {
                 ...item,
-                ...(updated && typeof updated === "object" ? updated : {}),
+                ...(updated && typeof updated === "object"
+                  ? updated
+                  : {}),
                 status: updated?.status || status,
                 rejectionReason:
                   updated?.rejectionReason ??
-                  (status === "REJECTED" ? trimmedReason : null),
+                  (status === "REJECTED"
+                    ? trimmedReason
+                    : null),
               }
             : item
         )
@@ -226,7 +265,7 @@ export default function HROnboarding() {
       setRejectingDocument(null);
       setRejectionReason("");
 
-      // Reload from the backend to keep the displayed data current.
+      // Fetch the saved backend state after verification.
       await loadDocuments(selectedId);
     } catch (err) {
       setError(
@@ -271,11 +310,15 @@ export default function HROnboarding() {
         <div className="hr-onboarding-page">
           <header className="onboarding-header">
             <div>
-              <p className="onboarding-eyebrow">PEOPLE OPERATIONS</p>
+              <p className="onboarding-eyebrow">
+                PEOPLE OPERATIONS
+              </p>
+
               <h1>Onboarding</h1>
+
               <p>
-                Review candidate onboarding progress and verify submitted
-                documents.
+                Review candidate onboarding progress and verify
+                submitted documents.
               </p>
             </div>
 
@@ -291,7 +334,10 @@ export default function HROnboarding() {
           </header>
 
           {error && (
-            <div className="onboarding-alert onboarding-alert-error" role="alert">
+            <div
+              className="onboarding-alert onboarding-alert-error"
+              role="alert"
+            >
               <AlertCircle size={18} />
               <span>{error}</span>
             </div>
@@ -312,6 +358,7 @@ export default function HROnboarding() {
               <span className="onboarding-summary-icon">
                 <Users size={20} />
               </span>
+
               <div>
                 <span>Onboarding records</span>
                 <strong>{records.length}</strong>
@@ -322,6 +369,7 @@ export default function HROnboarding() {
               <span className="onboarding-summary-icon">
                 <FileText size={20} />
               </span>
+
               <div>
                 <span>Documents listed</span>
                 <strong>{documents.length}</strong>
@@ -332,13 +380,15 @@ export default function HROnboarding() {
               <span className="onboarding-summary-icon">
                 <Check size={20} />
               </span>
+
               <div>
                 <span>Verified documents</span>
                 <strong>
                   {
                     documents.filter(
                       (item) =>
-                        String(item.status).toUpperCase() === "VERIFIED"
+                        String(item.status).toUpperCase() ===
+                        "VERIFIED"
                     ).length
                   }
                 </strong>
@@ -371,12 +421,15 @@ export default function HROnboarding() {
                     type="button"
                     key={record.onboardingId}
                     className={`onboarding-record ${
-                      String(selectedId) === String(record.onboardingId)
+                      String(selectedId) ===
+                      String(record.onboardingId)
                         ? "selected"
                         : ""
                     }`}
                     onClick={() => {
-                      setSelectedId(String(record.onboardingId));
+                      setSelectedId(
+                        String(record.onboardingId)
+                      );
                       setError("");
                       setNotice("");
                     }}
@@ -414,11 +467,14 @@ export default function HROnboarding() {
             <div className="onboarding-panel-heading">
               <div>
                 <h2>Onboarding documents</h2>
+
                 <p>
                   {selectedRecord
                     ? `${
                         selectedRecord.candidateName ||
-                        `Candidate ${selectedRecord.candidateId ?? ""}`
+                        `Candidate ${
+                          selectedRecord.candidateId ?? ""
+                        }`
                       } · Onboarding #${selectedRecord.onboardingId}`
                     : "Choose an onboarding record above."}
                 </p>
@@ -431,8 +487,8 @@ export default function HROnboarding() {
               </div>
             ) : documents.length === 0 ? (
               <div className="onboarding-empty">
-                No documents have been uploaded for this onboarding record
-                yet.
+                No documents have been uploaded for this onboarding
+                record yet.
               </div>
             ) : (
               <div className="onboarding-table-wrap">
@@ -455,7 +511,8 @@ export default function HROnboarding() {
                       ).toUpperCase();
 
                       const pending = status === "PENDING";
-                      const busy = busyDocumentId === document.id;
+                      const busy =
+                        busyDocumentId === document.id;
 
                       return (
                         <tr key={document.id}>
@@ -467,10 +524,14 @@ export default function HROnboarding() {
                                   `Document #${document.id}`}
                               </span>
                             </div>
-                            <small>Document #{document.id}</small>
+
+                            <small>
+                              Document #{document.id}
+                            </small>
                           </td>
 
                           <td>{document.documentType || "—"}</td>
+
                           <td>{formatDate(document.uploadedAt)}</td>
 
                           <td>
@@ -483,7 +544,9 @@ export default function HROnboarding() {
                             </span>
                           </td>
 
-                          <td>{document.rejectionReason || "—"}</td>
+                          <td>
+                            {document.rejectionReason || "—"}
+                          </td>
 
                           <td>
                             <div className="onboarding-actions">
@@ -494,7 +557,10 @@ export default function HROnboarding() {
                                     className="onboarding-action-verify"
                                     disabled={busy}
                                     onClick={() =>
-                                      updateDocument(document, "VERIFIED")
+                                      updateDocument(
+                                        document,
+                                        "VERIFIED"
+                                      )
                                     }
                                   >
                                     <Check size={15} />
@@ -552,6 +618,7 @@ export default function HROnboarding() {
             <div className="onboarding-modal-heading">
               <div>
                 <h2>Reject document</h2>
+
                 <p>
                   {rejectingDocument.fileName ||
                     `Document #${rejectingDocument.id}`}
@@ -577,7 +644,9 @@ export default function HROnboarding() {
             <textarea
               id="onboarding-rejection-reason"
               value={rejectionReason}
-              onChange={(event) => setRejectionReason(event.target.value)}
+              onChange={(event) =>
+                setRejectionReason(event.target.value)
+              }
               placeholder="Explain what the candidate needs to correct…"
               rows={4}
               required

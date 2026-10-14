@@ -69,12 +69,16 @@ function CandidateOnboarding() {
         record.onboardingId
       );
 
-      setDocuments(Array.isArray(docs) ? docs : []);
+      if (!Array.isArray(docs)) {
+        throw new Error("The document response was not a valid list.");
+      }
+
+      setDocuments(docs);
     } catch (err) {
       setError(
         getErrorMessage(
           err,
-          "Unable to load your onboarding details."
+          "Unable to load your onboarding details and documents."
         )
       );
     } finally {
@@ -115,6 +119,14 @@ function CandidateOnboarding() {
 
       setSelectedFile(null);
 
+      const fileInput = document.getElementById(
+        "candidate-onboarding-file"
+      );
+
+      if (fileInput) {
+        fileInput.value = "";
+      }
+
       setNotice(
         "Document uploaded successfully. It is waiting for HR verification."
       );
@@ -133,7 +145,8 @@ function CandidateOnboarding() {
   };
 
   const verifiedCount = documents.filter(
-    (doc) => String(doc.status || "").toUpperCase() === "VERIFIED"
+    (doc) =>
+      String(doc.status || "").toUpperCase() === "VERIFIED"
   ).length;
 
   const status = String(onboarding?.status || "").toUpperCase();
@@ -164,7 +177,9 @@ function CandidateOnboarding() {
             >
               <RefreshCw
                 size={16}
-                className={loading ? "candidate-onboarding-spin" : ""}
+                className={
+                  loading ? "candidate-onboarding-spin" : ""
+                }
               />
               Refresh
             </button>
@@ -224,7 +239,9 @@ function CandidateOnboarding() {
                 </div>
 
                 <span
-                  className={`candidate-onboarding-status ${statusClass(status)}`}
+                  className={`candidate-onboarding-status ${statusClass(
+                    status
+                  )}`}
                 >
                   {status || "UNKNOWN"}
                 </span>
@@ -298,6 +315,12 @@ function CandidateOnboarding() {
                               {prettyDate(doc.uploadedAt)}
                             </span>
 
+                            {doc.verifiedBy && (
+                              <span>
+                                Verified by: {doc.verifiedBy}
+                              </span>
+                            )}
+
                             {doc.rejectionReason && (
                               <p className="candidate-onboarding-rejection">
                                 Reason: {doc.rejectionReason}
@@ -306,7 +329,9 @@ function CandidateOnboarding() {
                           </div>
 
                           <span
-                            className={`candidate-onboarding-doc-status ${statusClass(docStatus)}`}
+                            className={`candidate-onboarding-doc-status ${statusClass(
+                              docStatus
+                            )}`}
                           >
                             {docStatus === "VERIFIED" ? (
                               <CheckCircle2 size={14} />
@@ -373,6 +398,7 @@ function CandidateOnboarding() {
                       Choose file
 
                       <input
+                        id="candidate-onboarding-file"
                         type="file"
                         accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
                         onChange={(event) =>
@@ -388,7 +414,9 @@ function CandidateOnboarding() {
                       disabled={uploading || !selectedFile}
                     >
                       <UploadCloud size={17} />
-                      {uploading ? "Uploading…" : "Upload Document"}
+                      {uploading
+                        ? "Uploading…"
+                        : "Upload Document"}
                     </button>
                   </form>
 
