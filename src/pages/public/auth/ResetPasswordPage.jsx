@@ -75,12 +75,17 @@ function ResetPasswordPage() {
       setSuccess("");
 
       const response = await apiClient.post(
-        "/auth/reset-password",
-        {
-          token,
-          newPassword: formData.newPassword,
-        }
-      );
+  "/auth/reset-password",
+  {
+    token,
+    newPassword: formData.newPassword,
+  },
+  {
+    headers: {
+      Authorization: undefined,
+    },
+  }
+);
 
       const result = response.data;
 

@@ -1,27 +1,30 @@
 import axios from "axios";
 
 const apiClient = axios.create({
-  baseURL: "http://192.168.0.5:8080/api"
+  baseURL: "http://192.168.0.7:8080/api"
 });
 
 // Add JWT automatically for protected APIs
+
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    const isResetPassword =
+      config.url?.includes("/auth/reset-password");
 
-    console.log("API REQUEST:", config.url);
-    console.log("TOKEN EXISTS:", !!token);
+    if (isResetPassword) {
+      delete config.headers.Authorization;
+    } else {
+      const token = localStorage.getItem("token");
 
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-      console.log("AUTH HEADER ADDED");
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
 
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
+
 
 export default apiClient;

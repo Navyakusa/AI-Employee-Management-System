@@ -55,45 +55,29 @@ const [recentActivitiesLoading, setRecentActivitiesLoading] =
   // ============================================================
 
   useEffect(() => {
-    const fetchDashboardSummary = async () => {
-      try {
-        const token = localStorage.getItem("token");
+  const fetchDashboardSummary = async () => {
+    try {
+      const response = await apiClient.get(
+        "/dashboard/summary"
+      );
 
-        const response = await fetch(
-          "/api/dashboard/summary",
-          {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+      const result = response.data;
 
-        if (!response.ok) {
-          throw new Error(
-            `Dashboard request failed: ${response.status}`
-          );
-        }
-
-        const result = await response.json();
-
-        if (result.success && result.data) {
-          setDashboardSummary(result.data);
-        }
-      } catch (error) {
-        console.error(
-          "Dashboard summary error:",
-          error
-        );
-      } finally {
-        setSummaryLoading(false);
+      if (result.success && result.data) {
+        setDashboardSummary(result.data);
       }
-    };
+    } catch (error) {
+      console.error(
+        "Dashboard summary error:",
+        error
+      );
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
 
-    fetchDashboardSummary();
-  }, []);
-
+  fetchDashboardSummary();
+}, []);
   // ============================================================
   // FETCH RECENT USERS
   // GET /api/admin/users
