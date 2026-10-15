@@ -12,28 +12,45 @@ import {
   Clock,
 } from "lucide-react";
 
+import apiClient from "../../services/apiClient";
+
 import HiringManagerSidebar from "./HiringManagerSidebar";
 import HiringManagerNavbar from "./HiringManagerNavbar";
-
-import {
-  getMyNotifications,
-  getUnreadNotificationCount,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-} from "./HiringManagerApi";
 
 import "./HiringManagerNotifications.css";
 
 function HiringManagerNotifications() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   /*
   ======================================================
+  RESPONSE HELPERS
+  ======================================================
+  */
+
+  const getErrorMessage = (err, fallback) => {
+    return (
+      err?.response?.data?.message ||
+      err?.response?.data?.error ||
+      err?.message ||
+      fallback
+    );
+  };
+
+  const getNotificationId = (notification) =>
+    notification.id ?? notification.notificationId;
+
+  const isNotificationRead = (notification) =>
+    notification.read ?? notification.isRead ?? false;
+
+  /*
+  ======================================================
   FETCH NOTIFICATIONS
+  GET /api/notifications/my
+  GET /api/notifications/unread-count
   ======================================================
   */
 
@@ -44,37 +61,52 @@ function HiringManagerNotifications() {
 
       const [notificationsResponse, unreadResponse] =
         await Promise.all([
-          getMyNotifications(),
-          getUnreadNotificationCount(),
+          apiClient.get("/notifications/my"),
+          apiClient.get("/notifications/unread-count"),
         ]);
 
       console.log(
         "Notifications response:",
-        notificationsResponse
+        notificationsResponse.data
       );
 
       console.log(
         "Unread count response:",
-        unreadResponse
+        unreadResponse.data
       );
 
-      const notificationData =
-        notificationsResponse?.data || [];
+      const notificationPayload = notificationsResponse.data;
 
-      const unreadData =
-        unreadResponse?.data ?? 0;
+      const notificationData = Array.isArray(notificationPayload)
+        ? notificationPayload
+        : Array.isArray(notificationPayload?.data)
+          ? notificationPayload.data
+          : [];
+
+      const unreadPayload = unreadResponse.data;
+
+      const unreadValue =
+        typeof unreadPayload === "number"
+          ? unreadPayload
+          : typeof unreadPayload?.data === "number"
+            ? unreadPayload.data
+            : typeof unreadPayload?.unreadCount === "number"
+              ? unreadPayload.unreadCount
+              : typeof unreadPayload?.count === "number"
+                ? unreadPayload.count
+                : typeof unreadPayload?.data?.unreadCount === "number"
+                  ? unreadPayload.data.unreadCount
+                  : notificationData.filter(
+                      (notification) => !isNotificationRead(notification)
+                    ).length;
 
       setNotifications(notificationData);
-      setUnreadCount(Number(unreadData));
+      setUnreadCount(Number(unreadValue) || 0);
     } catch (err) {
-      console.error(
-        "Failed to fetch notifications:",
-        err
-      );
+      console.error("Failed to fetch notifications:", err);
 
       setError(
-        err.message ||
-          "Failed to load notifications."
+        getErrorMessage(err, "Failed to load notifications.")
       );
     } finally {
       setLoading(false);
@@ -94,23 +126,41 @@ function HiringManagerNotifications() {
   /*
   ======================================================
   MARK ONE AS READ
+  PUT /api/notifications/{id}/read
   ======================================================
   */
 
-  const handleMarkAsRead = async (
-    notificationId
-  ) => {
+  const handleMarkAsRead = async (notificationId) => {
+    if (notificationId == null) {
+      setError("Notification ID is missing.");
+      return;
+    }
+
+    const selectedNotification = notifications.find(
+      (notification) =>
+        String(getNotificationId(notification)) ===
+        String(notificationId)
+    );
+
+    if (!selectedNotification || isNotificationRead(selectedNotification)) {
+      return;
+    }
+
     try {
-      await markNotificationAsRead(
-        notificationId
+      setError("");
+
+      await apiClient.put(
+        `/notifications/${notificationId}/read`
       );
 
       setNotifications((previous) =>
         previous.map((notification) =>
-          notification.id === notificationId
+          String(getNotificationId(notification)) ===
+          String(notificationId)
             ? {
                 ...notification,
                 read: true,
+                isRead: true,
               }
             : notification
         )
@@ -126,8 +176,10 @@ function HiringManagerNotifications() {
       );
 
       setError(
-        err.message ||
+        getErrorMessage(
+          err,
           "Failed to mark notification as read."
+        )
       );
     }
   };
@@ -135,17 +187,23 @@ function HiringManagerNotifications() {
   /*
   ======================================================
   MARK ALL AS READ
+  PUT /api/notifications/read-all
   ======================================================
   */
 
   const handleMarkAllAsRead = async () => {
+    if (unreadCount === 0) return;
+
     try {
-      await markAllNotificationsAsRead();
+      setError("");
+
+      await apiClient.put("/notifications/read-all");
 
       setNotifications((previous) =>
         previous.map((notification) => ({
           ...notification,
           read: true,
+          isRead: true,
         }))
       );
 
@@ -157,8 +215,10 @@ function HiringManagerNotifications() {
       );
 
       setError(
-        err.message ||
+        getErrorMessage(
+          err,
           "Failed to mark all notifications as read."
+        )
       );
     }
   };
@@ -197,15 +257,10 @@ function HiringManagerNotifications() {
   ======================================================
   */
 
-  const getNotificationTitle = (
-    notification
-  ) => {
-    return (
-      notification.title ||
-      notification.notificationTitle ||
-      "Notification"
-    );
-  };
+  const getNotificationTitle = (notification) =>
+    notification.title ||
+    notification.notificationTitle ||
+    "Notification";
 
   /*
   ======================================================
@@ -213,15 +268,10 @@ function HiringManagerNotifications() {
   ======================================================
   */
 
-  const getNotificationMessage = (
-    notification
-  ) => {
-    return (
-      notification.message ||
-      notification.description ||
-      "You have a new notification."
-    );
-  };
+  const getNotificationMessage = (notification) =>
+    notification.message ||
+    notification.description ||
+    "You have a new notification.";
 
   /*
   ======================================================
@@ -229,25 +279,18 @@ function HiringManagerNotifications() {
   ======================================================
   */
 
-  const getNotificationTime = (
-    notification
-  ) => {
+  const getNotificationTime = (notification) => {
     const value =
       notification.createdAt ||
       notification.timestamp ||
       notification.createdDate ||
       notification.time;
 
-    if (!value) {
-      return "Recently";
-    }
+    if (!value) return "Recently";
 
     if (
       typeof value === "string" &&
-      (
-        value.includes("ago") ||
-        value === "Yesterday"
-      )
+      (value.includes("ago") || value === "Yesterday")
     ) {
       return value;
     }
@@ -269,6 +312,41 @@ function HiringManagerNotifications() {
 
   /*
   ======================================================
+  SHARED PAGE LAYOUT
+  ======================================================
+  */
+
+  const renderPageHeader = () => (
+    <div className="hiring-manager-dashboard-header">
+      <p className="hiring-manager-label">NOTIFICATIONS</p>
+      <h1>Notifications</h1>
+      <p>
+        Stay updated with candidate, interview and recruitment
+        activities.
+      </p>
+    </div>
+  );
+
+  const renderError = () => (
+    <div
+      style={{
+        marginBottom: "20px",
+        padding: "14px 18px",
+        borderRadius: "10px",
+        background: "#fef2f2",
+        color: "#b91c1c",
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+      }}
+    >
+      <AlertCircle size={18} />
+      <span>{error}</span>
+    </div>
+  );
+
+  /*
+  ======================================================
   LOADING
   ======================================================
   */
@@ -276,389 +354,200 @@ function HiringManagerNotifications() {
   if (loading) {
     return (
       <div className="hiring-manager-layout">
-
         <HiringManagerSidebar />
 
         <div className="hiring-manager-main">
-
           <HiringManagerNavbar />
 
           <main className="hiring-manager-dashboard-content">
-
             <div className="hiring-manager-dashboard-header">
-
-              <p className="hiring-manager-label">
-                NOTIFICATIONS
-              </p>
-
-              <h1>
-                Notifications
-              </h1>
-
-              <p>
-                Loading your recruitment notifications...
-              </p>
-
+              <p className="hiring-manager-label">NOTIFICATIONS</p>
+              <h1>Notifications</h1>
+              <p>Loading your recruitment notifications...</p>
             </div>
 
             <section className="hm-notifications-card">
-
               <div className="hm-notifications-empty">
-
                 <Clock size={35} />
-
-                <h3>
-                  Loading Notifications
-                </h3>
-
-                <p>
-                  Fetching notifications from the
-                  backend.
-                </p>
-
+                <h3>Loading Notifications</h3>
+                <p>Fetching notifications from the backend.</p>
               </div>
-
             </section>
-
           </main>
-
         </div>
-
       </div>
     );
   }
 
   /*
   ======================================================
-  ERROR
+  ERROR WITH NO NOTIFICATIONS
   ======================================================
   */
 
   if (error && notifications.length === 0) {
     return (
       <div className="hiring-manager-layout">
-
         <HiringManagerSidebar />
 
         <div className="hiring-manager-main">
-
           <HiringManagerNavbar />
 
           <main className="hiring-manager-dashboard-content">
-
-            <div className="hiring-manager-dashboard-header">
-
-              <p className="hiring-manager-label">
-                NOTIFICATIONS
-              </p>
-
-              <h1>
-                Notifications
-              </h1>
-
-              <p>
-                Stay updated with candidate, interview
-                and recruitment activities.
-              </p>
-
-            </div>
+            {renderPageHeader()}
 
             <section className="hm-notifications-card">
-
               <div className="hm-notifications-empty">
-
                 <AlertCircle size={35} />
+                <h3>Unable to Load Notifications</h3>
+                <p>{error}</p>
 
-                <h3>
-                  Unable to Load Notifications
-                </h3>
-
-                <p>
-                  {error}
-                </p>
-
-                <button
-                  type="button"
-                  onClick={fetchNotifications}
-                >
+                <button type="button" onClick={fetchNotifications}>
                   Try Again
                 </button>
-
               </div>
-
             </section>
-
           </main>
-
         </div>
-
       </div>
     );
   }
 
   /*
   ======================================================
-  RENDER
+  MAIN RENDER
   ======================================================
   */
 
   return (
     <div className="hiring-manager-layout">
-
       <HiringManagerSidebar />
 
       <div className="hiring-manager-main">
-
         <HiringManagerNavbar />
 
         <main className="hiring-manager-dashboard-content">
+          {renderPageHeader()}
 
-          {/* HEADER */}
-
-          <div className="hiring-manager-dashboard-header">
-
-            <p className="hiring-manager-label">
-              NOTIFICATIONS
-            </p>
-
-            <h1>
-              Notifications
-            </h1>
-
-            <p>
-              Stay updated with candidate, interview
-              and recruitment activities.
-            </p>
-
-          </div>
-
-
-          {/* ERROR MESSAGE */}
-
-          {error && (
-            <div
-              style={{
-                marginBottom: "20px",
-                padding: "14px 18px",
-                borderRadius: "10px",
-                background: "#fef2f2",
-                color: "#b91c1c",
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-              }}
-            >
-              <AlertCircle size={18} />
-              <span>{error}</span>
-            </div>
-          )}
-
+          {error && renderError()}
 
           {/* NOTIFICATION SUMMARY */}
 
           <section className="hm-notification-summary">
-
             <div className="hm-notification-summary-card">
-
               <div className="hm-notification-summary-icon">
                 <Bell size={21} />
               </div>
 
               <div>
-                <span>
-                  Total Notifications
-                </span>
-
-                <strong>
-                  {notifications.length}
-                </strong>
+                <span>Total Notifications</span>
+                <strong>{notifications.length}</strong>
               </div>
-
             </div>
 
-
             <div className="hm-notification-summary-card">
-
               <div className="hm-notification-summary-icon">
                 <MessageSquareText size={21} />
               </div>
 
               <div>
-                <span>
-                  Unread
-                </span>
-
-                <strong>
-                  {unreadCount}
-                </strong>
+                <span>Unread</span>
+                <strong>{unreadCount}</strong>
               </div>
-
             </div>
-
           </section>
 
-
-          {/* NOTIFICATIONS */}
+          {/* NOTIFICATION LIST */}
 
           <section className="hm-notifications-card">
-
             <div className="hm-notifications-header">
-
               <div>
-
-                <h2>
-                  Recent Notifications
-                </h2>
-
+                <h2>Recent Notifications</h2>
                 <p>
-                  Recruitment updates requiring your
-                  attention.
+                  Recruitment updates requiring your attention.
                 </p>
-
               </div>
 
-
               {unreadCount > 0 && (
-
                 <button
                   type="button"
                   className="hm-mark-all-read-button"
-                  onClick={
-                    handleMarkAllAsRead
-                  }
+                  onClick={handleMarkAllAsRead}
                 >
                   <CheckCheck size={17} />
                   Mark All as Read
                 </button>
-
               )}
-
             </div>
-
 
             <div className="hm-notifications-list">
-
               {notifications.length > 0 ? (
+                notifications.map((notification, index) => {
+                  const notificationId =
+                    getNotificationId(notification);
 
-                notifications.map(
-                  (notification) => {
+                  const isRead =
+                    isNotificationRead(notification);
 
-                    const notificationId =
-                      notification.id ??
-                      notification.notificationId;
-
-                    const isRead =
-                      notification.read ??
-                      notification.isRead ??
-                      false;
-
-                    return (
-                      <div
-                        key={notificationId}
-                        className={`hm-notification-item ${
-                          !isRead
-                            ? "unread"
-                            : ""
-                        }`}
-                      >
-
-                        {/* ICON */}
-
-                        <div className="hm-notification-icon">
-
-                          {getNotificationIcon(
-                            notification.type
-                          )}
-
-                        </div>
-
-
-                        {/* CONTENT */}
-
-                        <div className="hm-notification-content">
-
-                          <div className="hm-notification-title-row">
-
-                            <h3>
-                              {getNotificationTitle(
-                                notification
-                              )}
-                            </h3>
-
-                            {!isRead && (
-                              <span className="hm-unread-dot" />
-                            )}
-
-                          </div>
-
-
-                          <p>
-                            {getNotificationMessage(
-                              notification
-                            )}
-                          </p>
-
-
-                          <span className="hm-notification-time">
-
-                            {getNotificationTime(
-                              notification
-                            )}
-
-                          </span>
-
-                        </div>
-
-
-                        {/* MARK AS READ */}
-
-                        {!isRead && (
-                          <button
-                            type="button"
-                            className="hm-mark-read-button"
-                            onClick={() =>
-                              handleMarkAsRead(
-                                notificationId
-                              )
-                            }
-                          >
-                            <CheckCheck size={16} />
-                            Mark as Read
-                          </button>
-                        )}
-
+                  return (
+                    <div
+                      key={notificationId ?? index}
+                      className={`hm-notification-item ${
+                        !isRead ? "unread" : ""
+                      }`}
+                    >
+                      <div className="hm-notification-icon">
+                        {getNotificationIcon(notification.type)}
                       </div>
-                    );
-                  }
-                )
 
+                      <div className="hm-notification-content">
+                        <div className="hm-notification-title-row">
+                          <h3>
+                            {getNotificationTitle(notification)}
+                          </h3>
+
+                          {!isRead && (
+                            <span className="hm-unread-dot" />
+                          )}
+                        </div>
+
+                        <p>
+                          {getNotificationMessage(notification)}
+                        </p>
+
+                        <span className="hm-notification-time">
+                          {getNotificationTime(notification)}
+                        </span>
+                      </div>
+
+                      {!isRead && (
+                        <button
+                          type="button"
+                          className="hm-mark-read-button"
+                          onClick={() =>
+                            handleMarkAsRead(notificationId)
+                          }
+                        >
+                          <CheckCheck size={16} />
+                          Mark as Read
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
               ) : (
-
                 <div className="hm-notifications-empty">
-
                   <Bell size={35} />
-
-                  <h3>
-                    No Notifications
-                  </h3>
-
+                  <h3>No Notifications</h3>
                   <p>
-                    You don't have any notifications
-                    right now.
+                    You don't have any notifications right now.
                   </p>
-
                 </div>
-
               )}
-
             </div>
-
           </section>
-
         </main>
-
       </div>
-
     </div>
   );
 }

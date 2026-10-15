@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import HiringManagerSidebar from "./HiringManagerSidebar";
 import HiringManagerNavbar from "./HiringManagerNavbar";
 
-import { getEligibleCandidates } from "./HiringManagerApi";
+import apiClient from "../../services/apiClient";
 
 import "./HiringManagerLayout.css";
 import "./HiringManagerCandidates.css";
@@ -22,26 +22,40 @@ const HiringManagerCandidates = () => {
   // =========================================================
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadCandidates = async () => {
       try {
         setLoading(true);
         setError("");
 
-        const response = await getEligibleCandidates();
+        // apiClient baseURL already includes /api.
+        const response = await apiClient.get(
+          "/hiring-manager/shortlisted-candidates"
+        );
 
         console.log(
           "HIRING MANAGER - ELIGIBLE CANDIDATES RESPONSE:",
-          response
+          response.data
         );
 
+        const responseData = response.data;
         let candidateData = [];
 
-        if (Array.isArray(response?.data)) {
-          candidateData = response.data;
-        } else if (Array.isArray(response)) {
-          candidateData = response;
-        } else if (Array.isArray(response?.content)) {
-          candidateData = response.content;
+        if (Array.isArray(responseData)) {
+          candidateData = responseData;
+        } else if (Array.isArray(responseData?.data)) {
+          candidateData = responseData.data;
+        } else if (Array.isArray(responseData?.content)) {
+          candidateData = responseData.content;
+        } else if (
+          Array.isArray(responseData?.data?.content)
+        ) {
+          candidateData = responseData.data.content;
+        } else if (
+          Array.isArray(responseData?.applications)
+        ) {
+          candidateData = responseData.applications;
         }
 
         console.log(
@@ -49,23 +63,35 @@ const HiringManagerCandidates = () => {
           candidateData
         );
 
-        setCandidates(candidateData);
+        if (isMounted) {
+          setCandidates(candidateData);
+        }
       } catch (err) {
         console.error(
           "Failed to load Hiring Manager candidates:",
           err
         );
 
-        setError(
-          err.message ||
-            "Failed to load shortlisted candidates."
-        );
+        if (isMounted) {
+          setError(
+            err.response?.data?.message ||
+              err.response?.data?.error ||
+              err.message ||
+              "Failed to load shortlisted candidates."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     loadCandidates();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // =========================================================
@@ -110,7 +136,6 @@ const HiringManagerCandidates = () => {
         "Application ID is missing:",
         candidate
       );
-
       return;
     }
 
@@ -130,40 +155,25 @@ const HiringManagerCandidates = () => {
 
   return (
     <div className="hiring-manager-layout">
-
-      {/* =====================================================
-          SIDEBAR
-      ===================================================== */}
+      {/* SIDEBAR */}
 
       <HiringManagerSidebar />
 
-      {/* =====================================================
-          MAIN AREA
-      ===================================================== */}
+      {/* MAIN AREA */}
 
       <div className="hiring-manager-main">
-
-        {/* ===================================================
-            NAVBAR
-        =================================================== */}
+        {/* NAVBAR */}
 
         <HiringManagerNavbar />
 
-        {/* ===================================================
-            CONTENT
-        =================================================== */}
+        {/* CONTENT */}
 
         <div className="hiring-manager-content">
-
-          {/* =================================================
-              PAGE HEADER
-          ================================================= */}
+          {/* PAGE HEADER */}
 
           <div className="hm-candidates-page-header">
             <div>
-              <h1>
-                Shortlisted Candidates
-              </h1>
+              <h1>Shortlisted Candidates</h1>
 
               <p>
                 Review candidates shortlisted for your
@@ -172,9 +182,7 @@ const HiringManagerCandidates = () => {
             </div>
           </div>
 
-          {/* =================================================
-              SEARCH
-          ================================================= */}
+          {/* SEARCH */}
 
           <div className="hm-candidates-search-container">
             <input
@@ -187,9 +195,7 @@ const HiringManagerCandidates = () => {
             />
           </div>
 
-          {/* =================================================
-              RESULT COUNT
-          ================================================= */}
+          {/* RESULT COUNT */}
 
           {!loading && !error && (
             <p className="hm-candidates-result-count">
@@ -201,9 +207,7 @@ const HiringManagerCandidates = () => {
             </p>
           )}
 
-          {/* =================================================
-              LOADING
-          ================================================= */}
+          {/* LOADING */}
 
           {loading && (
             <div className="hm-candidates-empty-state">
@@ -219,24 +223,17 @@ const HiringManagerCandidates = () => {
             </div>
           )}
 
-          {/* =================================================
-              ERROR
-          ================================================= */}
+          {/* ERROR */}
 
           {!loading && error && (
             <div className="hm-candidates-error">
-
               <div className="hm-candidates-error-icon">
                 !
               </div>
 
-              <h3>
-                Unable to load candidates
-              </h3>
+              <h3>Unable to load candidates</h3>
 
-              <p>
-                {error}
-              </p>
+              <p>{error}</p>
 
               <button
                 type="button"
@@ -247,19 +244,15 @@ const HiringManagerCandidates = () => {
               >
                 Retry
               </button>
-
             </div>
           )}
 
-          {/* =================================================
-              NO DATA
-          ================================================= */}
+          {/* NO DATA */}
 
           {!loading &&
             !error &&
             filteredCandidates.length === 0 && (
               <div className="hm-candidates-empty-state">
-
                 <div className="hm-candidates-empty-icon">
                   👥
                 </div>
@@ -269,45 +262,35 @@ const HiringManagerCandidates = () => {
                 </h3>
 
                 <p>
-                  There are currently no eligible
-                  candidates available for review.
+                  There are currently no eligible candidates
+                  available for review.
                 </p>
-
               </div>
             )}
 
-          {/* =================================================
-              CANDIDATES
-          ================================================= */}
+          {/* CANDIDATES */}
 
           {!loading &&
             !error &&
             filteredCandidates.length > 0 && (
-
               <div className="hm-candidates-grid">
-
                 {filteredCandidates.map(
-                  (candidate) => (
-
+                  (candidate, index) => (
                     <div
                       key={
-                        candidate.applicationId ||
-                        candidate.candidateId
+                        candidate.applicationId ??
+                        candidate.candidateId ??
+                        `candidate-${index}`
                       }
                       className="hm-candidate-card"
                       onClick={() =>
                         handleCandidateClick(candidate)
                       }
                     >
-
-                      {/* =====================================
-                          CARD HEADER
-                      ===================================== */}
+                      {/* CARD HEADER */}
 
                       <div className="hm-candidate-card-header">
-
                         <div className="hm-candidate-header-info">
-
                           <h3>
                             {candidate.candidateName ||
                               "Unknown Candidate"}
@@ -318,158 +301,105 @@ const HiringManagerCandidates = () => {
                               candidate.email ||
                               "Email not available"}
                           </p>
-
                         </div>
 
                         <span className="hm-candidate-status">
                           Shortlisted
                         </span>
-
                       </div>
 
-                      {/* =====================================
-                          CANDIDATE INFORMATION
-                      ===================================== */}
+                      {/* CANDIDATE INFORMATION */}
 
                       <div className="hm-candidate-info">
-
                         <p>
-                          <strong>
-                            Application ID:
-                          </strong>{" "}
-                          {candidate.applicationId ||
-                            "N/A"}
+                          <strong>Application ID:</strong>{" "}
+                          {candidate.applicationId ?? "N/A"}
                         </p>
 
                         <p>
-                          <strong>
-                            Candidate ID:
-                          </strong>{" "}
-                          {candidate.candidateId ||
-                            "N/A"}
+                          <strong>Candidate ID:</strong>{" "}
+                          {candidate.candidateId ?? "N/A"}
                         </p>
 
                         <p>
-                          <strong>
-                            Job:
-                          </strong>{" "}
-                          {candidate.jobTitle ||
-                            "N/A"}
+                          <strong>Job:</strong>{" "}
+                          {candidate.jobTitle || "N/A"}
                         </p>
 
                         <p>
-                          <strong>
-                            Job ID:
-                          </strong>{" "}
-                          {candidate.jobId ||
-                            "N/A"}
+                          <strong>Job ID:</strong>{" "}
+                          {candidate.jobId ?? "N/A"}
                         </p>
-
                       </div>
 
-                      {/* =====================================
-                          OPTIONAL INFORMATION
-                      ===================================== */}
+                      {/* OPTIONAL INFORMATION */}
 
                       {(candidate.department ||
                         candidate.location ||
                         candidate.experience) && (
-
                         <div className="hm-candidate-info hm-candidate-optional-info">
-
                           {candidate.department && (
                             <p>
-                              <strong>
-                                Department:
-                              </strong>{" "}
+                              <strong>Department:</strong>{" "}
                               {candidate.department}
                             </p>
                           )}
 
                           {candidate.location && (
                             <p>
-                              <strong>
-                                Location:
-                              </strong>{" "}
+                              <strong>Location:</strong>{" "}
                               {candidate.location}
                             </p>
                           )}
 
                           {candidate.experience && (
                             <p>
-                              <strong>
-                                Experience:
-                              </strong>{" "}
+                              <strong>Experience:</strong>{" "}
                               {candidate.experience}
                             </p>
                           )}
-
                         </div>
                       )}
 
-                      {/* =====================================
-                          AI SCORE
-                      ===================================== */}
+                      {/* AI SCORE */}
 
-                      {(candidate.aiMatchPercentage !==
-                        undefined ||
-                        candidate.aiMatchScore !==
-                          undefined) && (
-
+                      {(candidate.aiMatchPercentage != null ||
+                        candidate.aiMatchScore != null) && (
                         <div className="hm-candidate-footer">
-
                           <div className="hm-ai-score">
-
-                            <small>
-                              AI Match Score
-                            </small>
+                            <small>AI Match Score</small>
 
                             <strong>
                               {candidate.aiMatchPercentage ??
-                                candidate.aiMatchScore ??
-                                "N/A"}
-
-                              {candidate.aiMatchPercentage !=
-                                null ||
-                              candidate.aiMatchScore !=
-                                null
-                                ? "%"
-                                : ""}
+                                candidate.aiMatchScore}
+                              %
                             </strong>
-
                           </div>
-
                         </div>
                       )}
 
-                      {/* =====================================
-                          VIEW BUTTON
-                      ===================================== */}
+                      {/* VIEW BUTTON */}
 
                       <div className="hm-candidate-review-button-wrapper">
-
                         <button
                           type="button"
                           className="hm-candidate-review-button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleCandidateClick(
-                              candidate
-                            );
+                            handleCandidateClick(candidate);
                           }}
+                          disabled={
+                            candidate.applicationId == null
+                          }
                         >
                           Review Candidate
                         </button>
-
                       </div>
-
                     </div>
                   )
                 )}
-
               </div>
             )}
-
         </div>
       </div>
     </div>

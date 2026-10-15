@@ -19,42 +19,28 @@ import {
 
 import HiringManagerSidebar from "./HiringManagerSidebar";
 import HiringManagerNavbar from "./HiringManagerNavbar";
-
-import {
-  getCandidateReview,
-} from "./HiringManagerApi";
+import apiClient from "../../services/apiClient";
 
 import "./HiringManagerLayout.css";
 import "./HiringManagerCandidateReview.css";
 
 function HiringManagerCandidateReview() {
   const navigate = useNavigate();
-
-  /*
-  IMPORTANT:
-  The route is:
-  /hiring-manager/shortlisted-candidates/:applicationId
-  */
-
   const { applicationId } = useParams();
 
   const [candidate, setCandidate] = useState(null);
-
-  const [reviewNotes, setReviewNotes] =
-    useState("");
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState("");
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   /*
-  ======================================================
-  FETCH CANDIDATE REVIEW
-  ======================================================
-  */
-
+   * FETCH CANDIDATE REVIEW
+   *
+   * Assumed backend endpoint:
+   * GET /api/hiring-manager/shortlisted-candidates/{applicationId}
+   *
+   * This assumes apiClient's baseURL already includes /api.
+   */
   useEffect(() => {
     const loadCandidateReview = async () => {
       try {
@@ -62,40 +48,54 @@ function HiringManagerCandidateReview() {
         setError("");
 
         if (!applicationId) {
-          throw new Error(
-            "Application ID is missing."
-          );
+          throw new Error("Application ID is missing.");
         }
 
-        const response =
-          await getCandidateReview(
-            applicationId
-          );
-
-        console.log(
-          "Candidate review response:",
-          response
+        const response = await apiClient.get(
+          `/hiring-manager/shortlisted-candidates/${applicationId}`
         );
 
-        if (!response?.data) {
+        console.log("Candidate review response:", response.data);
+
+        // Support either a direct candidate object or { data: candidate }.
+        const candidateData =
+          response.data?.data ?? response.data;
+
+        if (
+          !candidateData ||
+          typeof candidateData !== "object" ||
+          Array.isArray(candidateData)
+        ) {
           throw new Error(
-            response?.message ||
-              "Candidate review data not available."
+            "Candidate review data is not available."
           );
         }
 
-        setCandidate(response.data);
-
+        setCandidate(candidateData);
       } catch (err) {
-        console.error(
-          "Failed to load candidate review:",
-          err
-        );
+        console.error("Failed to load candidate review:", err);
 
-        setError(
-          err.message ||
-            "Failed to load candidate review."
-        );
+        if (err.response?.status === 401) {
+          setError(
+            "Your session may have expired. Please sign in again."
+          );
+        } else if (err.response?.status === 403) {
+          setError(
+            "You do not have permission to view this candidate. Please ask the backend team to verify Hiring Manager permissions."
+          );
+        } else if (err.response?.status === 404) {
+          setError(
+            "The candidate review endpoint or application was not found. Please confirm the API mapping with the backend team."
+          );
+        } else {
+          setError(
+            err.response?.data?.message ||
+              err.message ||
+              "Failed to load candidate review."
+          );
+        }
+
+        setCandidate(null);
       } finally {
         setLoading(false);
       }
@@ -105,11 +105,8 @@ function HiringManagerCandidateReview() {
   }, [applicationId]);
 
   /*
-  ======================================================
-  HELPERS
-  ======================================================
-  */
-
+   * HELPERS
+   */
   const getInitials = (name) => {
     if (!name) {
       return "CA";
@@ -133,49 +130,56 @@ function HiringManagerCandidateReview() {
       return "Not available";
     }
 
+    if (Array.isArray(value)) {
+      return value.length ? value.join(", ") : "Not available";
+    }
+
+    if (typeof value === "object") {
+      return JSON.stringify(value);
+    }
+
     return value;
   };
 
   /*
-  ======================================================
-  MOVE TO INTERVIEW
-  ======================================================
-  */
-
+   * MOVE TO INTERVIEW
+   */
   const handleMoveToInterview = () => {
     if (!candidate) {
       return;
     }
 
     navigate(
-      `/hiring-manager/interviews?candidateId=${candidate.candidateId}`,
+      `/hiring-manager/interviews?candidateId=${encodeURIComponent(
+        candidate.candidateId ?? ""
+      )}`,
       {
         state: {
           candidate,
-          applicationId: candidate.applicationId,
+          applicationId: candidate.applicationId ?? applicationId,
         },
       }
     );
   };
 
   /*
-  ======================================================
-  VIEW FULL RESUME
-  ======================================================
-  */
-
+   * VIEW FULL RESUME
+   */
   const handleViewResume = () => {
     if (!candidate) {
       return;
     }
 
+    const currentApplicationId =
+      candidate.applicationId ?? applicationId;
+
     navigate(
-      `/hiring-manager/resume-review/${candidate.applicationId}`,
+      `/hiring-manager/resume-review/${encodeURIComponent(
+        currentApplicationId
+      )}`,
       {
         state: {
-          applicationId:
-            candidate.applicationId,
-
+          applicationId: currentApplicationId,
           candidate,
         },
       }
@@ -183,11 +187,11 @@ function HiringManagerCandidateReview() {
   };
 
   /*
-  ======================================================
-  REJECT CANDIDATE
-  ======================================================
-  */
-
+   * REJECT CANDIDATE
+   *
+   * No rejection API is called here because the confirmed
+   * backend endpoint has not yet been provided.
+   */
   const handleRejectCandidate = () => {
     if (!candidate) {
       return;
@@ -195,8 +199,7 @@ function HiringManagerCandidateReview() {
 
     const confirmed = window.confirm(
       `Are you sure you want to reject ${
-        candidate.candidateName ||
-        "this candidate"
+        candidate.candidateName || "this candidate"
       }?`
     );
 
@@ -204,54 +207,34 @@ function HiringManagerCandidateReview() {
       return;
     }
 
-    /*
-    No final rejection endpoint has been provided
-    by the backend yet.
-
-    For now, return to shortlisted candidates.
-    */
-
-    navigate(
-      "/hiring-manager/shortlisted-candidates"
+    window.alert(
+      "The rejection API has not been connected yet. Please confirm the rejection endpoint with the backend team."
     );
   };
 
   /*
-  ======================================================
-  LOADING
-  ======================================================
-  */
-
+   * LOADING
+   */
   if (loading) {
     return (
       <div className="hiring-manager-layout">
-
         <HiringManagerSidebar />
 
         <div className="hiring-manager-main">
-
           <HiringManagerNavbar />
 
           <main className="hiring-manager-dashboard-content">
-
             <div className="hiring-manager-dashboard-header">
-
               <p className="hiring-manager-label">
                 CANDIDATE REVIEW
               </p>
 
-              <h1>
-                Review Candidate
-              </h1>
+              <h1>Review Candidate</h1>
 
-              <p>
-                Loading candidate information...
-              </p>
-
+              <p>Loading candidate information...</p>
             </div>
 
             <section className="hm-resume-main-card">
-
               <div
                 className="empty-state"
                 style={{
@@ -259,59 +242,40 @@ function HiringManagerCandidateReview() {
                   textAlign: "center",
                 }}
               >
-
-                <p>
-                  Loading candidate review...
-                </p>
-
+                <p>Loading candidate review...</p>
               </div>
-
             </section>
-
           </main>
-
         </div>
-
       </div>
     );
   }
 
   /*
-  ======================================================
-  ERROR
-  ======================================================
-  */
-
+   * ERROR
+   */
   if (error || !candidate) {
     return (
       <div className="hiring-manager-layout">
-
         <HiringManagerSidebar />
 
         <div className="hiring-manager-main">
-
           <HiringManagerNavbar />
 
           <main className="hiring-manager-dashboard-content">
-
             <div className="hiring-manager-dashboard-header">
-
               <p className="hiring-manager-label">
                 CANDIDATE REVIEW
               </p>
 
-              <h1>
-                Review Candidate
-              </h1>
+              <h1>Review Candidate</h1>
 
               <p>
                 Review the shortlisted candidate details.
               </p>
-
             </div>
 
             <section className="hm-resume-main-card">
-
               <div
                 className="empty-state"
                 style={{
@@ -319,17 +283,12 @@ function HiringManagerCandidateReview() {
                   textAlign: "center",
                 }}
               >
-
                 <AlertCircle
                   size={40}
-                  style={{
-                    marginBottom: "15px",
-                  }}
+                  style={{ marginBottom: "15px" }}
                 />
 
-                <h3>
-                  Unable to Load Candidate
-                </h3>
+                <h3>Unable to Load Candidate</h3>
 
                 <p>
                   {error ||
@@ -356,99 +315,62 @@ function HiringManagerCandidateReview() {
                 >
                   Back to Shortlisted Candidates
                 </button>
-
               </div>
-
             </section>
-
           </main>
-
         </div>
-
       </div>
     );
   }
 
   /*
-  ======================================================
-  EXTRACT DATA
-  ======================================================
-  */
-
-  const initials = getInitials(
-    candidate.candidateName
-  );
-
-  const aiScore =
-    candidate.aiMatchScore;
+   * EXTRACT DATA
+   */
+  const initials = getInitials(candidate.candidateName);
+  const aiScore = candidate.aiMatchScore;
 
   return (
     <div className="hiring-manager-layout">
-
       <HiringManagerSidebar />
 
       <div className="hiring-manager-main">
-
         <HiringManagerNavbar />
 
         <main className="hiring-manager-dashboard-content">
-
-          {/* ================= HEADER ================= */}
-
+          {/* HEADER */}
           <div className="hiring-manager-dashboard-header">
-
             <p className="hiring-manager-label">
               CANDIDATE REVIEW
             </p>
 
-            <h1>
-              Review Candidate
-            </h1>
+            <h1>Review Candidate</h1>
 
             <p>
               Evaluate the candidate profile, resume
               information and AI analysis before
               proceeding to the interview stage.
             </p>
-
           </div>
 
-
-          {/* ============ CANDIDATE REVIEW CARD ============ */}
-
+          {/* CANDIDATE REVIEW CARD */}
           <section className="hm-resume-main-card">
-
-            {/* ================= CANDIDATE ================= */}
-
+            {/* CANDIDATE PROFILE */}
             <div className="hm-resume-profile-top">
-
               <div className="hm-resume-avatar">
                 {initials}
               </div>
 
               <div>
-
                 <h2>
-                  {formatValue(
-                    candidate.candidateName
-                  )}
+                  {formatValue(candidate.candidateName)}
                 </h2>
 
-                <p>
-                  {formatValue(
-                    candidate.email
-                  )}
-                </p>
-
+                <p>{formatValue(candidate.email)}</p>
               </div>
-
             </div>
 
-
-            {/* ================= CONTACT INFORMATION ================= */}
-
+            {/* CANDIDATE INFORMATION */}
             <div className="hm-resume-section">
-
               <h3>
                 <User size={18} />
                 Candidate Information
@@ -463,7 +385,6 @@ function HiringManagerCandidateReview() {
                   marginTop: "15px",
                 }}
               >
-
                 <div>
                   <strong>
                     <Mail
@@ -476,13 +397,8 @@ function HiringManagerCandidateReview() {
                     Email
                   </strong>
 
-                  <p>
-                    {formatValue(
-                      candidate.email
-                    )}
-                  </p>
+                  <p>{formatValue(candidate.email)}</p>
                 </div>
-
 
                 <div>
                   <strong>
@@ -496,13 +412,8 @@ function HiringManagerCandidateReview() {
                     Phone
                   </strong>
 
-                  <p>
-                    {formatValue(
-                      candidate.phone
-                    )}
-                  </p>
+                  <p>{formatValue(candidate.phone)}</p>
                 </div>
-
 
                 <div>
                   <strong>
@@ -516,13 +427,8 @@ function HiringManagerCandidateReview() {
                     Location
                   </strong>
 
-                  <p>
-                    {formatValue(
-                      candidate.location
-                    )}
-                  </p>
+                  <p>{formatValue(candidate.location)}</p>
                 </div>
-
 
                 <div>
                   <strong>
@@ -536,79 +442,46 @@ function HiringManagerCandidateReview() {
                     Education
                   </strong>
 
-                  <p>
-                    {formatValue(
-                      candidate.education
-                    )}
-                  </p>
+                  <p>{formatValue(candidate.education)}</p>
                 </div>
-
               </div>
-
             </div>
 
-
-            {/* ================= APPLIED POSITION ================= */}
-
+            {/* APPLIED POSITION */}
             <div className="hm-resume-section">
-
               <h3>
                 <BriefcaseBusiness size={18} />
                 Applied Position
               </h3>
 
               <p>
-                <strong>
-                  Job:
-                </strong>{" "}
-                {formatValue(
-                  candidate.jobTitle
-                )}
+                <strong>Job:</strong>{" "}
+                {formatValue(candidate.jobTitle)}
               </p>
 
               <p>
-                <strong>
-                  Department:
-                </strong>{" "}
-                {formatValue(
-                  candidate.department
-                )}
+                <strong>Department:</strong>{" "}
+                {formatValue(candidate.department)}
               </p>
 
               <p>
-                <strong>
-                  Job Location:
-                </strong>{" "}
-                {formatValue(
-                  candidate.jobLocation
-                )}
+                <strong>Job Location:</strong>{" "}
+                {formatValue(candidate.jobLocation)}
               </p>
 
               <p>
-                <strong>
-                  Employment Type:
-                </strong>{" "}
-                {formatValue(
-                  candidate.employmentType
-                )}
+                <strong>Employment Type:</strong>{" "}
+                {formatValue(candidate.employmentType)}
               </p>
 
               <p>
-                <strong>
-                  Experience:
-                </strong>{" "}
-                {formatValue(
-                  candidate.experience
-                )}
+                <strong>Experience:</strong>{" "}
+                {formatValue(candidate.experience)}
               </p>
-
             </div>
 
-
-            {/* ================= RESUME ================= */}
-
+            {/* RESUME */}
             <div className="hm-resume-section">
-
               <h3>
                 <FileText size={18} />
                 Candidate Resume
@@ -618,162 +491,98 @@ function HiringManagerCandidateReview() {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  justifyContent:
-                    "space-between",
+                  justifyContent: "space-between",
                   gap: "15px",
                   padding: "16px",
                   marginTop: "12px",
-                  border:
-                    "1px solid #e2e8f0",
+                  border: "1px solid #e2e8f0",
                   borderRadius: "10px",
                   background: "#f8fafc",
                 }}
               >
-
                 <div>
-
                   <strong>
-                    {formatValue(
-                      candidate.resumeFileName
-                    )}
+                    {formatValue(candidate.resumeFileName)}
                   </strong>
 
-                  <p
-                    style={{
-                      margin:
-                        "5px 0 0",
-                    }}
-                  >
+                  <p style={{ margin: "5px 0 0" }}>
                     File Type:{" "}
-                    {formatValue(
-                      candidate.resumeFileType
-                    )}
+                    {formatValue(candidate.resumeFileType)}
                   </p>
 
-                  <p
-                    style={{
-                      margin:
-                        "3px 0 0",
-                    }}
-                  >
+                  <p style={{ margin: "3px 0 0" }}>
                     Resume ID:{" "}
-                    {formatValue(
-                      candidate.resumeId
-                    )}
+                    {formatValue(candidate.resumeId)}
                   </p>
-
                 </div>
-
 
                 <button
                   type="button"
-                  onClick={
-                    handleViewResume
-                  }
+                  onClick={handleViewResume}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: "8px",
-                    padding:
-                      "11px 18px",
+                    padding: "11px 18px",
                     border: "none",
                     borderRadius: "8px",
                     cursor: "pointer",
-                    background:
-                      "#5547f5",
+                    background: "#5547f5",
                     color: "#fff",
-                    fontWeight:
-                      "600",
-                    whiteSpace:
-                      "nowrap",
+                    fontWeight: "600",
+                    whiteSpace: "nowrap",
                   }}
                 >
-
-                  <FileText
-                    size={17}
-                  />
-
+                  <FileText size={17} />
                   View Full Resume
-
                 </button>
-
               </div>
-
             </div>
 
-
-            {/* ================= AI MATCH ANALYSIS ================= */}
-
+            {/* AI MATCH ANALYSIS */}
             <div className="hm-resume-section">
-
               <h3>
                 <Star size={18} />
                 AI Match Analysis
               </h3>
 
-
               <div className="hm-resume-score-card">
-
                 <div>
-
-                  <span>
-                    Candidate Match
-                  </span>
+                  <span>Candidate Match</span>
 
                   <strong>
-                    {aiScore !==
-                      null &&
-                    aiScore !==
-                      undefined
+                    {aiScore !== null &&
+                    aiScore !== undefined &&
+                    aiScore !== ""
                       ? `${aiScore}%`
                       : "N/A"}
                   </strong>
-
                 </div>
 
-
-                {aiScore !==
-                  null &&
-                aiScore !==
-                  undefined && (
-
-                  <div className="hm-resume-score-bar">
-
-                    <div
-                      className="hm-resume-score-progress"
-                      style={{
-                        width: `${Math.max(
-                          0,
-                          Math.min(
-                            100,
-                            Number(
-                              aiScore
-                            )
-                          )
-                        )}%`,
-                      }}
-                    />
-
-                  </div>
-
-                )}
-
+                {aiScore !== null &&
+                  aiScore !== undefined &&
+                  aiScore !== "" && (
+                    <div className="hm-resume-score-bar">
+                      <div
+                        className="hm-resume-score-progress"
+                        style={{
+                          width: `${Math.max(
+                            0,
+                            Math.min(100, Number(aiScore) || 0)
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  )}
               </div>
-
             </div>
 
-
-            {/* ================= MATCH DETAILS ================= */}
-
+            {/* AI MATCH DETAILS */}
             <div className="hm-resume-section">
-
               <h3>
-                <CheckCircle2
-                  size={18}
-                />
+                <CheckCircle2 size={18} />
                 AI Match Details
               </h3>
-
 
               <div
                 style={{
@@ -784,349 +593,187 @@ function HiringManagerCandidateReview() {
                   marginTop: "15px",
                 }}
               >
+                <div>
+                  <strong>Skill Match</strong>
+                  <p>{formatValue(candidate.skillMatch)}</p>
+                </div>
 
                 <div>
-                  <strong>
-                    Skill Match
-                  </strong>
-
+                  <strong>Experience Match</strong>
                   <p>
-                    {formatValue(
-                      candidate.skillMatch
-                    )}
+                    {formatValue(candidate.experienceMatch)}
                   </p>
                 </div>
 
-
                 <div>
-                  <strong>
-                    Experience Match
-                  </strong>
-
+                  <strong>Education Match</strong>
                   <p>
-                    {formatValue(
-                      candidate.experienceMatch
-                    )}
+                    {formatValue(candidate.educationMatch)}
                   </p>
                 </div>
 
-
                 <div>
-                  <strong>
-                    Education Match
-                  </strong>
-
+                  <strong>Certification Match</strong>
                   <p>
-                    {formatValue(
-                      candidate.educationMatch
-                    )}
+                    {formatValue(candidate.certificationMatch)}
                   </p>
                 </div>
 
-
                 <div>
-                  <strong>
-                    Certification Match
-                  </strong>
-
+                  <strong>Location Match</strong>
                   <p>
-                    {formatValue(
-                      candidate.certificationMatch
-                    )}
+                    {formatValue(candidate.locationMatch)}
                   </p>
                 </div>
 
-
                 <div>
-                  <strong>
-                    Location Match
-                  </strong>
-
-                  <p>
-                    {formatValue(
-                      candidate.locationMatch
-                    )}
-                  </p>
+                  <strong>Role Match</strong>
+                  <p>{formatValue(candidate.roleMatch)}</p>
                 </div>
-
-
-                <div>
-                  <strong>
-                    Role Match
-                  </strong>
-
-                  <p>
-                    {formatValue(
-                      candidate.roleMatch
-                    )}
-                  </p>
-                </div>
-
               </div>
-
             </div>
 
-
-            {/* ================= SKILLS ================= */}
-
+            {/* SKILLS */}
             <div className="hm-resume-section">
-
-              <h3>
-                Matching / Candidate Skills
-              </h3>
-
-              <p>
-                {formatValue(
-                  candidate.skills
-                )}
-              </p>
-
+              <h3>Matching / Candidate Skills</h3>
+              <p>{formatValue(candidate.skills)}</p>
             </div>
 
-
-            {/* ================= EXTRACTED RESUME INFORMATION ================= */}
-
+            {/* EXTRACTED RESUME INFORMATION */}
             <div className="hm-resume-section">
-
-              <h3>
-                Extracted Resume Information
-              </h3>
+              <h3>Extracted Resume Information</h3>
 
               <p>
-                <strong>
-                  Extracted Skills:
-                </strong>{" "}
-                {formatValue(
-                  candidate.extractedSkills
-                )}
+                <strong>Extracted Skills:</strong>{" "}
+                {formatValue(candidate.extractedSkills)}
               </p>
 
               <p>
-                <strong>
-                  Extracted Experience:
-                </strong>{" "}
-                {formatValue(
-                  candidate.extractedExperience
-                )}
+                <strong>Extracted Experience:</strong>{" "}
+                {formatValue(candidate.extractedExperience)}
               </p>
 
               <p>
-                <strong>
-                  Extracted Education:
-                </strong>{" "}
-                {formatValue(
-                  candidate.extractedEducation
-                )}
+                <strong>Extracted Education:</strong>{" "}
+                {formatValue(candidate.extractedEducation)}
               </p>
-
             </div>
 
-
-            {/* ================= JOB REQUIREMENTS ================= */}
-
+            {/* JOB REQUIREMENTS */}
             <div className="hm-resume-section">
-
-              <h3>
-                Job Requirements
-              </h3>
+              <h3>Job Requirements</h3>
 
               <p>
-                <strong>
-                  Required Skills:
-                </strong>{" "}
-                {formatValue(
-                  candidate.requiredSkills
-                )}
+                <strong>Required Skills:</strong>{" "}
+                {formatValue(candidate.requiredSkills)}
               </p>
 
               <p>
-                <strong>
-                  Preferred Skills:
-                </strong>{" "}
-                {formatValue(
-                  candidate.preferredSkills
-                )}
+                <strong>Preferred Skills:</strong>{" "}
+                {formatValue(candidate.preferredSkills)}
               </p>
-
             </div>
 
-
-            {/* ================= AI EXPLANATION ================= */}
-
+            {/* AI EXPLANATION */}
             <div className="hm-resume-section">
-
               <h3>
-                <AlertCircle
-                  size={18}
-                />
+                <AlertCircle size={18} />
                 AI Explanation
               </h3>
 
-              <p>
-                {formatValue(
-                  candidate.aiExplanation
-                )}
-              </p>
-
+              <p>{formatValue(candidate.aiExplanation)}</p>
             </div>
 
-
-            {/* ================= APPLICATION INFORMATION ================= */}
-
+            {/* APPLICATION INFORMATION */}
             <div className="hm-resume-section">
-
-              <h3>
-                Application Information
-              </h3>
+              <h3>Application Information</h3>
 
               <p>
-                <strong>
-                  Application ID:
-                </strong>{" "}
+                <strong>Application ID:</strong>{" "}
                 {formatValue(
-                  candidate.applicationId
+                  candidate.applicationId ?? applicationId
                 )}
               </p>
 
               <p>
-                <strong>
-                  Status:
-                </strong>{" "}
-                {formatValue(
-                  candidate.status
-                )}
+                <strong>Status:</strong>{" "}
+                {formatValue(candidate.status)}
               </p>
 
               <p>
-                <strong>
-                  Applied At:
-                </strong>{" "}
+                <strong>Applied At:</strong>{" "}
                 {candidate.appliedAt
                   ? new Date(
                       candidate.appliedAt
-                    ).toLocaleString(
-                      "en-IN"
-                    )
+                    ).toLocaleString("en-IN")
                   : "Not available"}
               </p>
-
             </div>
 
-
-            {/* ================= NOTES ================= */}
-
+            {/* HIRING MANAGER NOTES */}
             <div className="hm-resume-section">
-
-              <h3>
-                Hiring Manager Notes
-              </h3>
+              <h3>Hiring Manager Notes</h3>
 
               <p>
-                Add observations that may
-                help during the interview
-                process.
+                Add observations that may help during the
+                interview process.
               </p>
 
               <textarea
-                value={
-                  reviewNotes
-                }
-                onChange={(e) =>
-                  setReviewNotes(
-                    e.target.value
-                  )
+                value={reviewNotes}
+                onChange={(event) =>
+                  setReviewNotes(event.target.value)
                 }
                 placeholder="Enter candidate review notes..."
                 rows="5"
                 style={{
                   width: "100%",
-                  boxSizing:
-                    "border-box",
+                  boxSizing: "border-box",
                   padding: "12px",
-                  marginTop:
-                    "12px",
-                  border:
-                    "1px solid #dbe3ee",
-                  borderRadius:
-                    "10px",
-                  resize:
-                    "vertical",
-                  fontFamily:
-                    "inherit",
+                  marginTop: "12px",
+                  border: "1px solid #dbe3ee",
+                  borderRadius: "10px",
+                  resize: "vertical",
+                  fontFamily: "inherit",
                 }}
               />
-
             </div>
 
-
-            {/* ================= ACTIONS ================= */}
-
+            {/* REVIEW ACTIONS */}
             <div className="hm-review-action-section">
-
               <div className="hm-review-action-heading">
-
-                <h3>
-                  Review Actions
-                </h3>
+                <h3>Review Actions</h3>
 
                 <p>
-                  After reviewing the
-                  candidate profile and AI
-                  analysis, choose the next
-                  recruitment action.
+                  After reviewing the candidate profile and
+                  AI analysis, choose the next recruitment
+                  action.
                 </p>
-
               </div>
 
-
               <div className="hm-review-action-buttons">
-
-                {/* MOVE TO INTERVIEW */}
-
                 <button
                   type="button"
                   className="hm-move-interview-button"
-                  onClick={
-                    handleMoveToInterview
-                  }
+                  onClick={handleMoveToInterview}
                 >
-
-                  <CalendarDays
-                    size={17}
-                  />
-
+                  <CalendarDays size={17} />
                   Move to Interview
-
                 </button>
-
-
-                {/* REJECT */}
 
                 <button
                   type="button"
                   className="hm-reject-candidate-button"
-                  onClick={
-                    handleRejectCandidate
-                  }
+                  onClick={handleRejectCandidate}
                 >
-
-                  <XCircle
-                    size={17}
-                  />
-
+                  <XCircle size={17} />
                   Reject Candidate
-
                 </button>
-
               </div>
-
             </div>
 
-
-            {/* ================= BACK ================= */}
-
+            {/* BACK */}
             <div className="hm-resume-actions">
-
               <button
                 type="button"
                 className="hm-resume-secondary-button"
@@ -1136,23 +783,13 @@ function HiringManagerCandidateReview() {
                   )
                 }
               >
-
-                <ArrowLeft
-                  size={16}
-                />
-
+                <ArrowLeft size={16} />
                 Back to Shortlisted Candidates
-
               </button>
-
             </div>
-
           </section>
-
         </main>
-
       </div>
-
     </div>
   );
 }

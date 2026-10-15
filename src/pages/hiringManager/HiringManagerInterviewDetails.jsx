@@ -12,12 +12,13 @@ import {
   Mail,
   MessageSquareText,
   ExternalLink,
+  AlertCircle,
 } from "lucide-react";
 
 import HiringManagerSidebar from "./HiringManagerSidebar";
 import HiringManagerNavbar from "./HiringManagerNavbar";
 
-import { getInterviewDetails } from "./HiringManagerApi";
+import apiClient from "../../services/apiClient";
 
 import "./HiringManagerInterviewDetails.css";
 import "./HiringManagerLayout.css";
@@ -30,23 +31,56 @@ function HiringManagerInterviewDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  /*
+  ========================================================
+  FETCH INTERVIEW DETAILS
+  ========================================================
+  */
+
   useEffect(() => {
+    let isMounted = true;
+
     const fetchInterviewDetails = async () => {
+      if (!interviewId) {
+        setError("Interview ID is missing.");
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError("");
 
-        const response = await getInterviewDetails(interviewId);
+        // Assumed endpoint. Confirm the GET mapping
+        // in InterviewController with the backend team.
+        const response = await apiClient.get(
+          `/interviews/${interviewId}`
+        );
 
-        console.log("Interview details:", response);
+        console.log(
+          "Interview details response:",
+          response.data
+        );
 
-        if (response?.success && response?.data) {
-          setInterview(response.data);
-        } else {
-          setError(
-            response?.message ||
-              "Interview details not found."
+        const responseData = response?.data;
+
+        const interviewData =
+          responseData?.data ??
+          responseData?.interview ??
+          responseData;
+
+        if (
+          !interviewData ||
+          typeof interviewData !== "object" ||
+          Array.isArray(interviewData)
+        ) {
+          throw new Error(
+            "Interview details were not found in the API response."
           );
+        }
+
+        if (isMounted) {
+          setInterview(interviewData);
         }
       } catch (err) {
         console.error(
@@ -54,18 +88,41 @@ function HiringManagerInterviewDetails() {
           err
         );
 
-        setError(
-          err.message ||
-            "Failed to load interview details."
-        );
+        let message =
+          "Failed to load interview details.";
+
+        if (err.response?.status === 401) {
+          message =
+            "Your session may have expired. Please log in again.";
+        } else if (err.response?.status === 403) {
+          message =
+            "You do not have permission to view these interview details. Please ask the backend team to verify Hiring Manager access.";
+        } else if (err.response?.status === 404) {
+          message =
+            "The interview details endpoint or interview record was not found. Please verify the backend mapping.";
+        } else {
+          message =
+            err.response?.data?.message ||
+            err.response?.data?.error ||
+            err.message ||
+            message;
+        }
+
+        if (isMounted) {
+          setError(message);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    if (interviewId) {
-      fetchInterviewDetails();
-    }
+    fetchInterviewDetails();
+
+    return () => {
+      isMounted = false;
+    };
   }, [interviewId]);
 
   /*
@@ -79,7 +136,7 @@ function HiringManagerInterviewDetails() {
       return "Not specified";
     }
 
-    return status
+    return String(status)
       .toLowerCase()
       .replace(/_/g, " ")
       .replace(/\b\w/g, (letter) =>
@@ -127,30 +184,22 @@ function HiringManagerInterviewDetails() {
   if (loading) {
     return (
       <div className="hiring-manager-layout">
-
         <HiringManagerSidebar />
 
         <div className="hiring-manager-main">
-
           <HiringManagerNavbar />
 
           <main className="hiring-manager-dashboard-content">
-
             <div
               style={{
                 padding: "60px",
                 textAlign: "center",
               }}
             >
-              <h2>
-                Loading interview details...
-              </h2>
+              <h2>Loading interview details...</h2>
             </div>
-
           </main>
-
         </div>
-
       </div>
     );
   }
@@ -164,15 +213,12 @@ function HiringManagerInterviewDetails() {
   if (error || !interview) {
     return (
       <div className="hiring-manager-layout">
-
         <HiringManagerSidebar />
 
         <div className="hiring-manager-main">
-
           <HiringManagerNavbar />
 
           <main className="hiring-manager-dashboard-content">
-
             <div
               style={{
                 background: "#fee2e2",
@@ -181,71 +227,83 @@ function HiringManagerInterviewDetails() {
                 borderRadius: "10px",
                 marginBottom: "20px",
               }}
+              role="alert"
             >
-              {error ||
-                "Interview details not found."}
+              <AlertCircle
+                size={20}
+                style={{
+                  verticalAlign: "middle",
+                  marginRight: "8px",
+                }}
+              />
+
+              {error || "Interview details not found."}
             </div>
 
             <button
               type="button"
               className="hm-interview-join-button"
               onClick={() =>
-                navigate(
-                  "/hiring-manager/interviews"
-                )
+                navigate("/hiring-manager/interviews")
               }
             >
               <ArrowLeft size={16} />
               Back to Interviews
             </button>
-
           </main>
-
         </div>
-
       </div>
     );
   }
 
   /*
   ========================================================
-  REAL BACKEND DATA
+  BACKEND DATA
   ========================================================
   */
 
   const candidateName =
     interview.candidateName ||
+    interview.candidate?.name ||
+    interview.applicantName ||
     "Not specified";
 
   const candidateEmail =
     interview.candidateEmail ||
+    interview.email ||
+    interview.candidate?.email ||
     "Not specified";
 
   const position =
     interview.position ||
+    interview.jobTitle ||
+    interview.job?.title ||
     "Not specified";
 
   const status =
     interview.status || "NOT SPECIFIED";
 
-  const interviewStatus =
-    formatStatus(status);
+  const interviewStatus = formatStatus(status);
 
-  const dateTime =
-    formatDateTime(
-      interview.interviewDateTime
-    );
+  const dateTime = formatDateTime(
+    interview.interviewDateTime ||
+    interview.scheduledAt ||
+    interview.interviewDate
+  );
 
   const interviewMode =
     interview.interviewMode ||
+    interview.mode ||
     "Not specified";
 
   const interviewType =
     interview.interviewType ||
+    interview.type ||
     "Not specified";
 
   const interviewerName =
     interview.interviewerName ||
+    interview.interviewer?.name ||
     "Not specified";
 
   const location =
@@ -254,10 +312,12 @@ function HiringManagerInterviewDetails() {
 
   const notes =
     interview.notes ||
+    interview.description ||
     "No interview notes available.";
 
   const meetingLink =
     interview.meetingLink ||
+    interview.meetingUrl ||
     null;
 
   const initials = candidateName
@@ -269,313 +329,203 @@ function HiringManagerInterviewDetails() {
     .toUpperCase();
 
   const isCompleted =
-    String(status).toUpperCase() ===
-    "COMPLETED";
+    String(status).toUpperCase() === "COMPLETED";
+
+  /*
+  ========================================================
+  MAIN PAGE
+  ========================================================
+  */
 
   return (
     <div className="hiring-manager-layout">
-
       <HiringManagerSidebar />
 
       <div className="hiring-manager-main">
-
         <HiringManagerNavbar />
 
         <main className="hiring-manager-dashboard-content">
-
           {/* HEADER */}
 
           <div className="hiring-manager-dashboard-header">
-
             <p className="hiring-manager-label">
               INTERVIEW DETAILS
             </p>
 
-            <h1>
-              Interview Details
-            </h1>
+            <h1>Interview Details</h1>
 
             <p>
-              Monitor candidate interview
-              information, assigned interviewer
-              and interview status.
+              Monitor candidate interview information,
+              assigned interviewer and interview status.
             </p>
-
           </div>
 
           {/* INTERVIEW CARD */}
 
           <section className="hm-interview-details-page-card">
-
             {/* TOP */}
 
             <div className="hm-interview-details-top">
-
               <div className="hm-interview-details-candidate">
-
                 <div className="hm-interview-details-avatar">
                   {initials || "CA"}
                 </div>
 
                 <div>
-
-                  <h2>
-                    {candidateName}
-                  </h2>
-
-                  <p>
-                    {position}
-                  </p>
-
+                  <h2>{candidateName}</h2>
+                  <p>{position}</p>
                 </div>
-
               </div>
 
               <span
                 className={`hm-interview-status ${
-                  isCompleted
-                    ? "completed"
-                    : "scheduled"
+                  isCompleted ? "completed" : "scheduled"
                 }`}
               >
                 {interviewStatus}
               </span>
-
             </div>
 
             {/* CANDIDATE INFORMATION */}
 
             <div className="hm-interview-details-section">
-
               <h3>
                 <User size={18} />
                 Candidate Information
               </h3>
 
               <div className="hm-interview-info-grid">
-
                 <div className="hm-interview-info-item">
-
                   <Mail size={18} />
 
                   <div>
-
-                    <span>
-                      Email
-                    </span>
-
-                    <strong>
-                      {candidateEmail}
-                    </strong>
-
+                    <span>Email</span>
+                    <strong>{candidateEmail}</strong>
                   </div>
-
                 </div>
 
                 <div className="hm-interview-info-item">
-
-                  <BriefcaseBusiness
-                    size={18}
-                  />
+                  <BriefcaseBusiness size={18} />
 
                   <div>
-
-                    <span>
-                      Applied Position
-                    </span>
-
-                    <strong>
-                      {position}
-                    </strong>
-
+                    <span>Applied Position</span>
+                    <strong>{position}</strong>
                   </div>
-
                 </div>
-
               </div>
-
             </div>
 
             {/* INTERVIEW SCHEDULE */}
 
             <div className="hm-interview-details-section">
-
               <h3>
                 <CalendarDays size={18} />
                 Interview Schedule
               </h3>
 
               <div className="hm-interview-info-grid">
-
                 <div className="hm-interview-info-item">
-
                   <CalendarDays size={18} />
 
                   <div>
-
-                    <span>
-                      Date
-                    </span>
-
-                    <strong>
-                      {dateTime.date}
-                    </strong>
-
+                    <span>Date</span>
+                    <strong>{dateTime.date}</strong>
                   </div>
-
                 </div>
 
                 <div className="hm-interview-info-item">
-
                   <Clock size={18} />
 
                   <div>
-
-                    <span>
-                      Time
-                    </span>
-
-                    <strong>
-                      {dateTime.time}
-                    </strong>
-
+                    <span>Time</span>
+                    <strong>{dateTime.time}</strong>
                   </div>
-
                 </div>
 
                 <div className="hm-interview-info-item">
-
                   <Video size={18} />
 
                   <div>
-
-                    <span>
-                      Interview Mode
-                    </span>
-
-                    <strong>
-                      {interviewMode}
-                    </strong>
-
+                    <span>Interview Mode</span>
+                    <strong>{interviewMode}</strong>
                   </div>
-
                 </div>
 
                 <div className="hm-interview-info-item">
-
                   <MapPin size={18} />
 
                   <div>
-
-                    <span>
-                      Location
-                    </span>
-
-                    <strong>
-                      {location}
-                    </strong>
-
+                    <span>Location</span>
+                    <strong>{location}</strong>
                   </div>
-
                 </div>
-
               </div>
-
             </div>
 
             {/* INTERVIEW TYPE */}
 
             <div className="hm-interview-details-section">
-
               <h3>
                 <Video size={18} />
                 Interview Type
               </h3>
 
               <div className="hm-interview-panel-box">
-
                 <div className="hm-interview-panel-icon">
                   <Video size={20} />
                 </div>
 
                 <div>
-
-                  <span>
-                    Interview Type
-                  </span>
-
-                  <strong>
-                    {interviewType}
-                  </strong>
-
+                  <span>Interview Type</span>
+                  <strong>{interviewType}</strong>
                 </div>
-
               </div>
-
             </div>
 
             {/* INTERVIEWER */}
 
             <div className="hm-interview-details-section">
-
               <h3>
                 <User size={18} />
                 Interview Panel
               </h3>
 
               <div className="hm-interview-panel-box">
-
                 <div className="hm-interview-panel-icon">
                   <User size={20} />
                 </div>
 
                 <div>
-
-                  <span>
-                    Assigned Interviewer
-                  </span>
-
-                  <strong>
-                    {interviewerName}
-                  </strong>
-
+                  <span>Assigned Interviewer</span>
+                  <strong>{interviewerName}</strong>
                 </div>
-
               </div>
-
             </div>
 
             {/* NOTES */}
 
             <div className="hm-interview-details-section">
-
               <h3>
                 <MessageSquareText size={18} />
                 Interview Notes
               </h3>
 
               <div className="hm-interview-notes-box">
-
                 {notes}
-
               </div>
-
             </div>
 
             {/* MEETING LINK */}
 
             {meetingLink && (
-
               <div className="hm-interview-details-section">
-
                 <h3>
                   <Video size={18} />
                   Online Interview
                 </h3>
 
                 <p>
-                  Meeting link provided for
-                  this interview.
+                  Meeting link provided for this interview.
                 </p>
 
                 <button
@@ -593,22 +543,17 @@ function HiringManagerInterviewDetails() {
                   Join Interview
                   <ExternalLink size={15} />
                 </button>
-
               </div>
-
             )}
 
             {/* ACTIONS */}
 
             <div className="hm-interview-details-actions">
-
               <button
                 type="button"
                 className="hm-interview-join-button"
                 onClick={() =>
-                  navigate(
-                    "/hiring-manager/interviews"
-                  )
+                  navigate("/hiring-manager/interviews")
                 }
               >
                 <ArrowLeft size={16} />
@@ -616,7 +561,6 @@ function HiringManagerInterviewDetails() {
               </button>
 
               {isCompleted && (
-
                 <button
                   type="button"
                   className="hm-interview-join-button"
@@ -626,22 +570,14 @@ function HiringManagerInterviewDetails() {
                     )
                   }
                 >
-                  <MessageSquareText
-                    size={16}
-                  />
-                  Give Feedback
+                  <MessageSquareText size={16} />
+                  View Feedback
                 </button>
-
               )}
-
             </div>
-
           </section>
-
         </main>
-
       </div>
-
     </div>
   );
 }

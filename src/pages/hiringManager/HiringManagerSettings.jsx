@@ -15,15 +15,13 @@ import {
   Clock,
 } from "lucide-react";
 
+import apiClient from "../../services/apiClient";
+
 import HiringManagerSidebar from "./HiringManagerSidebar";
 import HiringManagerNavbar from "./HiringManagerNavbar";
 
-import {
-  getSettings,
-  saveSettings,
-} from "./HiringManagerApi";
-
 import "./HiringManagerSettings.css";
+import "./HiringManagerLayout.css";
 
 function HiringManagerSettings() {
   const defaultSettings = {
@@ -54,26 +52,48 @@ function HiringManagerSettings() {
 
   const [passwordMessage, setPasswordMessage] = useState("");
 
-  /* =====================================================
-     LOAD SETTINGS
-     ===================================================== */
+  const getErrorMessage = (err, fallback) =>
+    err?.response?.data?.message ||
+    err?.response?.data?.error ||
+    err?.message ||
+    fallback;
 
+  /*
+   * LOAD SETTINGS
+   * GET /api/settings/current
+   */
   useEffect(() => {
+    let isMounted = true;
+
     const loadSettings = async () => {
       try {
         setLoading(true);
         setError("");
 
-        const storedPreferences = JSON.parse(
-          localStorage.getItem("hiringManagerSettings") || "null"
-        );
-
-        let backendSettings = null;
+        let storedPreferences = null;
 
         try {
-          backendSettings = await getSettings();
+          storedPreferences = JSON.parse(
+            localStorage.getItem("hiringManagerSettings") || "null"
+          );
+        } catch {
+          storedPreferences = null;
+        }
 
-          console.log("Settings response:", backendSettings);
+        let backendData = {};
+
+        try {
+          const response = await apiClient.get("/settings/current");
+
+          console.log("Settings response:", response.data);
+
+          const responseData = response?.data;
+
+          backendData =
+            responseData?.data &&
+            typeof responseData.data === "object"
+              ? responseData.data
+              : responseData || {};
         } catch (settingsError) {
           console.warn(
             "Could not load backend settings:",
@@ -81,61 +101,53 @@ function HiringManagerSettings() {
           );
         }
 
-        const backendData =
-          backendSettings?.data ||
-          backendSettings ||
-          {};
-
         const mergedSettings = {
           shortlistedCandidateNotifications:
-            storedPreferences
-              ?.shortlistedCandidateNotifications ??
-            true,
+            storedPreferences?.shortlistedCandidateNotifications ?? true,
 
           interviewNotifications:
-            storedPreferences
-              ?.interviewNotifications ??
-            true,
+            storedPreferences?.interviewNotifications ?? true,
 
           feedbackNotifications:
-            storedPreferences
-              ?.feedbackNotifications ??
-            true,
+            storedPreferences?.feedbackNotifications ?? true,
 
           decisionNotifications:
-            storedPreferences
-              ?.decisionNotifications ??
-            true,
+            storedPreferences?.decisionNotifications ?? true,
 
           emailNotifications:
-            backendData.emailNotifications ??
+            backendData?.emailNotifications ??
             storedPreferences?.emailNotifications ??
             true,
         };
 
-        setSettings(mergedSettings);
+        if (isMounted) {
+          setSettings(mergedSettings);
+        }
       } catch (err) {
-        console.error(
-          "Failed to load settings:",
-          err
-        );
+        console.error("Failed to load settings:", err);
 
-        setError(
-          err.message ||
-            "Failed to load settings."
-        );
+        if (isMounted) {
+          setError(
+            getErrorMessage(err, "Failed to load settings.")
+          );
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     loadSettings();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  /* =====================================================
-     TOGGLE SETTINGS
-     ===================================================== */
-
+  /*
+   * TOGGLE SETTINGS
+   */
   const handleToggle = (name) => {
     setSettings((previous) => ({
       ...previous,
@@ -146,95 +158,89 @@ function HiringManagerSettings() {
     setError("");
   };
 
-  /* =====================================================
-     SAVE SETTINGS
-     ===================================================== */
-
+  /*
+   * SAVE SETTINGS
+   * PUT /api/settings/save
+   */
   const handleSaveSettings = async () => {
+    if (saving) return;
+
     try {
       setSaving(true);
       setSaved(false);
       setError("");
+
+      let currentBackendSettings = {};
+
+      try {
+        const currentResponse = await apiClient.get("/settings/current");
+
+        const responseData = currentResponse?.data;
+
+        currentBackendSettings =
+          responseData?.data &&
+          typeof responseData.data === "object"
+            ? responseData.data
+            : responseData || {};
+      } catch (settingsError) {
+        console.warn(
+          "Could not retrieve existing backend settings:",
+          settingsError
+        );
+      }
+
+      const payload = {
+        organizationName:
+          currentBackendSettings.organizationName || "",
+
+        supportEmail:
+          currentBackendSettings.supportEmail || "",
+
+        website:
+          currentBackendSettings.website || "",
+
+        allowUserRegistrations:
+          currentBackendSettings.allowUserRegistrations ?? true,
+
+        emailNotifications:
+          settings.emailNotifications,
+
+        maintenanceMode:
+          currentBackendSettings.maintenanceMode ?? false,
+      };
+
+      if (currentBackendSettings.id) {
+        payload.id = currentBackendSettings.id;
+      }
+
+      const response = await apiClient.put(
+        "/settings/save",
+        payload
+      );
+
+      console.log("Saved settings response:", response.data);
 
       localStorage.setItem(
         "hiringManagerSettings",
         JSON.stringify(settings)
       );
 
-      let currentBackendSettings = {};
-
-      try {
-        const currentResponse = await getSettings();
-
-        currentBackendSettings =
-          currentResponse?.data ||
-          currentResponse ||
-          {};
-      } catch (settingsError) {
-        console.warn(
-          "No existing backend settings found. Creating settings with defaults."
-        );
-      }
-
-      const payload = {
-        id: currentBackendSettings.id,
-
-        organizationName:
-          currentBackendSettings.organizationName ||
-          "",
-
-        supportEmail:
-          currentBackendSettings.supportEmail ||
-          "",
-
-        website:
-          currentBackendSettings.website ||
-          "",
-
-        allowUserRegistrations:
-          currentBackendSettings
-            .allowUserRegistrations ??
-          true,
-
-        emailNotifications:
-          settings.emailNotifications,
-
-        maintenanceMode:
-          currentBackendSettings.maintenanceMode ??
-          false,
-      };
-
-      if (!payload.id) {
-        delete payload.id;
-      }
-
-      const response = await saveSettings(payload);
-
-      console.log(
-        "Saved settings response:",
-        response
-      );
-
       setSaved(true);
     } catch (err) {
-      console.error(
-        "Failed to save settings:",
-        err
-      );
+      console.error("Failed to save settings:", err);
 
       setError(
-        err.message ||
-          "Failed to save settings."
+        getErrorMessage(err, "Failed to save settings.")
       );
     } finally {
       setSaving(false);
     }
   };
 
-  /* =====================================================
-     PASSWORD CHANGE
-     ===================================================== */
-
+  /*
+   * PASSWORD FORM
+   * Validation only: no backend password endpoint was provided.
+   */
   const handlePasswordChange = (event) => {
     const { name, value } = event.target;
 
@@ -252,49 +258,34 @@ function HiringManagerSettings() {
       !passwordData.newPassword ||
       !passwordData.confirmPassword
     ) {
-      setPasswordMessage(
-        "Please complete all password fields."
-      );
-
+      setPasswordMessage("Please complete all password fields.");
       return;
     }
 
     if (
-      passwordData.newPassword !==
-      passwordData.confirmPassword
+      passwordData.newPassword !== passwordData.confirmPassword
     ) {
       setPasswordMessage(
         "New password and confirm password do not match."
       );
-
       return;
     }
 
-    if (
-      passwordData.newPassword.length < 8
-    ) {
+    if (passwordData.newPassword.length < 8) {
       setPasswordMessage(
         "New password must contain at least 8 characters."
       );
-
       return;
     }
 
     setPasswordMessage(
-      "Password validation successful. Backend integration is required to update the password."
+      "Password validation successful. A backend password-update endpoint is required to change your password."
     );
-
-    setPasswordData({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    });
   };
 
-  /* =====================================================
-     PASSWORD VISIBILITY
-     ===================================================== */
-
+  /*
+   * PASSWORD VISIBILITY
+   */
   const togglePasswordVisibility = (field) => {
     setShowPasswords((previous) => ({
       ...previous,
@@ -302,10 +293,9 @@ function HiringManagerSettings() {
     }));
   };
 
-  /* =====================================================
-     NOTIFICATION OPTIONS
-     ===================================================== */
-
+  /*
+   * NOTIFICATION OPTIONS
+   */
   const notificationOptions = [
     {
       key: "shortlistedCandidateNotifications",
@@ -314,7 +304,6 @@ function HiringManagerSettings() {
         "Receive notifications when candidates are shortlisted for your assigned jobs.",
       icon: <UserCheck size={19} />,
     },
-
     {
       key: "interviewNotifications",
       title: "Interview Updates",
@@ -322,7 +311,6 @@ function HiringManagerSettings() {
         "Receive notifications about interview scheduling and status updates.",
       icon: <CalendarDays size={19} />,
     },
-
     {
       key: "feedbackNotifications",
       title: "Interview Feedback",
@@ -330,7 +318,6 @@ function HiringManagerSettings() {
         "Receive notifications when interviewer feedback becomes available.",
       icon: <MessageSquareText size={19} />,
     },
-
     {
       key: "decisionNotifications",
       title: "Candidate Decisions",
@@ -340,77 +327,53 @@ function HiringManagerSettings() {
     },
   ];
 
-  /* =====================================================
-     LOADING
-     ===================================================== */
-
+  /*
+   * LOADING
+   */
   if (loading) {
     return (
       <div className="hiring-manager-layout">
-
         <HiringManagerSidebar />
 
         <div className="hiring-manager-main">
-
           <HiringManagerNavbar />
 
           <main className="hiring-manager-settings-content">
-
             <div className="hiring-manager-settings-header">
-
               <p className="hiring-manager-settings-label">
                 PREFERENCES
               </p>
 
               <h1>Settings</h1>
 
-              <p>
-                Loading your settings...
-              </p>
-
+              <p>Loading your settings...</p>
             </div>
 
             <section className="hm-settings-card">
-
               <div className="hm-settings-loading">
-
                 <Clock size={20} />
-
-                <span>
-                  Loading settings...
-                </span>
-
+                <span>Loading settings...</span>
               </div>
-
             </section>
-
           </main>
-
         </div>
-
       </div>
     );
   }
 
-  /* =====================================================
-     MAIN RENDER
-     ===================================================== */
-
+  /*
+   * MAIN PAGE
+   */
   return (
     <div className="hiring-manager-layout">
-
       <HiringManagerSidebar />
 
       <div className="hiring-manager-main">
-
         <HiringManagerNavbar />
 
         <main className="hiring-manager-settings-content">
-
           {/* HEADER */}
-
           <div className="hiring-manager-settings-header">
-
             <p className="hiring-manager-settings-label">
               PREFERENCES
             </p>
@@ -418,185 +381,122 @@ function HiringManagerSettings() {
             <h1>Settings</h1>
 
             <p>
-              Manage your Hiring Manager notification
-              preferences and account security.
+              Manage your Hiring Manager notification preferences
+              and account security.
             </p>
-
           </div>
 
           {/* ERROR */}
-
           {error && (
-            <div className="hm-settings-error">
-
+            <div className="hm-settings-error" role="alert">
               <AlertCircle size={18} />
-
-              <span>
-                {error}
-              </span>
-
+              <span>{error}</span>
             </div>
           )}
 
-          {/* NOTIFICATIONS */}
-
+          {/* NOTIFICATION PREFERENCES */}
           <section className="hm-settings-card">
-
             <div className="hm-settings-card-header">
-
               <div className="hm-settings-header-icon">
                 <Bell size={20} />
               </div>
 
               <div>
-
-                <h2>
-                  Notification Preferences
-                </h2>
+                <h2>Notification Preferences</h2>
 
                 <p>
-                  Choose which recruitment activities
-                  you want to be notified about.
+                  Choose which recruitment activities you want
+                  to be notified about.
                 </p>
-
               </div>
-
             </div>
 
             <div className="hm-settings-options">
-
-              {notificationOptions.map(
-                (option) => (
-
-                  <div
-                    className="hm-settings-option"
-                    key={option.key}
-                  >
-
-                    <div className="hm-settings-option-info">
-
-                      <div className="hm-settings-option-icon">
-                        {option.icon}
-                      </div>
-
-                      <div>
-
-                        <strong>
-                          {option.title}
-                        </strong>
-
-                        <span>
-                          {option.description}
-                        </span>
-
-                      </div>
-
+              {notificationOptions.map((option) => (
+                <div
+                  className="hm-settings-option"
+                  key={option.key}
+                >
+                  <div className="hm-settings-option-info">
+                    <div className="hm-settings-option-icon">
+                      {option.icon}
                     </div>
 
-                    <button
-                      type="button"
-                      className={`hm-settings-toggle ${
-                        settings[option.key]
-                          ? "active"
-                          : ""
-                      }`}
-                      onClick={() =>
-                        handleToggle(option.key)
-                      }
-                      aria-label={`Toggle ${option.title}`}
-                    >
-                      <span />
-                    </button>
-
+                    <div>
+                      <strong>{option.title}</strong>
+                      <span>{option.description}</span>
+                    </div>
                   </div>
 
-                )
-              )}
-
+                  <button
+                    type="button"
+                    className={`hm-settings-toggle ${
+                      settings[option.key] ? "active" : ""
+                    }`}
+                    onClick={() => handleToggle(option.key)}
+                    aria-label={`Toggle ${option.title}`}
+                    aria-pressed={Boolean(settings[option.key])}
+                  >
+                    <span />
+                  </button>
+                </div>
+              ))}
             </div>
-
           </section>
 
-          {/* EMAIL */}
-
+          {/* EMAIL NOTIFICATIONS */}
           <section className="hm-settings-card">
-
             <div className="hm-settings-card-header">
-
               <div className="hm-settings-header-icon">
                 <Mail size={20} />
               </div>
 
               <div>
-
-                <h2>
-                  Email Notifications
-                </h2>
+                <h2>Email Notifications</h2>
 
                 <p>
-                  Control whether recruitment updates
-                  are also delivered by email.
+                  Control whether recruitment updates are also
+                  delivered by email.
                 </p>
-
               </div>
-
             </div>
 
             <div className="hm-settings-option">
-
               <div className="hm-settings-option-info">
-
                 <div className="hm-settings-option-icon">
                   <Mail size={19} />
                 </div>
 
                 <div>
-
-                  <strong>
-                    Recruitment Email Alerts
-                  </strong>
+                  <strong>Recruitment Email Alerts</strong>
 
                   <span>
-                    Receive important hiring updates
-                    through your registered email.
+                    Receive important hiring updates through your
+                    registered email.
                   </span>
-
                 </div>
-
               </div>
 
               <button
                 type="button"
                 className={`hm-settings-toggle ${
-                  settings.emailNotifications
-                    ? "active"
-                    : ""
+                  settings.emailNotifications ? "active" : ""
                 }`}
-                onClick={() =>
-                  handleToggle(
-                    "emailNotifications"
-                  )
-                }
+                onClick={() => handleToggle("emailNotifications")}
                 aria-label="Toggle recruitment email alerts"
+                aria-pressed={Boolean(settings.emailNotifications)}
               >
                 <span />
               </button>
-
             </div>
-
           </section>
 
-          {/* SAVE */}
-
+          {/* SAVE PREFERENCES */}
           <div className="hm-settings-save-row">
-
             {saved && (
               <span className="hm-settings-saved">
-
                 <ShieldCheck size={16} />
-
                 Preferences saved
-
               </span>
             )}
 
@@ -606,75 +506,47 @@ function HiringManagerSettings() {
               onClick={handleSaveSettings}
               disabled={saving}
             >
-
               <Save size={17} />
-
-              {saving
-                ? "Saving..."
-                : "Save Preferences"}
-
+              {saving ? "Saving..." : "Save Preferences"}
             </button>
-
           </div>
 
           {/* SECURITY */}
-
           <section className="hm-settings-card">
-
             <div className="hm-settings-card-header">
-
               <div className="hm-settings-header-icon">
                 <LockKeyhole size={20} />
               </div>
 
               <div>
+                <h2>Security</h2>
 
-                <h2>
-                  Security
-                </h2>
-
-                <p>
-                  Update your account password.
-                </p>
-
+                <p>Update your account password.</p>
               </div>
-
             </div>
 
             <div className="hm-settings-password-grid">
-
               {/* CURRENT PASSWORD */}
-
               <div className="hm-settings-password-field">
-
-                <label>
+                <label htmlFor="currentPassword">
                   Current Password
                 </label>
 
                 <div className="hm-settings-password-input">
-
                   <input
-                    type={
-                      showPasswords.current
-                        ? "text"
-                        : "password"
-                    }
+                    id="currentPassword"
+                    type={showPasswords.current ? "text" : "password"}
                     name="currentPassword"
-                    value={
-                      passwordData.currentPassword
-                    }
-                    onChange={
-                      handlePasswordChange
-                    }
+                    value={passwordData.currentPassword}
+                    onChange={handlePasswordChange}
                     placeholder="Enter current password"
+                    autoComplete="current-password"
                   />
 
                   <button
                     type="button"
                     onClick={() =>
-                      togglePasswordVisibility(
-                        "current"
-                      )
+                      togglePasswordVisibility("current")
                     }
                     aria-label="Show or hide current password"
                   >
@@ -684,44 +556,27 @@ function HiringManagerSettings() {
                       <Eye size={17} />
                     )}
                   </button>
-
                 </div>
-
               </div>
 
               {/* NEW PASSWORD */}
-
               <div className="hm-settings-password-field">
-
-                <label>
-                  New Password
-                </label>
+                <label htmlFor="newPassword">New Password</label>
 
                 <div className="hm-settings-password-input">
-
                   <input
-                    type={
-                      showPasswords.new
-                        ? "text"
-                        : "password"
-                    }
+                    id="newPassword"
+                    type={showPasswords.new ? "text" : "password"}
                     name="newPassword"
-                    value={
-                      passwordData.newPassword
-                    }
-                    onChange={
-                      handlePasswordChange
-                    }
+                    value={passwordData.newPassword}
+                    onChange={handlePasswordChange}
                     placeholder="Enter new password"
+                    autoComplete="new-password"
                   />
 
                   <button
                     type="button"
-                    onClick={() =>
-                      togglePasswordVisibility(
-                        "new"
-                      )
-                    }
+                    onClick={() => togglePasswordVisibility("new")}
                     aria-label="Show or hide new password"
                   >
                     {showPasswords.new ? (
@@ -730,43 +585,30 @@ function HiringManagerSettings() {
                       <Eye size={17} />
                     )}
                   </button>
-
                 </div>
-
               </div>
 
               {/* CONFIRM PASSWORD */}
-
               <div className="hm-settings-password-field">
-
-                <label>
+                <label htmlFor="confirmPassword">
                   Confirm New Password
                 </label>
 
                 <div className="hm-settings-password-input">
-
                   <input
-                    type={
-                      showPasswords.confirm
-                        ? "text"
-                        : "password"
-                    }
+                    id="confirmPassword"
+                    type={showPasswords.confirm ? "text" : "password"}
                     name="confirmPassword"
-                    value={
-                      passwordData.confirmPassword
-                    }
-                    onChange={
-                      handlePasswordChange
-                    }
+                    value={passwordData.confirmPassword}
+                    onChange={handlePasswordChange}
                     placeholder="Confirm new password"
+                    autoComplete="new-password"
                   />
 
                   <button
                     type="button"
                     onClick={() =>
-                      togglePasswordVisibility(
-                        "confirm"
-                      )
+                      togglePasswordVisibility("confirm")
                     }
                     aria-label="Show or hide confirm password"
                   >
@@ -776,41 +618,32 @@ function HiringManagerSettings() {
                       <Eye size={17} />
                     )}
                   </button>
-
                 </div>
-
               </div>
-
             </div>
 
             {passwordMessage && (
-              <p className="hm-settings-password-message">
+              <p
+                className="hm-settings-password-message"
+                role="status"
+              >
                 {passwordMessage}
               </p>
             )}
 
             <div className="hm-settings-security-actions">
-
               <button
                 type="button"
                 className="hm-settings-password-button"
                 onClick={handleUpdatePassword}
               >
-
                 <LockKeyhole size={16} />
-
                 Update Password
-
               </button>
-
             </div>
-
           </section>
-
         </main>
-
       </div>
-
     </div>
   );
 }
