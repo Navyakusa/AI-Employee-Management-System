@@ -1,4 +1,3 @@
-
 package com.ems.service;
 
 import com.ems.common.ApiResponse;
@@ -184,6 +183,7 @@ public class AuthService {
         }
     }
 
+
     // =========================================================
     // FORGOT PASSWORD
     // =========================================================
@@ -193,15 +193,31 @@ public class AuthService {
             ForgotPasswordRequestDto request) {
 
         try {
+            // 1. Validate request
+            if (request == null
+                    || request.getEmail() == null
+                    || request.getEmail().isBlank()) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(new ApiResponse<>(
+                                false,
+                                "Email is required",
+                                null
+                        ));
+            }
+
+            // 2. Normalize email
             String email = request.getEmail()
                     .trim()
-                    .toLowerCase();
+                    .toLowerCase(java.util.Locale.ROOT);
 
+            // 3. Find registered user
             User user = userRepository
                     .findByEmailIgnoreCase(email)
                     .orElse(null);
 
-            // Do not reveal whether an email is registered.
+            // Do not disclose whether an account exists
             if (user == null) {
                 return ResponseEntity.ok(
                         new ApiResponse<>(
@@ -212,30 +228,49 @@ public class AuthService {
                 );
             }
 
+            // 4. Validate saved user details
+            if (user.getUserId() == null
+                    || user.getEmail() == null
+                    || user.getEmail().isBlank()) {
+
+                throw new IllegalStateException(
+                        "Registered user has incomplete account details"
+                );
+            }
+
+            // 5. Remove previous reset tokens
             passwordResetTokenRepository.deleteByUserId(
                     user.getUserId()
             );
 
-            String resetToken = UUID.randomUUID().toString();
+            // 6. Generate a new reset token
+            String resetToken =
+                    java.util.UUID.randomUUID().toString();
 
-            PasswordResetToken passwordResetToken =
+            PasswordResetToken token =
                     new PasswordResetToken();
 
-            passwordResetToken.setToken(resetToken);
-            passwordResetToken.setUserId(user.getUserId());
-            passwordResetToken.setExpiryDate(
-                    LocalDateTime.now().plusMinutes(30)
+            token.setToken(resetToken);
+            token.setUserId(user.getUserId());
+            token.setExpiryDate(
+                    java.time.LocalDateTime.now()
+                            .plusMinutes(30)
             );
-            passwordResetToken.setUsed(false);
+            token.setUsed(false);
 
-            passwordResetTokenRepository.save(passwordResetToken);
-
+            // 7. Send the email before persisting the new token.
+            // If SMTP fails, no new unusable token is stored.
             emailNotificationService.sendPasswordResetEmail(
                     user.getEmail(),
                     user.getUserName(),
                     resetToken
             );
 
+            // 8. Only persist the token after the email service succeeds.
+            // The token remains valid for 30 minutes and can be used once.
+            passwordResetTokenRepository.save(token);
+
+            // 9. Return success
             return ResponseEntity.ok(
                     new ApiResponse<>(
                             true,
@@ -245,17 +280,19 @@ public class AuthService {
             );
 
         } catch (Exception e) {
-            e.printStackTrace();
+            // Log the exception and stack trace in backend console.
+            // Never log the reset token or credentials.
+            org.slf4j.LoggerFactory
+                    .getLogger(AuthService.class)
+                    .error("Forgot-password request failed", e);
 
             return ResponseEntity
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(
-                            new ApiResponse<>(
-                                    false,
-                                    "Failed to process password reset request",
-                                    null
-                            )
-                    );
+                    .body(new ApiResponse<>(
+                            false,
+                            "Failed to process password reset request",
+                            null
+                    ));
         }
     }
 

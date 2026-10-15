@@ -1,5 +1,4 @@
-
-        package com.ems.service;
+package com.ems.service;
 
 import com.ems.entity.EmailTemplate;
 import com.ems.entity.User;
@@ -360,4 +359,3 @@ public class EmailNotificationService {
     ) {
     }
 }
-
