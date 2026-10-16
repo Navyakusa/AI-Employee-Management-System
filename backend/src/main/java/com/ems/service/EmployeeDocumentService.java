@@ -1,4 +1,3 @@
-
 package com.ems.service;
 
 import com.ems.common.ApiResponse;
@@ -8,8 +7,6 @@ import com.ems.entity.Employee;
 import com.ems.entity.EmployeeDocument;
 import com.ems.repository.EmployeeDocumentRepository;
 import com.ems.repository.EmployeeRepository;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -513,9 +510,10 @@ public class EmployeeDocumentService {
     // DOWNLOAD / PREVIEW MY DOCUMENT
     // =========================================================
 
-    public ResponseEntity<?> downloadMyDocument(
+    public ResponseEntity<?> getMyDocumentFile(
             Long documentId,
-            Authentication authentication) {
+            Authentication authentication,
+            boolean asAttachment) {
 
         try {
             Employee employee = getLoggedInEmployee(authentication);
@@ -582,15 +580,9 @@ public class EmployeeDocumentService {
             originalFileName = Paths.get(originalFileName).getFileName().toString();
 
             MediaType mediaType = getDocumentMediaType(originalFileName, document.getFileType());
-            String extension = getFileExtension(originalFileName);
-            boolean inline = extension.equals(".pdf")
-                    || extension.equals(".jpg")
-                    || extension.equals(".jpeg")
-                    || extension.equals(".png");
-
             byte[] fileBytes = Files.readAllBytes(realFile);
             ContentDisposition disposition = ContentDisposition
-                    .builder(inline ? "inline" : "attachment")
+                    .builder(asAttachment ? "attachment" : "inline")
                     .filename(originalFileName, StandardCharsets.UTF_8)
                     .build();
 

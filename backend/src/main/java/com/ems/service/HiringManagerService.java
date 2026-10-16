@@ -1,3 +1,4 @@
+
 package com.ems.service;
 
 import com.ems.common.ApplicationStatus;
@@ -20,117 +21,65 @@ import java.util.List;
 public class HiringManagerService {
 
     private final UserRepository userRepository;
-
     private final JobRepository jobRepository;
-
     private final ApplicationRepository applicationRepository;
-
     private final InterviewRepository interviewRepository;
-
-    private final InterviewFeedbackRepository
-            interviewFeedbackRepository;
+    private final InterviewFeedbackRepository interviewFeedbackRepository;
 
     public HiringManagerService(
             UserRepository userRepository,
             JobRepository jobRepository,
             ApplicationRepository applicationRepository,
             InterviewRepository interviewRepository,
-            InterviewFeedbackRepository interviewFeedbackRepository
-    ) {
+            InterviewFeedbackRepository interviewFeedbackRepository) {
 
-        this.userRepository =
-                userRepository;
-
-        this.jobRepository =
-                jobRepository;
-
-        this.applicationRepository =
-                applicationRepository;
-
-        this.interviewRepository =
-                interviewRepository;
-
-        this.interviewFeedbackRepository =
-                interviewFeedbackRepository;
+        this.userRepository = userRepository;
+        this.jobRepository = jobRepository;
+        this.applicationRepository = applicationRepository;
+        this.interviewRepository = interviewRepository;
+        this.interviewFeedbackRepository = interviewFeedbackRepository;
     }
 
-    public HiringManagerDashboardDto getDashboard(
-            String email
-    ) {
+    private User getHiringManager(String email) {
 
-        User hiringManager =
-                userRepository
-                        .findByEmailIgnoreCase(email)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Hiring manager not found"
-                                )
-                        );
+        User hiringManager = userRepository
+                .findByEmailIgnoreCase(email)
+                .orElseThrow(() ->
+                        new RuntimeException("Hiring manager not found"));
 
-        if (hiringManager.getRole() == null ||
-                !"HIRING_MANAGER".equalsIgnoreCase(
-                        hiringManager.getRole()
-                )) {
-
+        if (hiringManager.getRole() == null
+                || !"HIRING_MANAGER".equalsIgnoreCase(
+                hiringManager.getRole())) {
             throw new RuntimeException(
-                    "User is not a hiring manager"
-            );
+                    "User is not a hiring manager");
         }
 
-        Long hiringManagerId =
-                hiringManager.getUserId();
+        return hiringManager;
+    }
 
-        String department =
-                hiringManager.getDepartment();
+    // Hiring Manager Dashboard
+    public HiringManagerDashboardDto getDashboard(String email) {
 
-        // =====================================================
-        // ASSIGNED JOBS
-        // =====================================================
+        User hiringManager = getHiringManager(email);
 
-        long totalJobs =
-                jobRepository
-                        .countByHiringManagerId(
-                                hiringManagerId
-                        );
+        Long hiringManagerId = hiringManager.getUserId();
+        String department = hiringManager.getDepartment();
 
-        long openJobs =
-                jobRepository
-                        .findByHiringManagerId(
-                                hiringManagerId
-                        )
-                        .stream()
-                        .filter(job ->
-                                job.getStatus() != null &&
-                                        "OPEN".equalsIgnoreCase(
-                                                job.getStatus()
-                                        )
-                        )
-                        .count();
+        long totalJobs = jobRepository
+                .countByHiringManagerId(hiringManagerId);
 
-        // =====================================================
-        // APPLICATIONS
-        // =====================================================
+        long openJobs = jobRepository
+                .findByHiringManagerId(hiringManagerId)
+                .stream()
+                .filter(job -> job.getStatus() != null
+                        && "OPEN".equalsIgnoreCase(job.getStatus()))
+                .count();
 
-        long totalApplications =
-                applicationRepository
-                        .countByHiringManagerId(
-                                hiringManagerId
-                        );
+        long totalApplications = applicationRepository
+                .countByHiringManagerId(hiringManagerId);
 
-        // =====================================================
-        // INTERVIEWS
-        // =====================================================
-
-        long totalInterviews =
-                interviewRepository
-                        .countByHiringManagerId(
-                                hiringManagerId
-                        );
-
-        // =====================================================
-        // PENDING DECISIONS
-        // SHORTLISTED + COMPLETED INTERVIEW + FEEDBACK
-        // =====================================================
+        long totalInterviews = interviewRepository
+                .countByHiringManagerId(hiringManagerId);
 
         long pendingDecisions = 0;
 
@@ -141,30 +90,24 @@ public class HiringManagerService {
                                 hiringManagerId
                         );
 
-        for (Application application :
-                shortlisted) {
+        for (Application application : shortlisted) {
 
-            Interview interview =
-                    interviewRepository
-                            .findFirstByApplicationIdOrderByInterviewDateTimeDesc(
-                                    application.getApplicationId()
-                            )
-                            .orElse(null);
+            Interview interview = interviewRepository
+                    .findFirstByApplicationIdOrderByInterviewDateTimeDesc(
+                            application.getApplicationId()
+                    )
+                    .orElse(null);
 
             if (interview == null) {
                 continue;
             }
 
-            if (interview.getStatus() !=
-                    InterviewStatus.COMPLETED) {
+            if (interview.getStatus() != InterviewStatus.COMPLETED) {
                 continue;
             }
 
-            if (interviewFeedbackRepository
-                    .existsByInterviewId(
-                            interview.getInterviewId()
-                    )) {
-
+            if (interviewFeedbackRepository.existsByInterviewId(
+                    interview.getInterviewId())) {
                 pendingDecisions++;
             }
         }
@@ -177,5 +120,19 @@ public class HiringManagerService {
                 pendingDecisions,
                 department
         );
+    }
+
+    // Shortlisted candidates for the logged-in hiring manager
+    public List<Application> getShortlistedCandidates(String email) {
+
+        User hiringManager = getHiringManager(email);
+
+        Long hiringManagerId = hiringManager.getUserId();
+
+        return applicationRepository
+                .findByStatusAndHiringManagerId(
+                        ApplicationStatus.SHORTLISTED,
+                        hiringManagerId
+                );
     }
 }

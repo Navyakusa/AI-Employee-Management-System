@@ -7,7 +7,13 @@ import com.ems.service.EmployeeDocumentService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -53,12 +59,20 @@ public class EmployeeDocumentController {
         return documentService.getMyDocumentById(documentId, authentication);
     }
 
-    // DOWNLOAD OR PREVIEW DOCUMENT FILE
+    // VIEW DOCUMENT IN BROWSER (for example, PDF or image)
+    @GetMapping("/{documentId}/view")
+    public ResponseEntity<?> viewMyDocument(
+            @PathVariable Long documentId,
+            Authentication authentication) {
+        return documentService.getMyDocumentFile(documentId, authentication, false);
+    }
+
+    // DOWNLOAD DOCUMENT AS AN ATTACHMENT
     @GetMapping("/{documentId}/download")
     public ResponseEntity<?> downloadMyDocument(
             @PathVariable Long documentId,
             Authentication authentication) {
-        return documentService.downloadMyDocument(documentId, authentication);
+        return documentService.getMyDocumentFile(documentId, authentication, true);
     }
 
     // DELETE MY DOCUMENT

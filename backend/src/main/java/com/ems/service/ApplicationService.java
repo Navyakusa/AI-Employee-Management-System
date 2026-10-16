@@ -2,6 +2,7 @@ package com.ems.service;
 
 import com.ems.common.ApiResponse;
 import com.ems.common.ApplicationStatus;
+import com.ems.dto.AIResumeScreeningRequestDto;
 import com.ems.dto.CandidateReviewDto;
 import com.ems.dto.InterviewEligibleApplicationDto;
 import com.ems.dto.ShortlistedCandidateDto;
@@ -33,6 +34,7 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class ApplicationService {
+
     private final NotificationService notificationService;
     private final ApplicationRepository applicationRepository;
     private final UserRepository userRepository;
@@ -43,52 +45,38 @@ public class ApplicationService {
 
     private final ShortlistedCandidateMapper shortlistedCandidateMapper;
     private final CandidateReviewMapper candidateReviewMapper;
-
     private final EmailNotificationService emailNotificationService;
 
+    // Automatically runs AI screening when a candidate applies.
+    private final AIResumeScreeningService aiResumeScreeningService;
+
 
     // =========================================================
-    // HELPER
     // FIND CANDIDATE FOR APPLICATION
-    // =========================================================
-    //
-    // Correct relationship:
-    //
-    // Application.candidateId -> Candidate.id
-    //
-    // Some older records may have been created using:
-    //
-    // Application.candidateId -> User.userId
-    //
-    // Therefore we support both.
     // =========================================================
 
     private Candidate findCandidateForApplication(Application application) {
 
         if (application == null || application.getCandidateId() == null) {
-
             return null;
         }
 
         Long candidateId = application.getCandidateId();
 
-        // Correct relationship:
-        // Application.candidateId -> Candidate.id
-
-        Candidate candidate = candidateRepository.findById(candidateId).orElse(null);
+        Candidate candidate =
+                candidateRepository.findById(candidateId).orElse(null);
 
         if (candidate != null) {
             return candidate;
         }
 
-        // Backward compatibility:
-        // older application may contain User.userId
-
+        // Backward compatibility for older application records.
         User user = userRepository.findById(candidateId).orElse(null);
 
         if (user != null && user.getEmail() != null) {
-
-            return candidateRepository.findByEmailIgnoreCase(user.getEmail()).orElse(null);
+            return candidateRepository
+                    .findByEmailIgnoreCase(user.getEmail())
+                    .orElse(null);
         }
 
         return null;
@@ -96,22 +84,88 @@ public class ApplicationService {
 
 
     // =========================================================
-    // HELPER
     // FIND USER FROM CANDIDATE
-    // =========================================================
-    //
-    // User is optional for recruiter candidate information.
-    // A Candidate profile can exist without a login account.
     // =========================================================
 
     private User findUserForCandidate(Candidate candidate) {
 
-        if (candidate == null || candidate.getEmail() == null || candidate.getEmail().isBlank()) {
-
+        if (candidate == null
+                || candidate.getEmail() == null
+                || candidate.getEmail().isBlank()) {
             return null;
         }
 
-        return userRepository.findByEmailIgnoreCase(candidate.getEmail()).orElse(null);
+        return userRepository
+                .findByEmailIgnoreCase(candidate.getEmail())
+                .orElse(null);
+    }
+
+
+    // =========================================================
+    // AUTOMATIC AI RESUME SCREENING
+    // =========================================================
+
+    private void triggerAutomaticScreening(Long candidateId, Long jobId, Long applicationId) {
+
+        try {
+            // Confirm that a resume has already been uploaded.
+            Resume resume = resumeRepository
+                    .findFirstByCandidateIdOrderByIdDesc(candidateId)
+                    .orElse(null);
+
+            if (resume == null) {
+                System.err.println(
+                        "Automatic AI screening skipped: no resume found for candidate "
+                                + candidateId
+                );
+                return;
+            }
+
+            if (resume.getExtractedText() == null
+                    || resume.getExtractedText().isBlank()) {
+                System.err.println(
+                        "Automatic AI screening skipped: extracted resume text is empty. "
+                                + "Candidate ID: " + candidateId
+                );
+                return;
+            }
+
+            AIResumeScreeningRequestDto request =
+                    new AIResumeScreeningRequestDto();
+
+            request.setCandidateId(candidateId);
+            request.setJobId(jobId);
+            request.setResumeId(resume.getId());
+            request.setApplicationId(applicationId);
+
+            ResponseEntity<ApiResponse<com.ems.dto.AIResumeScreeningResponseDto>>
+                    response = aiResumeScreeningService.screenResume(request);
+
+            if (response.getStatusCode().is2xxSuccessful()
+                    && response.getBody() != null
+                    && response.getBody().isSuccess()) {
+
+                System.out.println(
+                        "Automatic AI screening completed successfully. Candidate ID: "
+                                + candidateId + ", Job ID: " + jobId
+                );
+
+            } else {
+                System.err.println(
+                        "Automatic AI screening did not complete successfully. "
+                                + "Candidate ID: " + candidateId
+                                + ", Job ID: " + jobId
+                );
+            }
+
+        } catch (Exception e) {
+            // AI failure should not undo a successfully saved application.
+            System.err.println(
+                    "Automatic AI screening failed. Candidate ID: "
+                            + candidateId + ", Job ID: " + jobId
+                            + ". Reason: " + e.getMessage()
+            );
+        }
     }
 
 
@@ -119,67 +173,94 @@ public class ApplicationService {
     // CANDIDATE - APPLY FOR JOB
     // =========================================================
 
-    public ResponseEntity<ApiResponse<Application>> applyForJob(Long jobId, String email) {
+    public ResponseEntity<ApiResponse<Application>> applyForJob(
+            Long jobId, String email) {
 
         try {
-
-            User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
+            User user =
+                    userRepository.findByEmailIgnoreCase(email).orElse(null);
 
             if (user == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "User not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(false, "User not found", null));
             }
 
-            if (user.getRole() == null || !user.getRole().equalsIgnoreCase("CANDIDATE")) {
-
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiResponse<>(false, "Only candidates can apply for jobs", null));
+            if (user.getRole() == null
+                    || !user.getRole().equalsIgnoreCase("CANDIDATE")) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Only candidates can apply for jobs",
+                                null
+                        ));
             }
 
-            Candidate candidate = candidateRepository.findByEmailIgnoreCase(email).orElse(null);
+            Candidate candidate =
+                    candidateRepository.findByEmailIgnoreCase(email).orElse(null);
 
             if (candidate == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Candidate profile not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Candidate profile not found",
+                                null
+                        ));
             }
 
             Job job = jobRepository.findById(jobId).orElse(null);
 
             if (job == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Job not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(false, "Job not found", null));
             }
 
-            if (job.getStatus() == null || !job.getStatus().equalsIgnoreCase("OPEN")) {
-
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>(false, "This job is not open for applications", null));
+            if (job.getStatus() == null
+                    || !job.getStatus().equalsIgnoreCase("OPEN")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ApiResponse<>(
+                                false,
+                                "This job is not open for applications",
+                                null
+                        ));
             }
 
-            // Check correct Candidate ID
-            boolean alreadyApplied = applicationRepository.findByCandidateIdAndJobId(candidate.getId(), jobId).isPresent();
+            boolean alreadyApplied =
+                    applicationRepository
+                            .findByCandidateIdAndJobId(candidate.getId(), jobId)
+                            .isPresent();
 
-            // Also check old User ID records
+            // Also check old records that used User.userId.
             if (!alreadyApplied) {
-
-                alreadyApplied = applicationRepository.findByCandidateIdAndJobId(user.getUserId(), jobId).isPresent();
+                alreadyApplied =
+                        applicationRepository
+                                .findByCandidateIdAndJobId(user.getUserId(), jobId)
+                                .isPresent();
             }
 
             if (alreadyApplied) {
-
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>(false, "You have already applied for this job", null));
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ApiResponse<>(
+                                false,
+                                "You have already applied for this job",
+                                null
+                        ));
             }
 
             Application application = new Application();
-
-            // New applications store Candidate.id
             application.setCandidateId(candidate.getId());
-
             application.setJobId(jobId);
-
             application.setStatus(ApplicationStatus.APPLIED);
 
-            Application savedApplication = applicationRepository.save(application);
-            List<User> recruitmentUsers =
-                    userRepository.findAll();
+            // Save the application first.
+            Application savedApplication =
+                    applicationRepository.save(application);
+
+            // NEW: automatically screen the candidate's latest resume.
+            // The application remains saved even if AI screening fails.
+            triggerAutomaticScreening(candidate.getId(), job.getId(), savedApplication.getApplicationId());
+
+            // Notify HR/recruitment users about the new application.
+            List<User> recruitmentUsers = userRepository.findAll();
 
             for (User recruitmentUser : recruitmentUsers) {
 
@@ -187,13 +268,12 @@ public class ApplicationService {
                     continue;
                 }
 
-                String role =
-                        recruitmentUser.getRole().toUpperCase();
+                String role = recruitmentUser.getRole().toUpperCase();
 
-                if (role.equals("HR") ||
-                        role.equals("RECRUITER") ||
-                        role.equals("HIRING_MANAGER") ||
-                        role.equals("SUPER_ADMIN")) {
+                if (role.equals("HR")
+                        || role.equals("RECRUITER")
+                        || role.equals("HIRING_MANAGER")
+                        || role.equals("SUPER_ADMIN")) {
 
                     notificationService.createNotification(
                             recruitmentUser.getUserId(),
@@ -204,13 +284,22 @@ public class ApplicationService {
                 }
             }
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(new ApiResponse<>(true, "Job application submitted successfully", savedApplication));
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(new ApiResponse<>(
+                            true,
+                            "Job application submitted successfully",
+                            savedApplication
+                    ));
 
         } catch (Exception e) {
-
             e.printStackTrace();
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to apply for job: " + e.getMessage(), null));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(
+                            false,
+                            "Failed to apply for job: " + e.getMessage(),
+                            null
+                    ));
         }
     }
 
@@ -219,51 +308,73 @@ public class ApplicationService {
     // CANDIDATE - GET MY APPLICATIONS
     // =========================================================
 
-    public ResponseEntity<ApiResponse<List<Application>>> getMyApplications(String email) {
+    public ResponseEntity<ApiResponse<List<Application>>> getMyApplications(
+            String email) {
 
         try {
-
-            User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
+            User user =
+                    userRepository.findByEmailIgnoreCase(email).orElse(null);
 
             if (user == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "User not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(false, "User not found", null));
             }
 
-            if (user.getRole() == null || !user.getRole().equalsIgnoreCase("CANDIDATE")) {
-
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiResponse<>(false, "Only candidates can view their applications", null));
+            if (user.getRole() == null
+                    || !user.getRole().equalsIgnoreCase("CANDIDATE")) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Only candidates can view their applications",
+                                null
+                        ));
             }
 
-            Candidate candidate = candidateRepository.findByEmailIgnoreCase(email).orElse(null);
+            Candidate candidate =
+                    candidateRepository.findByEmailIgnoreCase(email).orElse(null);
 
             if (candidate == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Candidate profile not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Candidate profile not found",
+                                null
+                        ));
             }
 
-            List<Application> applications = applicationRepository.findByCandidateId(candidate.getId());
+            List<Application> applications =
+                    applicationRepository.findByCandidateId(candidate.getId());
 
-            // Backward compatibility for old records
-            List<Application> oldApplications = applicationRepository.findByCandidateId(user.getUserId());
+            List<Application> oldApplications =
+                    applicationRepository.findByCandidateId(user.getUserId());
 
             for (Application oldApplication : oldApplications) {
 
-                boolean alreadyIncluded = applications.stream().anyMatch(existing -> existing.getApplicationId().equals(oldApplication.getApplicationId()));
+                boolean alreadyIncluded = applications.stream()
+                        .anyMatch(existing ->
+                                existing.getApplicationId()
+                                        .equals(oldApplication.getApplicationId()));
 
                 if (!alreadyIncluded) {
-
                     applications.add(oldApplication);
                 }
             }
 
-            return ResponseEntity.ok(new ApiResponse<>(true, "Candidate applications retrieved successfully", applications));
+            return ResponseEntity.ok(new ApiResponse<>(
+                    true,
+                    "Candidate applications retrieved successfully",
+                    applications
+            ));
 
         } catch (Exception e) {
-
             e.printStackTrace();
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to fetch applications: " + e.getMessage(), null));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(
+                            false,
+                            "Failed to fetch applications: " + e.getMessage(),
+                            null
+                    ));
         }
     }
 
@@ -272,86 +383,125 @@ public class ApplicationService {
     // CANDIDATE - WITHDRAW APPLICATION
     // =========================================================
 
-    public ResponseEntity<ApiResponse<Application>> withdrawApplication(Long applicationId, String email) {
+    public ResponseEntity<ApiResponse<Application>> withdrawApplication(
+            Long applicationId, String email) {
 
         try {
-
-            User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
+            User user =
+                    userRepository.findByEmailIgnoreCase(email).orElse(null);
 
             if (user == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "User not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(false, "User not found", null));
             }
 
-            if (user.getRole() == null || !user.getRole().equalsIgnoreCase("CANDIDATE")) {
-
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiResponse<>(false, "Only candidates can withdraw applications", null));
+            if (user.getRole() == null
+                    || !user.getRole().equalsIgnoreCase("CANDIDATE")) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Only candidates can withdraw applications",
+                                null
+                        ));
             }
 
-            Candidate candidate = candidateRepository.findByEmailIgnoreCase(email).orElse(null);
+            Candidate candidate =
+                    candidateRepository.findByEmailIgnoreCase(email).orElse(null);
 
             if (candidate == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Candidate profile not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Candidate profile not found",
+                                null
+                        ));
             }
 
-            Application application = applicationRepository.findById(applicationId).orElse(null);
+            Application application =
+                    applicationRepository.findById(applicationId).orElse(null);
 
             if (application == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Application not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Application not found",
+                                null
+                        ));
             }
 
-            Candidate applicationCandidate = findCandidateForApplication(application);
+            Candidate applicationCandidate =
+                    findCandidateForApplication(application);
 
-            if (applicationCandidate == null || !applicationCandidate.getId().equals(candidate.getId())) {
-
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiResponse<>(false, "You are not allowed to withdraw this application", null));
+            if (applicationCandidate == null
+                    || !applicationCandidate.getId().equals(candidate.getId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ApiResponse<>(
+                                false,
+                                "You are not allowed to withdraw this application",
+                                null
+                        ));
             }
 
             if (application.getStatus() == ApplicationStatus.SHORTLISTED) {
-
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>(false, "Shortlisted applications cannot be withdrawn", null));
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Shortlisted applications cannot be withdrawn",
+                                null
+                        ));
             }
 
             application.setStatus(ApplicationStatus.WITHDRAWN);
 
-            Application savedApplication = applicationRepository.save(application);
+            Application savedApplication =
+                    applicationRepository.save(application);
 
-
-            return ResponseEntity.ok(new ApiResponse<>(true, "Application withdrawn successfully", savedApplication));
+            return ResponseEntity.ok(new ApiResponse<>(
+                    true,
+                    "Application withdrawn successfully",
+                    savedApplication
+            ));
 
         } catch (Exception e) {
-
             e.printStackTrace();
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to withdraw application: " + e.getMessage(), null));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(
+                            false,
+                            "Failed to withdraw application: " + e.getMessage(),
+                            null
+                    ));
         }
     }
 
 
     // =========================================================
-    // HR / RECRUITER
-    // GET SHORTLISTED CANDIDATES
+    // HR / RECRUITER - GET SHORTLISTED CANDIDATES
     // =========================================================
 
-    public ResponseEntity<ApiResponse<List<ShortlistedCandidateDto>>> getShortlistedCandidates() {
+    public ResponseEntity<ApiResponse<List<ShortlistedCandidateDto>>>
+    getShortlistedCandidates() {
 
         try {
+            List<Application> applications =
+                    applicationRepository.findByStatus(
+                            ApplicationStatus.SHORTLISTED
+                    );
 
-            List<Application> applications = applicationRepository.findByStatus(ApplicationStatus.SHORTLISTED);
-
-            List<ShortlistedCandidateDto> shortlistedCandidates = new ArrayList<>();
+            List<ShortlistedCandidateDto> shortlistedCandidates =
+                    new ArrayList<>();
 
             for (Application application : applications) {
 
-                Candidate candidate = findCandidateForApplication(application);
+                Candidate candidate =
+                        findCandidateForApplication(application);
 
                 if (candidate == null) {
                     continue;
                 }
 
-                Job job = jobRepository.findById(application.getJobId()).orElse(null);
+                Job job =
+                        jobRepository.findById(application.getJobId()).orElse(null);
 
                 if (job == null) {
                     continue;
@@ -359,123 +509,162 @@ public class ApplicationService {
 
                 User user = findUserForCandidate(candidate);
 
-                Resume resume = resumeRepository.findFirstByCandidateIdOrderByIdDesc(candidate.getId()).orElse(null);
+                Resume resume =
+                        resumeRepository
+                                .findFirstByCandidateIdOrderByIdDesc(candidate.getId())
+                                .orElse(null);
 
-                /*
-                 * IMPORTANT:
-                 *
-                 * There may be multiple AI matching
-                 * records for the same candidate + job.
-                 *
-                 * We intentionally fetch the latest
-                 * record by ID instead of expecting a
-                 * unique result.
-                 */
-                AICandidateMatching aiMatching = aiCandidateMatchingRepository.findFirstByCandidateIdAndJobIdOrderByIdDesc(candidate.getId(), job.getId()).orElse(null);
+                AICandidateMatching aiMatching =
+                        aiCandidateMatchingRepository
+                                .findFirstByCandidateIdAndJobIdOrderByIdDesc(
+                                        candidate.getId(),
+                                        job.getId()
+                                )
+                                .orElse(null);
 
-                ShortlistedCandidateDto dto = shortlistedCandidateMapper.toDto(application, user, candidate, job, resume, aiMatching);
+                ShortlistedCandidateDto dto =
+                        shortlistedCandidateMapper.toDto(
+                                application,
+                                user,
+                                candidate,
+                                job,
+                                resume,
+                                aiMatching
+                        );
 
                 shortlistedCandidates.add(dto);
             }
 
-            return ResponseEntity.ok(new ApiResponse<>(true, "Shortlisted candidates fetched successfully", shortlistedCandidates));
+            return ResponseEntity.ok(new ApiResponse<>(
+                    true,
+                    "Shortlisted candidates fetched successfully",
+                    shortlistedCandidates
+            ));
 
         } catch (Exception e) {
-
             e.printStackTrace();
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to fetch shortlisted candidates: " + e.getMessage(), null));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(
+                            false,
+                            "Failed to fetch shortlisted candidates: " + e.getMessage(),
+                            null
+                    ));
         }
     }
 
 
     // =========================================================
-    // HR / RECRUITER
-    // CANDIDATE REVIEW
+    // HR / RECRUITER - CANDIDATE REVIEW
     // =========================================================
 
-    public ResponseEntity<ApiResponse<CandidateReviewDto>> getCandidateReview(Long applicationId) {
+    public ResponseEntity<ApiResponse<CandidateReviewDto>>
+    getCandidateReview(Long applicationId) {
 
         try {
-
-            Application application = applicationRepository.findById(applicationId).orElse(null);
+            Application application =
+                    applicationRepository.findById(applicationId).orElse(null);
 
             if (application == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Application not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Application not found",
+                                null
+                        ));
             }
 
             if (application.getStatus() != ApplicationStatus.SHORTLISTED) {
-
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>(false, "Candidate is not shortlisted", null));
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Candidate is not shortlisted",
+                                null
+                        ));
             }
 
-            // Application.candidateId -> Candidate.id
-            Candidate candidate = findCandidateForApplication(application);
+            Candidate candidate =
+                    findCandidateForApplication(application);
 
             if (candidate == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Candidate profile not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Candidate profile not found",
+                                null
+                        ));
             }
 
-            /*
-             * User is optional.
-             *
-             * Candidate can exist without
-             * a login account.
-             */
             User user = findUserForCandidate(candidate);
 
-            Job job = jobRepository.findById(application.getJobId()).orElse(null);
+            Job job =
+                    jobRepository.findById(application.getJobId()).orElse(null);
 
             if (job == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Job not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(false, "Job not found", null));
             }
 
-            Resume resume = resumeRepository.findFirstByCandidateIdOrderByIdDesc(candidate.getId()).orElse(null);
+            Resume resume =
+                    resumeRepository
+                            .findFirstByCandidateIdOrderByIdDesc(candidate.getId())
+                            .orElse(null);
 
-            /*
-             * IMPORTANT:
-             *
-             * Multiple AI matching records may exist
-             * for the same candidate + job.
-             *
-             * Fetch the latest record by ID.
-             */
-            AICandidateMatching aiMatching = aiCandidateMatchingRepository.findFirstByCandidateIdAndJobIdOrderByIdDesc(candidate.getId(), job.getId()).orElse(null);
+            AICandidateMatching aiMatching =
+                    aiCandidateMatchingRepository
+                            .findFirstByCandidateIdAndJobIdOrderByIdDesc(
+                                    candidate.getId(),
+                                    job.getId()
+                            )
+                            .orElse(null);
 
-            CandidateReviewDto review = candidateReviewMapper.toDto(application, user, candidate, job, resume, aiMatching);
+            CandidateReviewDto review =
+                    candidateReviewMapper.toDto(
+                            application,
+                            user,
+                            candidate,
+                            job,
+                            resume,
+                            aiMatching
+                    );
 
-            return ResponseEntity.ok(new ApiResponse<>(true, "Candidate review fetched successfully", review));
+            return ResponseEntity.ok(new ApiResponse<>(
+                    true,
+                    "Candidate review fetched successfully",
+                    review
+            ));
 
         } catch (Exception e) {
-
             e.printStackTrace();
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to fetch candidate review: " + e.getMessage(), null));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(
+                            false,
+                            "Failed to fetch candidate review: " + e.getMessage(),
+                            null
+                    ));
         }
     }
 
 
     // =========================================================
-    // HR / RECRUITER
-    // SHORTLIST CANDIDATE
+    // HR / RECRUITER - SHORTLIST CANDIDATE
     // =========================================================
 
     public ResponseEntity<ApiResponse<Application>>
-
-
-
     shortlistCandidate(Long candidateId, Long jobId) {
 
         try {
-
-            Candidate candidate = candidateRepository.findById(candidateId).orElse(null);
+            Candidate candidate =
+                    candidateRepository.findById(candidateId).orElse(null);
 
             if (candidate == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Candidate not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Candidate not found",
+                                null
+                        ));
             }
 
             User user = findUserForCandidate(candidate);
@@ -483,157 +672,232 @@ public class ApplicationService {
             Job job = jobRepository.findById(jobId).orElse(null);
 
             if (job == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Job not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(false, "Job not found", null));
             }
 
-            /*
-             * Correct relationship:
-             * Candidate.id
-             */
-            Application application = applicationRepository.findByCandidateIdAndJobId(candidate.getId(), jobId).orElse(null);
+            Application application =
+                    applicationRepository
+                            .findByCandidateIdAndJobId(candidate.getId(), jobId)
+                            .orElse(null);
 
-            /*
-             * Backward compatibility for old data
-             * where User.userId was stored.
-             */
+            // Backward compatibility for older application records.
             if (application == null && user != null) {
-
-                application = applicationRepository.findByCandidateIdAndJobId(user.getUserId(), jobId).orElse(null);
+                application =
+                        applicationRepository
+                                .findByCandidateIdAndJobId(user.getUserId(), jobId)
+                                .orElse(null);
             }
 
             if (application == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Application not found for candidate and job", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Application not found for candidate and job",
+                                null
+                        ));
             }
 
             if (application.getStatus() == ApplicationStatus.SHORTLISTED) {
-
-                return ResponseEntity.ok(new ApiResponse<>(true, "Candidate is already shortlisted", application));
+                return ResponseEntity.ok(new ApiResponse<>(
+                        true,
+                        "Candidate is already shortlisted",
+                        application
+                ));
             }
 
-            // Normalize new/updated records
             application.setCandidateId(candidate.getId());
-
             application.setStatus(ApplicationStatus.SHORTLISTED);
 
+            Application savedApplication =
+                    applicationRepository.save(application);
 
-            Application savedApplication = applicationRepository.save(application);
             if (user != null) {
-
                 notificationService.createNotification(
                         user.getUserId(),
-                        "You have been shortlisted for "
-                                + job.getTitle(),
+                        "You have been shortlisted for " + job.getTitle(),
                         "CANDIDATE_SHORTLISTED"
                 );
             }
 
-            return ResponseEntity.ok(new ApiResponse<>(true, "Candidate shortlisted successfully", savedApplication));
+            return ResponseEntity.ok(new ApiResponse<>(
+                    true,
+                    "Candidate shortlisted successfully",
+                    savedApplication
+            ));
 
         } catch (Exception e) {
-
             e.printStackTrace();
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to shortlist candidate: " + e.getMessage(), null));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(
+                            false,
+                            "Failed to shortlist candidate: " + e.getMessage(),
+                            null
+                    ));
         }
     }
 
 
     // =========================================================
-    // HR / HIRING MANAGER
-    // UPDATE APPLICATION STATUS + EMAIL
+    // HR / HIRING MANAGER - UPDATE APPLICATION STATUS + EMAIL
     // =========================================================
 
-    public ResponseEntity<ApiResponse<Application>> updateApplicationStatus(Long applicationId, ApplicationStatus newStatus) {
+    public ResponseEntity<ApiResponse<Application>> updateApplicationStatus(
+            Long applicationId, ApplicationStatus newStatus) {
 
         try {
-
-            Application application = applicationRepository.findById(applicationId).orElse(null);
+            Application application =
+                    applicationRepository.findById(applicationId).orElse(null);
 
             if (application == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Application not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Application not found",
+                                null
+                        ));
             }
 
-            if (newStatus != ApplicationStatus.ACCEPTED && newStatus != ApplicationStatus.REJECTED) {
-
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>(false, "Only ACCEPTED or REJECTED status can be updated using this endpoint", null));
+            if (newStatus != ApplicationStatus.ACCEPTED
+                    && newStatus != ApplicationStatus.REJECTED) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Only ACCEPTED or REJECTED status can be updated using this endpoint",
+                                null
+                        ));
             }
 
-            Candidate candidate = findCandidateForApplication(application);
+            Candidate candidate =
+                    findCandidateForApplication(application);
 
             if (candidate == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Candidate profile not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Candidate profile not found",
+                                null
+                        ));
             }
 
-            Job job = jobRepository.findById(application.getJobId()).orElse(null);
+            Job job =
+                    jobRepository.findById(application.getJobId()).orElse(null);
 
             if (job == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Job not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(false, "Job not found", null));
             }
 
             User candidateUser = findUserForCandidate(candidate);
 
             if (candidateUser == null) {
-
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Candidate user account not found", null));
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(
+                                false,
+                                "Candidate user account not found",
+                                null
+                        ));
             }
 
             application.setStatus(newStatus);
 
-            Application savedApplication = applicationRepository.save(application);
+            Application savedApplication =
+                    applicationRepository.save(application);
 
-            String templateCode = newStatus == ApplicationStatus.ACCEPTED ? "APPLICATION_ACCEPTED" : "APPLICATION_REJECTED";
+            String templateCode =
+                    newStatus == ApplicationStatus.ACCEPTED
+                            ? "APPLICATION_ACCEPTED"
+                            : "APPLICATION_REJECTED";
 
-            emailNotificationService.sendEmail(candidateUser.getUserId(), templateCode, Map.of("candidateName", candidate.getName(), "jobTitle", job.getTitle()));
+            emailNotificationService.sendEmail(
+                    candidateUser.getUserId(),
+                    templateCode,
+                    Map.of(
+                            "candidateName", candidate.getName(),
+                            "jobTitle", job.getTitle()
+                    )
+            );
 
-            return ResponseEntity.ok(new ApiResponse<>(true, "Application status updated and email notification sent successfully", savedApplication));
+            return ResponseEntity.ok(new ApiResponse<>(
+                    true,
+                    "Application status updated and email notification sent successfully",
+                    savedApplication
+            ));
 
         } catch (Exception e) {
-
             e.printStackTrace();
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to update application status: " + e.getMessage(), null));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(
+                            false,
+                            "Failed to update application status: " + e.getMessage(),
+                            null
+                    ));
         }
     }
 
-    public ResponseEntity<ApiResponse<List<InterviewEligibleApplicationDto>>> getApplicationsEligibleForInterview() {
+
+    // =========================================================
+    // HR / RECRUITER - APPLICATIONS ELIGIBLE FOR INTERVIEW
+    // =========================================================
+
+    public ResponseEntity<ApiResponse<List<InterviewEligibleApplicationDto>>>
+    getApplicationsEligibleForInterview() {
 
         try {
+            List<Application> applications =
+                    applicationRepository.findByStatus(
+                            ApplicationStatus.SHORTLISTED
+                    );
 
-            List<Application> applications = applicationRepository.findByStatus(ApplicationStatus.SHORTLISTED);
-
-            List<InterviewEligibleApplicationDto> result = new ArrayList<>();
+            List<InterviewEligibleApplicationDto> result =
+                    new ArrayList<>();
 
             for (Application application : applications) {
 
-                Candidate candidate = findCandidateForApplication(application);
+                Candidate candidate =
+                        findCandidateForApplication(application);
 
                 if (candidate == null) {
                     continue;
                 }
 
-                Job job = jobRepository.findById(application.getJobId()).orElse(null);
+                Job job =
+                        jobRepository.findById(application.getJobId()).orElse(null);
 
                 if (job == null) {
                     continue;
                 }
 
-                InterviewEligibleApplicationDto dto = new InterviewEligibleApplicationDto(application.getApplicationId(), candidate.getId(), candidate.getName(), job.getId(), job.getTitle());
+                InterviewEligibleApplicationDto dto =
+                        new InterviewEligibleApplicationDto(
+                                application.getApplicationId(),
+                                candidate.getId(),
+                                candidate.getName(),
+                                job.getId(),
+                                job.getTitle()
+                        );
 
                 result.add(dto);
             }
 
-            return ResponseEntity.ok(new ApiResponse<>(true, "Applications eligible for interview scheduling fetched successfully", result));
+            return ResponseEntity.ok(new ApiResponse<>(
+                    true,
+                    "Applications eligible for interview scheduling fetched successfully",
+                    result
+            ));
 
         } catch (Exception e) {
-
             e.printStackTrace();
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to fetch applications eligible for interview: " + e.getMessage(), null));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(
+                            false,
+                            "Failed to fetch applications eligible for interview: "
+                                    + e.getMessage(),
+                            null
+                    ));
         }
     }
 }
