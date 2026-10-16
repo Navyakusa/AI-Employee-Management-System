@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "./Chatbot.css";
@@ -14,7 +14,16 @@ function Chatbot() {
     },
   ]);
   const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef(null);
 
+useEffect(() => {
+  if (isOpen) {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  }
+}, [messages, loading, isOpen]);
   useEffect(() => {
     const resetChat = () => {
       setMessages([
@@ -205,6 +214,7 @@ function Chatbot() {
                 <span></span>
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
 
           <div className="chatbot-input-area">

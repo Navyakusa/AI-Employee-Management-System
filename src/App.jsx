@@ -4,7 +4,7 @@ import Chatbot from "./components/Chatbot";
 // =====================================================
 // Recruiter Pages
 // =====================================================
-
+import ScrollToTop from "./components/ScrollToTop";
 import RecruiterDashboard from "./pages/recruiter/RecruiterDashboard";
 import RecruiterNotifications from "./pages/recruiter/RecruiterNotifications";
 import RecruiterProfile from "./pages/recruiter/RecruiterProfile";
@@ -158,7 +158,7 @@ import AdminContactMessages from "./pages/admin/AdminContactMessages";
 function App() {
   return (
     <BrowserRouter>
-
+      <ScrollToTop />
       <Routes>
 
         {/* =====================================================

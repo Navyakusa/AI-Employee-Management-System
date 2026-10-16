@@ -497,49 +497,6 @@ if (!isCandidate) {
         ...updatedProfile,
         id: candidateId,
       }));
-
-      // =====================================================
-      // STEP 2:
-      // CREATE REAL JOB APPLICATION
-      // POST /api/applications/apply/{jobId}
-      //
-      // No body required.
-      // Candidate is identified from JWT.
-      // =====================================================
-
-      console.log(
-        "Creating application for job:",
-        job.id
-      );
-
-      const applicationResponse =
-        await apiClient.post(
-          `/applications/apply/${job.id}`
-        );
-
-      console.log(
-        "Application response:",
-        applicationResponse.data
-      );
-
-      if (
-        applicationResponse.data?.success === false
-      ) {
-        throw new Error(
-          applicationResponse.data?.message ||
-            "Failed to create application."
-        );
-      }
-
-      const createdApplication =
-        applicationResponse.data?.data;
-
-      if (!createdApplication?.applicationId) {
-        throw new Error(
-          "Application was not created successfully."
-        );
-      }
-
       // =====================================================
       // STEP 3:
       // UPLOAD RESUME
@@ -587,6 +544,50 @@ if (!isCandidate) {
         );
       }
 
+
+      // =====================================================
+      // STEP 2:
+      // CREATE REAL JOB APPLICATION
+      // POST /api/applications/apply/{jobId}
+      //
+      // No body required.
+      // Candidate is identified from JWT.
+      // =====================================================
+
+      console.log(
+        "Creating application for job:",
+        job.id
+      );
+
+      const applicationResponse =
+        await apiClient.post(
+          `/applications/apply/${job.id}`
+        );
+
+      console.log(
+        "Application response:",
+        applicationResponse.data
+      );
+
+      if (
+        applicationResponse.data?.success === false
+      ) {
+        throw new Error(
+          applicationResponse.data?.message ||
+            "Failed to create application."
+        );
+      }
+
+      const createdApplication =
+        applicationResponse.data?.data;
+
+      if (!createdApplication?.applicationId) {
+        throw new Error(
+          "Application was not created successfully."
+        );
+      }
+
+      
       // =====================================================
       // EVERYTHING SUCCESSFUL
       // =====================================================
