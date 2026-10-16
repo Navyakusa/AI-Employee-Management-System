@@ -7,7 +7,7 @@ Module 7 (matching.py) consumes the same underlying signals to produce that scor
 """
 import re
 
-from app.ml_utils import parse_skills, parse_skill_list, normalize_skill, get_tokens
+from app.ml_utils import parse_skills, normalize_skill, get_tokens
 from app.matching import vectorizer as _match_vectorizer  # reuse Module 7's TF-IDF vectorizer
 
 
@@ -18,11 +18,8 @@ def extract_job_requirements(job: dict) -> dict:
         "job_title": job["job_title"],
         "seniority_required": job["seniority"],
         "industry": job["industry"],
-        # parse_skill_list drops placeholders such as "[]" (sent when a job
-        # has no preferred skills) -- otherwise "[]" became a required skill
-        # that nobody has, and Nice-to-Have was always 0%.
-        "must_have_skills": parse_skill_list(job["must_have_skills"]),
-        "nice_to_have_skills": parse_skill_list(job["nice_to_have_skills"]),
+        "must_have_skills": [normalize_skill(s) for s in parse_skills(job["must_have_skills"])],
+        "nice_to_have_skills": [normalize_skill(s) for s in parse_skills(job["nice_to_have_skills"])],
     }
 
 
@@ -55,9 +52,7 @@ def extract_resume_profile_from_text(raw_text: str) -> dict:
         "years_experience": profile["years_of_experience"],
         "industry": None,   # same as above
         "education": profile["degree"],
-        # dict.fromkeys keeps order but removes duplicates created by
-        # normalisation ("ReactJS" and "React" both become "react").
-        "skills": list(dict.fromkeys(normalize_skill(s) for s in profile["skills_cleaned"])),
+        "skills": [normalize_skill(s) for s in profile["skills_cleaned"]],
         "companies_worked_at": profile["companies_worked_at"],
     }
 
@@ -104,32 +99,38 @@ def screen_resume_against_job(resume_profile: dict, job_requirements: dict,
     resume_role = resume_profile.get("role") or ""
     job_title = job_requirements.get("job_title") or ""
     role_words, job_words = get_tokens(resume_role), get_tokens(job_title)
-    if role_words and job_words:
-        role_sim = len(role_words & job_words) / len(role_words | job_words) * 100
-        dimensions.append({
-            "dimension": "Role / Title Alignment", "resume_value": resume_role,
-            "job_requirement": job_title, "similarity_pct": round(role_sim, 1),
-        })
-    else:
-        # The resume has no recognisable current job title (true for almost
-        # every fresher). That is "unknown", not "0% match" -- the same way
-        # Seniority and Industry are reported -- so no similarity_pct is
-        # given and this dimension is not counted as a zero.
-        dimensions.append({
-            "dimension": "Role / Title Alignment", "resume_value": resume_role or None,
-            "job_requirement": job_title, "similarity_pct": None,
-            "note": "No current job title found in the resume -- not scored.",
-        })
+    role_sim = len(role_words & job_words) / len(role_words | job_words) * 100 if (role_words | job_words) else 0.0
+    dimensions.append({
+        "dimension": "Role / Title Alignment", "resume_value": resume_role,
+        "job_requirement": job_title, "similarity_pct": round(role_sim, 1),
+    })
 
     if resume_text is not None and job_text is not None:
         job_vec = _match_vectorizer.transform([job_text])
         res_vec = _match_vectorizer.transform([resume_text])
         text_sim = float(job_vec.multiply(res_vec).sum())
         dimensions.append({
-            "dimension": "Overall Content Relevance", "similarity_score": round(text_sim, 3),
+            "dimension": "Overall Content Relevance", "similarity_pct": round(text_sim * 100, 1),
             "note": "TF-IDF cosine similarity between resume text and job description text -- "
                     "the same signal Module 7 uses as one of its 8 model features.",
         })
+
+    # Overall match row first: same match % and Match / No Match rule as
+    # /match-score. Uses its own keys (overall_match_pct / result) so the
+    # backend's per-dimension screening average is not changed by it.
+    from app.matching import MATCH_THRESHOLD_PCT, match_result_from_pct
+    if must:
+        overall_pct = round(must_pct, 1)
+    elif nice:
+        overall_pct = round(nice_pct, 1)
+    else:
+        overall_pct = 0.0
+    dimensions.insert(0, {
+        "dimension": "Overall Match",
+        "overall_match_pct": overall_pct,
+        "result": match_result_from_pct(overall_pct),
+        "note": f"Must-have skills matched. {MATCH_THRESHOLD_PCT:g}% or more is a Match.",
+    })
 
     return {
         "job_id": job_requirements.get("job_id"),

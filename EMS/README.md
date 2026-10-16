@@ -235,3 +235,38 @@ plain pickle.
   in the project report). It's off by default since it's noticeably slower than a plain score.
 - `/rank-candidates` expects the full candidate pool in the request body (no database lookup
   built in) -- the backend is expected to fetch candidates and pass them in.
+
+## Candidate Chatbot (`POST /chat`)
+
+Own trained model -- no Groq / OpenAI. For **candidates only**.
+
+- **Dataset:** Career Guidance QA Dataset by Pradeep (2025), CC BY 4.0 --
+  https://huggingface.co/datasets/Pradeep016/career-guidance-qa-dataset
+  (1,620 Q&A rows, 54 job roles), stored in `training/chatbot/dataset/career_guidance_qa.csv`.
+- **Model:** `app/models/candidate_chatbot.joblib` -- topic classifier (TF-IDF + Logistic
+  Regression, 10 topics) + job-role detector (54 roles). Code: `app/career_model.py`.
+- **Service code:** `app/chatbot.py` (answer logic), `app/chatbot_guardrails.py` (candidate-only rules).
+- **Accuracy:** 90% on fresh candidate-style questions (`training/chatbot/tests/holdout_questions.csv`).
+
+Request:
+```json
+{
+  "message": "How much does a web developer earn?",
+  "role": "PUBLIC",
+  "conversation_history": [{"role": "user", "content": "..."}],
+  "job_context": "Java Developer | Hyderabad | 3-5 yrs\nData Scientist | Bangalore | 2-4 yrs"
+}
+```
+Response: `{"response": "..."}`
+
+Rules: only `role` = `PUBLIC` / `CANDIDATE` gets answers; staff roles get a "candidates only"
+message. Questions mentioning recruiters, HR, hiring managers, interviewers, employees or admins
+get a "can't answer" message. Job openings come only from `job_context`. Salary answers in the
+dataset are in US dollars.
+
+Retrain (from the project root, with the pinned versions in `requirements.txt`):
+```bash
+python training/chatbot/train_chatbot.py
+```
+Optional flan-t5 answer rewording: `pip install -r training/chatbot/requirements-generative.txt`
+then `python training/chatbot/train_generative.py` (saves to `app/models/flan_t5_candidate/`).

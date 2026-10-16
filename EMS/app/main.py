@@ -11,6 +11,7 @@ Wraps all 7 AI/ML modules from the project report as REST endpoints:
   34. Attrition Prediction          -> POST /predict-attrition
   35. Salary Prediction             -> POST /predict-salary
   --  Candidate Decision Recommendation -> POST /recommend-candidate-decision
+  --  Candidate Chatbot                 -> POST /chat   (own trained model, no external LLM)
 
 Run with: uvicorn app.main:app --port 8000   (do NOT use --reload in production/demo --
 see the note in the "why imports are at the top" comment below)
@@ -29,7 +30,6 @@ means all models (spaCy NER, XGBoost matching/attrition/salary, TF-IDF
 vectorizer) finish loading during `uvicorn` startup, so even the very first
 real request is fast.
 """
-import os
 import time
 import logging
 import json
@@ -46,7 +46,7 @@ from app.schemas import (
     EmployeeInput, AttritionResponse,
     JobPostingInput, SalaryResponse,
     CandidateDecisionRequest, CandidateDecisionResponse,
-    ChatbotRequest, ChatbotResponse,
+    ChatRequest, ChatResponse,
 )
 
 logger = logging.getLogger("uvicorn")
@@ -66,7 +66,9 @@ from app.attrition import predict_attrition_risk
 from app.salary import predict_salary_range
 from app.decision import recommend_candidate_decision
 from app.file_extraction import extract_resume_text
-from app.Chatbot import get_chatbot_response
+from app.chatbot import get_chatbot_response, load_chatbot_model
+
+load_chatbot_model()
 
 logger.info(f"All models loaded in {time.time() - _t0:.2f}s")
 # ---------------------------------------------------------------------------
@@ -198,53 +200,6 @@ async def parse_resume_endpoint(request: Request):
 # Module 6 -- AI Resume Screening (standalone from Module 7 matching)
 # ---------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-# Optional request/response trace for /screen-resume.
-#
-# Set the environment variable EMS_TRACE_SCREENING=1 before starting the
-# service and every /screen-resume call writes one JSON file to
-# debug_logs/screen-resume/ containing: the job Spring sent, the EXACT
-# resume_text received (full text, its length and line count), and the
-# extracted_resume_profile + screening_dimensions returned. This is how to
-# capture the real Python request/response for one candidate (e.g. Candidate
-# 32 + Job 1) without touching the Spring code.
-#
-# OFF by default: resume text contains personal data (name, phone, email),
-# so only enable it while debugging and delete the files afterwards.
-# ---------------------------------------------------------------------------
-_SCREENING_TRACE_ENABLED = os.getenv("EMS_TRACE_SCREENING", "").strip().lower() in ("1", "true", "yes")
-_SCREENING_TRACE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "debug_logs", "screen-resume")
-
-
-def _write_screening_trace(job: dict, resume_text, result: dict) -> None:
-    try:
-        os.makedirs(_SCREENING_TRACE_DIR, exist_ok=True)
-        text = resume_text or ""
-        trace = {
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "request": {
-                "job": job,
-                "resume_text_length": len(text),
-                "resume_text_line_count": text.count("\n") + 1 if text else 0,
-                "resume_text": text,
-            },
-            "response": {
-                "extracted_resume_profile": result.get("extracted_resume_profile"),
-                "screening_dimensions": result.get("screening_dimensions"),
-            },
-        }
-        name = f"{time.strftime('%Y%m%d-%H%M%S')}-{job.get('job_id', 'job')}.json"
-        with open(os.path.join(_SCREENING_TRACE_DIR, name), "w", encoding="utf-8") as f:
-            json.dump(trace, f, indent=2, ensure_ascii=False, default=str)
-        logging.getLogger("ems.screening").info(
-            "screen-resume trace: job=%s resume_text=%d chars, %d lines -> %d skills -> %s",
-            job.get("job_id"), len(text), trace["request"]["resume_text_line_count"],
-            len((result.get("extracted_resume_profile") or {}).get("skills") or []), name,
-        )
-    except Exception as exc:  # tracing must never break the endpoint
-        logging.getLogger("ems.screening").warning("could not write screening trace: %s", exc)
-
-
 @app.post(
     "/screen-resume", response_model=ScreeningResponse, response_model_exclude_none=True, tags=["screening"],
     openapi_extra={
@@ -289,15 +244,7 @@ async def screen_resume_endpoint(request: Request):
 
     job_req = extract_job_requirements(job_obj.dict())
     job_text = f"{job_obj.description} {job_obj.responsibilities} {job_obj.requirements}"
-    result = screen_resume_against_job(resume_profile, job_req, resume_text=resume_text_for_similarity, job_text=job_text)
-
-    if _SCREENING_TRACE_ENABLED:
-        _write_screening_trace(
-            job=job_obj.dict(),
-            resume_text=(payload.resume_text if not _is_multipart(request) else resume_text),
-            result=result,
-        )
-    return result
+    return screen_resume_against_job(resume_profile, job_req, resume_text=resume_text_for_similarity, job_text=job_text)
 
 
 # ---------------------------------------------------------------------------
@@ -528,41 +475,24 @@ def recommend_candidate_decision_endpoint(payload: CandidateDecisionRequest):
     result["resume_id"] = resume_id
     return result
 
+
 # ---------------------------------------------------------------------------
-# AI CHATBOT
+# Candidate Chatbot -- for candidates only. Uses the model trained on the
+# Career Guidance QA Dataset (app/models/candidate_chatbot.joblib); no Groq /
+# OpenAI. Staff roles and questions about recruiters, HR, hiring managers,
+# interviewers, employees or admins get a fixed "not available" message.
 # ---------------------------------------------------------------------------
 
-@app.post(
-    "/chat",
-    response_model=ChatbotResponse,
-    tags=["chatbot"]
-)
-def chatbot_endpoint(payload: ChatbotRequest):
+@app.post("/chat", response_model=ChatResponse, tags=["chatbot"])
+def chat_endpoint(payload: ChatRequest):
+    history = [m.dict() for m in payload.conversation_history] if payload.conversation_history else None
     try:
-        response = get_chatbot_response(
+        reply = get_chatbot_response(
             message=payload.message,
-            conversation_history=[
-                item.model_dump()
-                for item in payload.conversation_history
-            ],
+            conversation_history=history,
             job_context=payload.job_context,
-            role=payload.role
+            role=payload.role or "PUBLIC",
         )
-
-        return ChatbotResponse(
-            response=response
-        )
-
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=str(exc)
-        )
-
-    except Exception:
-        logger.exception("Chatbot request failed")
-
-        raise HTTPException(
-            status_code=500,
-            detail="Chatbot service failed."
-        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"response": reply}

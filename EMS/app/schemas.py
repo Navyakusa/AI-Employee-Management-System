@@ -129,6 +129,8 @@ class ScreeningDimension(BaseModel):
     match: Optional[bool] = None
     similarity_pct: Optional[float] = None
     similarity_score: Optional[float] = None
+    overall_match_pct: Optional[float] = None
+    result: Optional[str] = None
     note: Optional[str] = None
 
 
@@ -288,22 +290,29 @@ class SalaryResponse(BaseModel):
     estimated_range_lpa: str
     lower_bound_lpa: float
     upper_bound_lpa: float
-# ============================================================
-# ============================================================
-# CHATBOT
-# ============================================================
-
-class ChatbotMessage(BaseModel):
-    role: str
-    content: str
 
 
-class ChatbotRequest(BaseModel):
-    message: str
-    conversation_history: list[ChatbotMessage] = []
-    job_context: Optional[str] = None
-    role: str = "PUBLIC"
+# ---------------------------------------------------------------------------
+# Candidate Chatbot
+# ---------------------------------------------------------------------------
+
+class ChatMessage(BaseModel):
+    role: str = Field(..., example="user", description="user | assistant")
+    content: str = Field(..., example="How much does a web developer earn?")
 
 
-class ChatbotResponse(BaseModel):
+class ChatRequest(BaseModel):
+    message: str = Field(..., example="What skills do I need to become a data scientist?")
+    role: Optional[str] = Field(
+        default="PUBLIC", example="PUBLIC",
+        description="Role of the logged-in user from the Java backend. Only PUBLIC / CANDIDATE "
+                    "get answers; staff roles get a 'candidates only' message.")
+    conversation_history: Optional[List[ChatMessage]] = Field(
+        default=None, description="Previous messages, oldest first (used for follow-up questions).")
+    job_context: Optional[str] = Field(
+        default=None, example="Java Developer | Hyderabad | 3-5 yrs\nData Scientist | Bangalore | 2-4 yrs",
+        description="Current open jobs, one per line. Job answers are built only from this text.")
+
+
+class ChatResponse(BaseModel):
     response: str

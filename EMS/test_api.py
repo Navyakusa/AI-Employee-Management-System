@@ -337,4 +337,22 @@ check(
     expect_status=400,
 )
 
+print("=" * 70)
+print("Candidate Chatbot")
+print("=" * 70)
+check("POST /chat (career question)", client.post(
+    "/chat", json={"message": "How much does a web developer earn?", "role": "PUBLIC"}))
+check("POST /chat (follow-up uses earlier role)", client.post(
+    "/chat", json={"message": "What about the skills?",
+                   "conversation_history": [{"role": "user", "content": "How much does a web developer earn?"}]}))
+check("POST /chat (job openings from job_context)", client.post(
+    "/chat", json={"message": "Any data scientist openings?",
+                   "job_context": "Java Developer | Hyderabad | 3-5 yrs\nData Scientist | Bangalore | 2-4 yrs"}))
+check("POST /chat (question about recruiters -> restricted message)", client.post(
+    "/chat", json={"message": "What does a recruiter do?"}))
+check("POST /chat (staff role -> candidates only)", client.post(
+    "/chat", json={"message": "Hello", "role": "HR"}))
+check("POST /chat (empty message, should fail)", client.post(
+    "/chat", json={"message": "   "}), expect_status=400)
+
 print("All endpoint tests completed.")
