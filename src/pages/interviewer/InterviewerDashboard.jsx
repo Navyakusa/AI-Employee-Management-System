@@ -17,10 +17,7 @@ import {
 import InterviewerSidebar from "./InterviewerSidebar";
 import InterviewerNavbar from "./InterviewerNavbar";
 
-import {
-  getMyInterviews,
-  getDashboardSummary,
-} from "../../services/interviewerService";
+import { getMyInterviews } from "../../services/interviewerService";
 
 import "./InterviewerDashboard.css";
 
@@ -28,68 +25,63 @@ function InterviewerDashboard() {
   const navigate = useNavigate();
 
   const [interviews, setInterviews] = useState([]);
-  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    Promise.all([getMyInterviews(), getDashboardSummary()])
-      .then(([interviewsData, summaryData]) => {
-        setInterviews(Array.isArray(interviewsData) ? interviewsData : []);
-        setSummary(summaryData);
+    getMyInterviews()
+      .then((data) => {
+        setInterviews(Array.isArray(data) ? data : []);
       })
-      .catch((err) => {
-        console.error("Failed to load dashboard:", err);
+      .catch(() => {
         setError("Unable to load your interviews right now.");
       })
       .finally(() => setLoading(false));
   }, []);
 
-  /*
-    CONFIRMED backend behavior: the dashboard summary's todaysSchedule
-    and evaluationQueue lists (and their raw counts) include EVERY
-    status, not just Scheduled — a Cancelled or Rescheduled interview
-    today would show up mixed into "Today's Schedule" otherwise. So
-    this filters to Scheduled specifically to match what the page has
-    always meant by "today's schedule", and uses the filtered length
-    for the stat card instead of trusting the backend's unfiltered
-    count — keeping the number and the list underneath it consistent.
-  */
-  const todaysSchedule = (summary?.todaysSchedule ?? []).filter(
-    (interview) => interview.status === "Scheduled"
+  // Today/upcoming are decided from each interview's real start time
+  // (scheduledAt), not by comparing formatted date text. Interviews whose
+  // time has already passed are not "Scheduled" any more (mapInterview
+  // corrects their status), so they never count as today or upcoming.
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOfTomorrow = new Date(startOfToday);
+  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+
+  const isToday = (interview) =>
+    interview.scheduledAt !== null &&
+    interview.scheduledAt >= startOfToday.getTime() &&
+    interview.scheduledAt < startOfTomorrow.getTime();
+
+  const byStartTime = (a, b) => (a.scheduledAt ?? 0) - (b.scheduledAt ?? 0);
+
+  const todayInterviews = interviews
+    .filter((interview) => interview.status === "Scheduled" && isToday(interview))
+    .sort(byStartTime);
+
+  const upcomingInterviews = interviews
+    .filter(
+      (interview) =>
+        interview.status === "Scheduled" &&
+        interview.scheduledAt !== null &&
+        interview.scheduledAt >= startOfTomorrow.getTime()
+    )
+    .sort(byStartTime);
+
+  const completedInterviews = interviews.filter(
+    (interview) => interview.status === "Completed"
   );
 
-  // pendingEvaluations from getDashboardSummary() is already corrected
-  // for the backend's copy-paste bug (see interviewerService.js) — no
-  // further filtering needed here.
-  const evaluationQueue = summary?.evaluationQueue ?? [];
-
-  /*
-    ASSUMPTION: interview.date is a string that can be directly compared
-    to today's date in the same format. CONFIRM the date format the
-    backend returns (e.g. "16 Sep 2026" vs ISO "2026-09-16") and adjust
-    this comparison if needed — ideally parse both sides with a date
-    library (e.g. dayjs) instead of a raw string match.
-  */
-  const todayDate = new Date().toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-
-  // The dashboard summary endpoint has no "list of upcoming
-  // interviews" — only a count — so the Upcoming Interviews grid
-  // still comes from getMyInterviews(), filtered the same way as
-  // before.
-  const upcomingInterviews = interviews.filter(
+  const pendingEvaluations = interviews.filter(
     (interview) =>
-      interview.status === "Scheduled" && interview.date !== todayDate
+      interview.status === "Completed" &&
+      interview.evaluationStatus === "Pending"
   );
 
   const summaryCards = [
     {
       title: "Today's Interviews",
-      value: todaysSchedule.length,
+      value: todayInterviews.length,
       icon: <CalendarDays size={22} />,
       className: "today",
     },
@@ -101,13 +93,13 @@ function InterviewerDashboard() {
     },
     {
       title: "Completed Interviews",
-      value: summary?.completedInterviews ?? 0,
+      value: completedInterviews.length,
       icon: <CheckCircle2 size={22} />,
       className: "completed",
     },
     {
       title: "Pending Evaluations",
-      value: evaluationQueue.length,
+      value: pendingEvaluations.length,
       icon: <ClipboardCheck size={22} />,
       className: "pending",
     },
@@ -191,8 +183,8 @@ function InterviewerDashboard() {
                   </div>
 
                   <div className="interviewer-schedule-list">
-                    {todaysSchedule.length > 0 ? (
-                      todaysSchedule.map((interview) => (
+                    {todayInterviews.length > 0 ? (
+                      todayInterviews.map((interview) => (
                         <div
                           className="interviewer-schedule-item"
                           key={interview.id}
@@ -278,8 +270,8 @@ function InterviewerDashboard() {
                   </div>
 
                   <div className="interviewer-evaluation-list">
-                    {evaluationQueue.length > 0 ? (
-                      evaluationQueue.map((interview) => (
+                    {pendingEvaluations.length > 0 ? (
+                      pendingEvaluations.map((interview) => (
                         <div
                           className="interviewer-evaluation-item"
                           key={interview.id}

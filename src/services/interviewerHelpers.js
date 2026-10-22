@@ -52,15 +52,48 @@ function toTitleCase(value) {
   return lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 
+// How long an interview is assumed to last. Once its start time plus this
+// has passed, a still-"Scheduled" interview is treated as finished.
+const INTERVIEW_DURATION_MINUTES = 60;
+
+// Start of the interview as a timestamp (ms), or null if unknown.
+function toTimestamp(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
+}
+
+// The backend never changes an interview's status on its own: it stays
+// "SCHEDULED" until someone updates it manually, even long after the
+// interview time has passed. So the UI works out the real status here:
+//   - Scheduled / Rescheduled, time still ahead -> "Scheduled"
+//   - Scheduled / Rescheduled, time has passed  -> "Completed"
+//   - anything else (Completed, Cancelled)      -> unchanged
+function effectiveStatus(rawStatus, scheduledAt, now = Date.now()) {
+  const status = toTitleCase(rawStatus);
+  const isPending = status === "Scheduled" || status === "Rescheduled";
+
+  if (!isPending) return status;
+
+  if (
+    scheduledAt !== null &&
+    scheduledAt + INTERVIEW_DURATION_MINUTES * 60 * 1000 < now
+  ) {
+    return "Completed";
+  }
+
+  return "Scheduled";
+}
+
 // CONFIRM with backend: does GET /candidates/{id} / /candidates/all
 // return fields named exactly "name", "email", "experience", "skills"?
 // Adjust the candidate?.xxx lines below once confirmed.
 export function mapInterview(raw, candidate, job) {
   // The dedicated interviewer DTO may send date/time as a combined
   // ISO string (like the old DTO), or as separate fields — check both.
-  const combined = splitDateTime(
-    raw.interviewDateTime ?? raw.dateTime ?? raw.scheduledAt
-  );
+  const rawDateTime = raw.interviewDateTime ?? raw.dateTime ?? raw.scheduledAt;
+  const combined = splitDateTime(rawDateTime);
+  const scheduledAt = toTimestamp(rawDateTime);
 
   const date = raw.date ?? raw.interviewDate ?? combined.date;
   const time = raw.time ?? raw.interviewTime ?? combined.time;
@@ -98,7 +131,13 @@ export function mapInterview(raw, candidate, job) {
     mode: toTitleCase(raw.interviewMode ?? raw.mode),
     location: String(raw.location ?? ""),
     meetingLink: String(raw.meetingLink ?? ""),
-    status: toTitleCase(raw.status),
+    // Start time as a timestamp (ms) so pages can sort and compare
+    // interviews by real date instead of by formatted text.
+    scheduledAt,
+    // What the backend actually has stored (e.g. "Scheduled").
+    backendStatus: toTitleCase(raw.status),
+    // Corrected for the clock: past interviews are no longer "Scheduled".
+    status: effectiveStatus(raw.status, scheduledAt),
     // NOT in the raw schema at all — there is no evaluationStatus field
     // from the backend yet. Flag this to backend: how should the UI
     // know if feedback was already submitted for this interview,
@@ -108,27 +147,63 @@ export function mapInterview(raw, candidate, job) {
   };
 }
 
-// CONFIRMED via backend source (Notification.java entity):
-//   { notificationId, userId, message, type, readStatus, createdAt }
-// There is NO title field at all — only message + type. Real type
-// enum values (from InterviewService.java / InterviewFeedbackService.java):
-//   INTERVIEW_SCHEDULED, INTERVIEW_RESCHEDULED, INTERVIEW_CANCELLED,
-//   INTERVIEW_EVALUATION_SUBMITTED
-const NOTIFICATION_TITLES = {
-  INTERVIEW_SCHEDULED: "Interview Scheduled",
-  INTERVIEW_RESCHEDULED: "Interview Rescheduled",
-  INTERVIEW_CANCELLED: "Interview Cancelled",
-  INTERVIEW_EVALUATION_SUBMITTED: "Evaluation Submitted",
-};
+// One row from GET /interviewer/candidates/my (InterviewerCandidateDto):
+//   candidateId, candidateName, email, phone, location, education,
+//   experience, skills (comma-separated text), resume, linkedin,
+//   portfolio, expectedSalary, noticePeriod, source, applicationDate,
+//   candidateStatus, jobId, jobTitle, interviewId, interviewDateTime,
+//   interviewMode, interviewStatus
+// The backend builds one row per INTERVIEW, so a candidate with two
+// interviews appears twice.
+export function mapCandidateRow(raw = {}) {
+  const scheduledAt = toTimestamp(raw.interviewDateTime);
+  const { date, time } = splitDateTime(raw.interviewDateTime);
+
+  // skills arrives as one string ("Java, React") - pages expect an array.
+  const skills = Array.isArray(raw.skills)
+    ? raw.skills
+    : String(raw.skills ?? "")
+        .split(",")
+        .map((skill) => skill.trim())
+        .filter(Boolean);
+
+  return {
+    ...raw,
+    id: raw.candidateId ?? raw.id,
+    candidateId: raw.candidateId ?? raw.id,
+    name: String(raw.candidateName ?? raw.name ?? "Unknown Candidate"),
+    email: String(raw.email ?? raw.candidateEmail ?? ""),
+    phone: String(raw.phone ?? ""),
+    location: String(raw.location ?? ""),
+    education: String(raw.education ?? ""),
+    experience: String(raw.experience ?? ""),
+    skills,
+    resume: String(raw.resume ?? ""),
+    job: String(raw.jobTitle ?? raw.job ?? "Unknown Position"),
+    jobId: raw.jobId,
+    interviewId: raw.interviewId,
+    interviewDate: date,
+    interviewTime: time,
+    scheduledAt,
+    interviewMode: toTitleCase(raw.interviewMode),
+    candidateStatus: toTitleCase(raw.candidateStatus),
+    // Same correction as mapInterview: past interviews aren't "Scheduled".
+    backendInterviewStatus: toTitleCase(raw.interviewStatus),
+    interviewStatus: effectiveStatus(raw.interviewStatus, scheduledAt),
+  };
+}
 
 export function mapNotification(raw) {
+  const statusSaysRead =
+    typeof raw.status === "string" && raw.status.toUpperCase() === "READ";
+
   return {
-    id: raw.notificationId ?? raw.id,
+    id: raw.id ?? raw.notificationId,
     type: raw.type,
-    title: NOTIFICATION_TITLES[raw.type] ?? "Notification",
+    title: raw.title,
     message: raw.message,
-    time: raw.createdAt ?? "",
-    read: Boolean(raw.readStatus),
+    time: raw.time ?? raw.createdAt ?? "",
+    read: raw.read ?? raw.isRead ?? statusSaysRead,
   };
 }
 
@@ -139,110 +214,36 @@ const FALLBACK_PROFILE = {
   department: "IT",
   role: "INTERVIEWER",
   designation: "Technical Interviewer",
-  location: "",
 };
 
-// CONFIRMED via backend source (EmployeeProfileDto.java):
-//   { employeeId, employeeCode, name, email, phone, department,
-//     designation, manager, location, employmentType, status }
-// There is NO "role" field on this DTO at all — role is hardcoded
-// "INTERVIEWER" client-side since this app already knows the logged-in
-// user's role from login. "location" is kept here (even though the
-// Profile page has no input for it) purely so updateMyProfile() can
-// pass it through unchanged instead of accidentally blanking it —
-// see the comment on updateMyProfile in interviewerService.js.
 export function mapProfile(raw) {
   return {
-    employeeId: raw.employeeId,
-    employeeCode: raw.employeeCode ?? "",
-    name: raw.name ?? FALLBACK_PROFILE.name,
+    name: raw.name ?? raw.userName ?? FALLBACK_PROFILE.name,
     email: raw.email ?? FALLBACK_PROFILE.email,
-    phone: raw.phone ?? FALLBACK_PROFILE.phone,
+    phone: raw.phone ?? raw.phoneNumber ?? FALLBACK_PROFILE.phone,
     department: raw.department ?? FALLBACK_PROFILE.department,
-    role: "INTERVIEWER",
+    role: raw.role ?? "INTERVIEWER",
     designation: raw.designation ?? FALLBACK_PROFILE.designation,
-    manager: raw.manager ?? "",
-    location: raw.location ?? FALLBACK_PROFILE.location,
-    employmentType: raw.employmentType ?? "",
-    status: raw.status ?? "",
   };
 }
 
-// CONFIRMED via backend source (InterviewEvaluationDto.java, from
-// GET /interviewer/evaluations/my and POST .../interview/{id}):
-//   { evaluationId, interviewId, candidateId, candidateName, jobId,
-//     jobTitle, interviewDateTime, technicalSkills, communication,
-//     problemSolving, overallRating, strengths, areasForImprovement,
-//     status ("DRAFT" | "SUBMITTED"), submittedAt }
-// No candidateEmail, no interviewType, no separate "feedback" text,
-// and NO recommendation field at all — the UI still collects a
-// recommendation (kept per product decision), but the real backend
-// has nowhere to store it, so it will always come back empty/null
-// here even for evaluations that were submitted with one selected.
 export function mapEvaluation(raw) {
-  const { date } = splitDateTime(raw.interviewDateTime);
-
   return {
-    evaluationId: raw.evaluationId,
     interviewId: raw.interviewId,
     candidateId: raw.candidateId,
-    candidate: String(raw.candidateName ?? ""),
-    email: "",
-    job: String(raw.jobTitle ?? ""),
-    interviewDate: date,
-    interviewType: "",
-    technicalRating: raw.technicalSkills,
-    communicationRating: raw.communication,
-    problemSolvingRating: raw.problemSolving,
+    candidate: raw.candidate ?? raw.candidateName,
+    email: raw.email ?? raw.candidateEmail,
+    job: raw.job ?? raw.jobTitle,
+    interviewDate: raw.interviewDate ?? raw.date,
+    interviewType: raw.interviewType ?? raw.type,
+    technicalRating: raw.technicalRating,
+    communicationRating: raw.communicationRating,
+    problemSolvingRating: raw.problemSolvingRating,
     overallRating: raw.overallRating,
-    strengths: String(raw.strengths ?? ""),
-    improvementAreas: String(raw.areasForImprovement ?? ""),
-    feedback: "",
-    recommendation: raw.recommendation ?? null,
-    // DRAFT -> "Pending", SUBMITTED -> "Submitted" (matches the UI's
-    // existing status strings without touching every page).
-    status: raw.status === "SUBMITTED" ? "Submitted" : "Pending",
-    submittedAt: raw.submittedAt ?? null,
-  };
-}
-
-function splitSkillsString(skills) {
-  if (Array.isArray(skills)) {
-    return skills;
-  }
-
-  if (typeof skills === "string" && skills.trim()) {
-    return skills
-      .split(",")
-      .map((skill) => skill.trim())
-      .filter(Boolean);
-  }
-
-  return [];
-}
-
-// CONFIRMED via backend source (InterviewerCandidateDto.java, from
-// GET /interviewer/candidates/my): skills is a comma-separated STRING
-// on this DTO, not an array — split it here so every page downstream
-// can keep treating candidate.skills as an array like it already does.
-export function mapCandidateRow(raw) {
-  const { date } = splitDateTime(raw.interviewDateTime);
-
-  return {
-    id: raw.candidateId,
-    name: String(raw.candidateName ?? ""),
-    email: String(raw.email ?? ""),
-    phone: String(raw.phone ?? ""),
-    location: String(raw.location ?? ""),
-    education: String(raw.education ?? ""),
-    experience: String(raw.experience ?? ""),
-    skills: splitSkillsString(raw.skills),
-    resume: String(raw.resume ?? ""),
-    job: String(raw.jobTitle ?? ""),
-    jobId: raw.jobId,
-    interviewId: raw.interviewId,
-    interviewDate: date,
-    interviewMode: toTitleCase(raw.interviewMode),
-    interviewStatus: toTitleCase(raw.interviewStatus),
+    strengths: raw.strengths,
+    improvementAreas: raw.improvementAreas,
+    feedback: raw.feedback,
+    recommendation: raw.recommendation,
+    status: raw.status ?? "Submitted",
   };
 }
