@@ -25,37 +25,75 @@ import {
 } from "../../services/employeeService";
 import "./EmployeeDashboard.css";
 
+// Today's date as "YYYY-MM-DD" in the user's LOCAL time zone
+// (toISOString() is UTC and gave yesterday's date before 05:30 IST).
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// "YYYY-MM-DD" from a string/ISO date-time or a [y, m, d] array.
+function recordDate(value) {
+  if (Array.isArray(value)) {
+    const [y, m, d] = value;
+    return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  }
+  return value ? String(value).slice(0, 10) : null;
+}
+
+// Today's record to check out of: the one still OPEN (checked in, not
+// out). The old list.find() took the FIRST record of the day, so when
+// there were several, the check-out landed on an already-closed record
+// and the open one was never closed.
+function findOpenTodayRecord(list) {
+  const todays = (Array.isArray(list) ? list : []).filter(
+    (r) => recordDate(r.attendanceDate) === todayIso()
+  );
+  const open = todays.filter((r) => r.checkInTime && !r.checkOutTime);
+  open.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+  return open[0] || null;
 }
 
 function nowTimeLocal() {
   return new Date().toTimeString().slice(0, 8);
 }
 
-// Same as EmployeeAttendance.jsx — the backend has no workingHours field,
-// so it's computed here from checkInTime/checkOutTime (or checkInTime to
-// "now" if still checked in).
-function formatWorkingHours(checkInTime, checkOutTime, now) {
+// Office hours: 10:00 AM to 6:00 PM. If an employee never checks out, the
+// day is counted up to OFFICE_END_TIME (6 PM) automatically.
+const OFFICE_END_TIME = "18:00:00";
+
+// Local Date for "YYYY-MM-DD" + "HH:MM[:SS]"; null if malformed.
+function toLocalDateTime(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return null;
+  const [y, mo, d] = String(dateStr).slice(0, 10).split("-").map(Number);
+  const [h, mi, s] = String(timeStr).split(":").map((part) => parseInt(part, 10));
+  if ([y, mo, d, h, mi].some((n) => Number.isNaN(n))) return null;
+  return new Date(y, mo - 1, d, h, mi, Number.isFinite(s) ? s : 0, 0);
+}
+
+// The Attendance entity has no workingHours field at all — it's computed
+// here on the frontend, on the record's OWN date:
+//   checked out                -> check-out minus check-in
+//   not checked out, past day  -> check-in up to 6 PM that day
+//   not checked out, today     -> check-in up to now, stopping at 6 PM
+function formatWorkingHours(checkInTime, checkOutTime, now, attendanceDate) {
   if (!checkInTime) return "--";
 
-  const [ch, cm, cs] = checkInTime.split(":").map(Number);
-  const start = new Date();
-  start.setHours(ch, cm, cs || 0, 0);
+  const day = attendanceDate || todayIso();
+  const start = toLocalDateTime(day, checkInTime);
+  if (!start) return "--";
 
   let end;
   if (checkOutTime) {
-    const [oh, om, os] = checkOutTime.split(":").map(Number);
-    end = new Date();
-    end.setHours(oh, om, os || 0, 0);
+    end = toLocalDateTime(day, checkOutTime);
+    if (!end) return "--";
   } else {
-    end = now;
+    const officeEnd = toLocalDateTime(day, OFFICE_END_TIME);
+    end = now < officeEnd ? now : officeEnd;
   }
 
-  let diffMs = end - start;
-  if (diffMs < 0) diffMs = 0;
-
-  const totalMinutes = Math.floor(diffMs / 60000);
+  const totalMinutes = Math.floor(Math.max(0, end - start) / 60000);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   return `${hours}h ${minutes}m`;
@@ -153,33 +191,18 @@ function EmployeeDashboard() {
 
       if (checkedIn) {
         const historyRes = await getAttendanceForEmployee(employeeId);
-        const list = historyRes.data?.data || [];
-        const todayRecords = list.filter(
-  (r) => r.attendanceDate === todayIso()
-);
+        const todayRecord = findOpenTodayRecord(historyRes.data?.data);
 
-// Prefer an active check-in record.
-// If none exists, use the latest today's record.
-const activeTodayRecord = todayRecords.find(
-  (r) => r.checkInTime && !r.checkOutTime
-);
-
-const latestTodayRecord = [...todayRecords].sort((a, b) =>
-  String(b.checkInTime || "").localeCompare(
-    String(a.checkInTime || "")
-  )
-)[0];
-
-const todayRecord =
-  activeTodayRecord || latestTodayRecord || null;
-
-setToday(todayRecord);
-
-        if (todayRecord?.id) {
-          await checkOut(todayRecord.id, { checkOutTime: nowTimeLocal() });
-        } else {
-          console.warn("No today's attendance record found — cannot check out.");
+        if (!todayRecord?.id) {
+          // Previously only a console.warn, so the check-out looked
+          // successful while nothing was saved. Fail loudly instead.
+          throw new Error("No open attendance record for today - cannot check out.");
         }
+
+        // Send the WHOLE record, not just checkOutTime: the backend's
+        // PUT /attendance/{id} copies every field, so a partial body
+        // wiped employeeId/date/check-in and the record vanished.
+        await checkOut(todayRecord.id, { ...todayRecord, checkOutTime: nowTimeLocal() });
       } else {
         // POST /attendance saves EXACTLY what's sent — it does not derive
         // employeeId/checkInTime from the JWT, so all of this must be

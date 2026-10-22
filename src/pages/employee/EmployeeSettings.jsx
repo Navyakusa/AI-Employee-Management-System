@@ -5,12 +5,16 @@ import {
   Lock,
   Palette,
   Save,
+  Eye,
+  EyeOff,
+  X,
 } from "lucide-react";
 import EmployeeSidebar from "./EmployeeSidebar";
 import EmployeeTopbar from "./EmployeeTopbar";
 import {
   getMyEmployeeSettings,
   updateMyEmployeeSettings,
+  changeEmployeePassword,
 } from "../../services/employeeService";
 import "./EmployeeSettings.css";
 
@@ -22,6 +26,12 @@ function EmployeeSettings() {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [systemNotifications, setSystemNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordMessageType, setPasswordMessageType] = useState("error");
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [showPasswords, setShowPasswords] = useState({ current: false, next: false, confirm: false });
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -42,6 +52,60 @@ function EmployeeSettings() {
 
     fetchSettings();
   }, []);
+
+  const handlePasswordSubmit = async (event) => {
+    event.preventDefault();
+    setPasswordMessage("");
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setPasswordMessage("Please complete all password fields.");
+      setPasswordMessageType("error");
+      return;
+    }
+    if (passwordForm.newPassword.length < 8) {
+      setPasswordMessage("New password must contain at least 8 characters.");
+      setPasswordMessageType("error");
+      return;
+    }
+    if (!/[A-Z]/.test(passwordForm.newPassword) || !/[a-z]/.test(passwordForm.newPassword) || !/[0-9]/.test(passwordForm.newPassword)) {
+      setPasswordMessage("Use at least one uppercase letter, one lowercase letter, and one number.");
+      setPasswordMessageType("error");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordMessage("New password and confirmation do not match.");
+      setPasswordMessageType("error");
+      return;
+    }
+    if (passwordForm.currentPassword === passwordForm.newPassword) {
+      setPasswordMessage("Your new password must be different from your current password.");
+      setPasswordMessageType("error");
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      await changeEmployeePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+        confirmPassword: passwordForm.confirmPassword,
+      });
+      setPasswordMessage("Password updated successfully.");
+      setPasswordMessageType("success");
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    } catch (err) {
+      console.error("Failed to change password", err);
+      const status = err.response?.status;
+      const message = err.response?.data?.message;
+      setPasswordMessage(message || (status === 404
+        ? "Password change is not enabled on the backend yet. Please ask the backend team to add POST /api/auth/change-password."
+        : status === 400 || status === 401
+          ? "Current password may be incorrect or the new password was rejected. Please check and try again."
+          : "Could not update password. Please try again."));
+      setPasswordMessageType("error");
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!settings) return;
@@ -218,12 +282,53 @@ function EmployeeSettings() {
               </div>
             </div>
 
-            {/* No change-password endpoint exists yet in auth-controller
-                (only /auth/signup and /auth/login are confirmed). This
-                button stays inert until that endpoint exists. */}
-            <button className="change-password-btn" disabled title="Not available yet">
-              Change Password
+            <button
+              type="button"
+              className="change-password-btn"
+              onClick={() => {
+                setShowPasswordForm((open) => !open);
+                setPasswordMessage("");
+              }}
+              aria-expanded={showPasswordForm}
+            >
+              {showPasswordForm ? <X size={16} /> : <Lock size={16} />}
+              {showPasswordForm ? "Cancel" : "Change Password"}
             </button>
+
+            {showPasswordForm && (
+              <form className="employee-password-form" onSubmit={handlePasswordSubmit}>
+                <div className="employee-password-fields">
+                  {[
+                    { key: "currentPassword", label: "Current Password", visibility: "current", placeholder: "Enter current password" },
+                    { key: "newPassword", label: "New Password", visibility: "next", placeholder: "At least 8 characters" },
+                    { key: "confirmPassword", label: "Confirm New Password", visibility: "confirm", placeholder: "Re-enter new password" },
+                  ].map((field) => (
+                    <div className="settings-field" key={field.key}>
+                      <label htmlFor={field.key}>{field.label}</label>
+                      <div className="employee-password-input-wrap">
+                        <input
+                          id={field.key}
+                          type={showPasswords[field.visibility] ? "text" : "password"}
+                          autoComplete={field.key === "currentPassword" ? "current-password" : "new-password"}
+                          value={passwordForm[field.key]}
+                          onChange={(event) => setPasswordForm((previous) => ({ ...previous, [field.key]: event.target.value }))}
+                          placeholder={field.placeholder}
+                          required
+                        />
+                        <button type="button" className="employee-password-visibility" aria-label={showPasswords[field.visibility] ? "Hide password" : "Show password"} onClick={() => setShowPasswords((previous) => ({ ...previous, [field.visibility]: !previous[field.visibility] }))}>
+                          {showPasswords[field.visibility] ? <EyeOff size={17} /> : <Eye size={17} />}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="employee-password-hint">Use at least 8 characters, including uppercase and lowercase letters and a number.</p>
+                {passwordMessage && <p className={`employee-password-message ${passwordMessageType}`} role="status">{passwordMessage}</p>}
+                <button type="submit" className="settings-save-btn employee-password-submit" disabled={passwordSaving}>
+                  <Save size={16} /> {passwordSaving ? "Updating..." : "Update Password"}
+                </button>
+              </form>
+            )}
           </section>
 
           {/* Save */}

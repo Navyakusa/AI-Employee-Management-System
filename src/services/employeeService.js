@@ -44,6 +44,20 @@ export const getEmployeeDashboardSummary = () =>
 // ================= ATTENDANCE =================
 // Attendance: id, employeeId, attendanceDate, checkInTime, checkOutTime, status, remarks
 //
+// CONFIRMED from AttendanceController.java source (not just Swagger's list):
+// - POST /attendance takes a full Attendance object in the body and saves
+//   EXACTLY what it's given — it does NOT derive employeeId/checkInTime
+//   from the logged-in user's JWT. The caller must supply them.
+// - There is NO "get my today's status" endpoint. GET /attendance/status
+//   is actually "filter all attendance records by a given status value"
+//   (?status=PRESENT), a required query param — not per-employee at all.
+// - The only per-employee read is GET /attendance/employee/{employeeId},
+//   which returns ALL of that employee's records; "today's record" has
+//   to be found by filtering this list client-side for today's date.
+//
+// SECURITY NOTE: because the client supplies employeeId and checkInTime,
+// this is currently spoofable (any employee could POST another
+// employee's id, or a fake time). Worth raising with the backend team —
 // ideally the controller should derive both from the authenticated user
 // and server clock instead of trusting the request body.
 export const getAttendanceForEmployee = (employeeId) =>
@@ -110,3 +124,38 @@ export const getMyEmployeeSettings = () =>
   axiosInstance.get("/employee-settings/my");
 export const updateMyEmployeeSettings = (data) =>
   axiosInstance.put("/employee-settings/my", data);
+
+// ================= PASSWORD SECURITY =================
+// Requires backend support for POST /auth/change-password.
+export const changeEmployeePassword = (data) =>
+  axiosInstance.post("/auth/change-password", data);
+// =====================================================================
+// PASTE THIS AT THE END OF YOUR OWN src/services/employeeService.js
+// (do NOT replace the whole file — keep everything that is already in it)
+//
+// If your file ALREADY has a function named fetchEmployeeDocumentFile,
+// delete the old one first, otherwise the app will fail with
+// "Identifier 'fetchEmployeeDocumentFile' has already been declared".
+// =====================================================================
+
+// ================= DOCUMENT FILE (view / download) =================
+// Backend (to be added by backend team): EmployeeDocumentController
+//   GET /api/employee-documents/{id}/view      -> file shown inline (View)
+//   GET /api/employee-documents/{id}/download  -> file as attachment (Download)
+// The file is fetched as a Blob through axiosInstance so the JWT is sent.
+export const fetchEmployeeDocumentFile = async (doc, mode = "view") => {
+  const action = mode === "download" ? "download" : "view";
+  const response = await axiosInstance.get(
+    `/employee-documents/${doc.id}/${action}`,
+    { responseType: "blob" }
+  );
+  const contentType = response.headers?.["content-type"] || response.data?.type || "";
+
+  // A JSON body means the backend sent an ApiResponse error, not the file.
+  if (contentType.includes("application/json")) {
+    const error = new Error("The server returned an error instead of the file.");
+    error.response = { status: response.status };
+    throw error;
+  }
+  return { blob: response.data, contentType };
+};

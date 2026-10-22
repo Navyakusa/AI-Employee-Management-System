@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   FileText,
   Upload,
@@ -16,6 +16,7 @@ import {
   getMyDocuments,
   uploadEmployeeDocument,
   deleteEmployeeDocument,
+  fetchEmployeeDocumentFile,
 } from "../../services/employeeService";
 import "./EmployeeDocuments.css";
 
@@ -61,21 +62,82 @@ function statusToBadgeClass(status) {
   return "not-uploaded";
 }
 
+const MIME_BY_EXTENSION = {
+  pdf: "application/pdf",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+};
+
+function getExtension(fileName) {
+  const match = /\.([a-z0-9]+)$/i.exec(fileName || "");
+  return match ? match[1].toLowerCase() : "";
+}
+
+// Servers often send files as "application/octet-stream". Re-type the blob
+// from the file extension so the browser can show PDFs and images inline.
+function toTypedBlob(blob, contentType, fileName) {
+  const fromExtension = MIME_BY_EXTENSION[getExtension(fileName)];
+  const type =
+    contentType && !contentType.includes("octet-stream")
+      ? contentType.split(";")[0]
+      : fromExtension || blob.type || "application/octet-stream";
+  return blob.type === type ? blob : new Blob([blob], { type });
+}
+
+function previewKind(type) {
+  if (type === "application/pdf") return "pdf";
+  if (type.startsWith("image/")) return "image";
+  return "other";
+}
+
+function fileErrorMessage(err) {
+  const status = err?.response?.status;
+  if (status === 404) return "The file was not found on the server.";
+  if (status === 401) return "Your session has expired. Please log in again.";
+  if (status === 403) return "You are not allowed to access this file.";
+  return "Could not load the file. Please try again.";
+}
+
 function EmployeeDocuments() {
   const [documentsByType, setDocumentsByType] = useState({});
+  // All records per category, newest first (the backend can hold more than
+  // one record for the same category, e.g. after a failed replace).
+  const [allDocumentsByType, setAllDocumentsByType] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [uploadingType, setUploadingType] = useState(null);
+
+  // Preview state for the View modal
+  const [preview, setPreview] = useState({ url: null, kind: null, loading: false, error: "" });
+  const [downloadingId, setDownloadingId] = useState(null);
+  // Keeps the fetched file of the open document so Download in the modal
+  // does not fetch it a second time.
+  const previewFileRef = useRef(null);
 
   const fetchAll = async () => {
     try {
       const docsRes = await getMyDocuments();
       const list = docsRes.data?.data || [];
-      const byType = {};
+
+      // Group by category, newest upload first
+      const allByType = {};
       list.forEach((doc) => {
-        byType[doc.documentType] = doc;
+        (allByType[doc.documentType] ||= []).push(doc);
+      });
+      Object.values(allByType).forEach((docs) =>
+        docs.sort((a, b) => String(b.uploadedAt || "").localeCompare(String(a.uploadedAt || "")))
+      );
+
+      // The page shows the newest document of each category
+      const byType = {};
+      Object.entries(allByType).forEach(([type, docs]) => {
+        byType[type] = docs[0];
       });
 
+      setAllDocumentsByType(allByType);
       setDocumentsByType(byType);
     } catch (err) {
       console.error("Failed to load documents", err);
@@ -88,6 +150,66 @@ function EmployeeDocuments() {
     fetchAll();
   }, []);
 
+  // Free the object URL when the preview changes or the page unmounts
+  useEffect(() => {
+    return () => {
+      if (preview.url) window.URL.revokeObjectURL(preview.url);
+    };
+  }, [preview.url]);
+
+  const loadFile = async (doc, mode) => {
+    // Reuse the file already loaded in the View modal instead of fetching again
+    if (previewFileRef.current?.docId === doc.id) return previewFileRef.current.blob;
+    const { blob, contentType } = await fetchEmployeeDocumentFile(doc, mode);
+    return toTypedBlob(blob, contentType, doc.fileName);
+  };
+
+  const handleView = async (doc, categoryName) => {
+    setSelectedDocument({ ...doc, categoryName });
+    previewFileRef.current = null;
+    setPreview({ url: null, kind: null, loading: true, error: "" });
+
+    try {
+      const blob = await loadFile(doc, "view");
+      previewFileRef.current = { docId: doc.id, blob };
+      setPreview({
+        url: window.URL.createObjectURL(blob),
+        kind: previewKind(blob.type),
+        loading: false,
+        error: "",
+      });
+    } catch (err) {
+      console.error("Document view failed", err);
+      setPreview({ url: null, kind: null, loading: false, error: fileErrorMessage(err) });
+    }
+  };
+
+  const closePreview = () => {
+    setSelectedDocument(null);
+    previewFileRef.current = null;
+    setPreview({ url: null, kind: null, loading: false, error: "" });
+  };
+
+  const handleDownload = async (doc) => {
+    setDownloadingId(doc.id);
+    try {
+      const blob = await loadFile(doc, "download");
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = doc.fileName || "document";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error("Document download failed", err);
+      alert(fileErrorMessage(err));
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const handleFileUpload = async (event, categoryType) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -95,12 +217,10 @@ function EmployeeDocuments() {
     setUploadingType(categoryType);
 
     try {
-      // No "update"/"replace" endpoint exists — delete the old record
-      // first (if any), then upload the new file as a fresh one.
-      const existing = documentsByType[categoryType];
-      if (existing?.id) {
-        await deleteEmployeeDocument(existing.id);
-      }
+      // No "replace" endpoint exists. Upload the new file FIRST, and only
+      // after it succeeds delete the old record(s) of this category, so a
+      // failed upload never loses the existing document.
+      const oldDocuments = allDocumentsByType[categoryType] || [];
 
       const formData = new FormData();
       formData.append("file", file);
@@ -109,6 +229,14 @@ function EmployeeDocuments() {
       // formData.append("documentName", file.name);
 
       await uploadEmployeeDocument(formData);
+
+      for (const old of oldDocuments) {
+        try {
+          await deleteEmployeeDocument(old.id);
+        } catch (deleteErr) {
+          console.error("Could not delete old document", old.id, deleteErr);
+        }
+      }
       await fetchAll();
     } catch (err) {
       console.error("Upload failed", err);
@@ -117,6 +245,17 @@ function EmployeeDocuments() {
       setUploadingType(null);
       event.target.value = "";
     }
+  };
+
+  // Summary cards are counted from the documents shown on this page, so they
+  // always match the list (the backend summary counts every stored record,
+  // including old duplicates, and always returns notUploadedDocuments = 0).
+  const shownDocuments = DOCUMENT_CATEGORIES.map((c) => documentsByType[c.type]).filter(Boolean);
+  const counts = {
+    uploaded: shownDocuments.length,
+    verified: shownDocuments.filter((d) => statusToBadgeClass(d.status) === "verified").length,
+    pending: shownDocuments.filter((d) => statusToBadgeClass(d.status) === "pending").length,
+    notUploaded: DOCUMENT_CATEGORIES.length - shownDocuments.length,
   };
 
   if (loading) {
@@ -165,84 +304,55 @@ function EmployeeDocuments() {
 
 
         {/* =========================
-            SUMMARY
-            Use the actual document list as the source of truth.
-            This keeps the cards consistent with the rows below and
-            avoids showing backend summary values that can be stale
-            or count required categories as uploaded documents.
+            SUMMARY (DocumentSummaryDto — confirmed shape)
         ========================= */}
-        {(() => {
-          // Only count documents that belong to one of the document
-          // categories actually displayed below. The API can sometimes
-          // return extra/duplicate records with an unknown documentType;
-          // those records are not visible to the employee and should not
-          // affect the summary cards.
-          const uploadedDocuments = DOCUMENT_CATEGORIES
-            .map((category) => documentsByType[category.type])
-            .filter(Boolean);
+        <section className="employee-documents-summary">
 
-          const verifiedDocuments = uploadedDocuments.filter(
-            (doc) => String(doc?.status || "").toLowerCase().includes("verif")
-          ).length;
-          const pendingDocuments = uploadedDocuments.filter(
-            (doc) => String(doc?.status || "").toLowerCase().includes("pend")
-          ).length;
-          const totalDocuments = uploadedDocuments.length;
-          const notUploadedDocuments = Math.max(
-            DOCUMENT_CATEGORIES.length - totalDocuments,
-            0
-          );
+          <div className="document-summary-card">
+            <div className="document-summary-icon purple">
+              <FileText size={21} />
+            </div>
+            <div>
+              <span>Total Documents</span>
+              <strong>{counts.uploaded}</strong>
+              <small>Uploaded documents</small>
+            </div>
+          </div>
 
-          return (
-            <section className="employee-documents-summary">
+          <div className="document-summary-card">
+            <div className="document-summary-icon green">
+              <CheckCircle2 size={21} />
+            </div>
+            <div>
+              <span>Verified</span>
+              <strong>{counts.verified}</strong>
+              <small>Documents verified</small>
+            </div>
+          </div>
 
-              <div className="document-summary-card">
-                <div className="document-summary-icon purple">
-                  <FileText size={21} />
-                </div>
-                <div>
-                  <span>Total Documents</span>
-                  <strong>{totalDocuments}</strong>
-                  <small>Uploaded documents</small>
-                </div>
-              </div>
+          <div className="document-summary-card">
+            <div className="document-summary-icon orange">
+              <Clock3 size={21} />
+            </div>
+            <div>
+              <span>Pending</span>
+              <strong>{counts.pending}</strong>
+              <small>Awaiting verification</small>
+            </div>
+          </div>
 
-              <div className="document-summary-card">
-                <div className="document-summary-icon green">
-                  <CheckCircle2 size={21} />
-                </div>
-                <div>
-                  <span>Verified</span>
-                  <strong>{verifiedDocuments}</strong>
-                  <small>Documents verified</small>
-                </div>
-              </div>
+          <div className="document-summary-card">
+            <div className="document-summary-icon red">
+              <Upload size={21} />
+            </div>
+            <div>
+              <span>Not Uploaded</span>
+              <strong>{counts.notUploaded}</strong>
+              <small>Documents required</small>
+            </div>
+          </div>
 
-              <div className="document-summary-card">
-                <div className="document-summary-icon orange">
-                  <Clock3 size={21} />
-                </div>
-                <div>
-                  <span>Pending</span>
-                  <strong>{pendingDocuments}</strong>
-                  <small>Awaiting verification</small>
-                </div>
-              </div>
-
-              <div className="document-summary-card">
-                <div className="document-summary-icon red">
-                  <Upload size={21} />
-                </div>
-                <div>
-                  <span>Not Uploaded</span>
-                  <strong>{notUploadedDocuments}</strong>
-                  <small>Documents required</small>
-                </div>
-              </div>
-
-            </section>
-          );
-        })()}
+        </section>
 
 
         {/* =========================
@@ -298,11 +408,16 @@ function EmployeeDocuments() {
                         <button
                           type="button"
                           title="View"
-                          onClick={() => setSelectedDocument({ ...doc, categoryName: category.name })}
+                          onClick={() => handleView(doc, category.name)}
                         >
                           <Eye size={17} />
                         </button>
-                        <button type="button" title="Download">
+                        <button
+                          type="button"
+                          title={downloadingId === doc.id ? "Downloading..." : "Download"}
+                          disabled={downloadingId === doc.id}
+                          onClick={() => handleDownload(doc)}
+                        >
                           <Download size={17} />
                         </button>
                       </>
@@ -358,37 +473,60 @@ function EmployeeDocuments() {
           VIEW DOCUMENT MODAL
       ========================= */}
       {selectedDocument && (
-        <div className="document-modal-overlay">
-          <div className="document-modal">
+        <div className="document-modal-overlay" onClick={closePreview}>
+          <div
+            className={`document-modal ${preview.url && preview.kind !== "other" ? "has-preview" : ""}`}
+            onClick={(event) => event.stopPropagation()}
+          >
 
             <div className="document-modal-header">
               <div>
                 <h2>{selectedDocument.categoryName}</h2>
                 <p>{selectedDocument.fileName}</p>
               </div>
-              <button type="button" onClick={() => setSelectedDocument(null)}>
+              <button type="button" onClick={closePreview}>
                 <X size={20} />
               </button>
             </div>
 
-            <div className="document-preview">
-              <FileText size={55} />
-              <h3>Document Preview</h3>
-              <p>{selectedDocument.fileName}</p>
-              {/* No preview/download URL field is in EmployeeDocumentResponseDto.
-                  If your backend serves the file via a separate endpoint
-                  (e.g. GET /employee-documents/{id}/download), wire an
-                  <iframe>/<img> or the Download button below to that instead. */}
-              <span>Preview not available — file storage URL not confirmed yet</span>
-            </div>
+            {preview.url && preview.kind === "pdf" && (
+              <iframe
+                className="document-preview-frame"
+                src={preview.url}
+                title={selectedDocument.fileName}
+              />
+            )}
+
+            {preview.url && preview.kind === "image" && (
+              <div className="document-preview-image">
+                <img src={preview.url} alt={selectedDocument.fileName} />
+              </div>
+            )}
+
+            {!(preview.url && preview.kind !== "other") && (
+              <div className="document-preview">
+                <FileText size={55} />
+                <h3>Document Preview</h3>
+                <p>{selectedDocument.fileName}</p>
+                {preview.loading && <span>Loading document...</span>}
+                {preview.error && <span className="document-preview-error">{preview.error}</span>}
+                {preview.url && preview.kind === "other" && (
+                  <span>This file type cannot be previewed in the browser. Use Download to open it.</span>
+                )}
+              </div>
+            )}
 
             <div className="document-modal-footer">
-              <button type="button" onClick={() => setSelectedDocument(null)}>
+              <button type="button" onClick={closePreview}>
                 Close
               </button>
-              <button type="button">
+              <button
+                type="button"
+                disabled={downloadingId === selectedDocument.id}
+                onClick={() => handleDownload(selectedDocument)}
+              >
                 <Download size={16} />
-                Download
+                {downloadingId === selectedDocument.id ? "Downloading..." : "Download"}
               </button>
             </div>
 

@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Search, Bell, UserRound, Settings, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { getEmployeeProfile } from "../../services/employeeService";
+import { getEmployeeProfile, getUnreadNotificationCount } from "../../services/employeeService";
 import "./EmployeeTopbar.css";
 
 function EmployeeTopbar() {
   const navigate = useNavigate();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // FIXED: this used to be hardcoded to "Maheshwari" / "Software Engineer"
   // regardless of who actually logged in — that's why the topbar showed
@@ -31,9 +32,29 @@ function EmployeeTopbar() {
       }
     };
 
+    const fetchUnreadCount = async () => {
+      try {
+        const response = await getUnreadNotificationCount();
+        const payload = response.data?.data ?? response.data;
+        const count = typeof payload === "number"
+          ? payload
+          : Number(payload?.unreadCount ?? payload?.count ?? payload?.total ?? 0);
+        if (isMounted) setUnreadCount(Number.isFinite(count) ? Math.max(0, count) : 0);
+      } catch (err) {
+        console.error("Failed to load unread notification count", err);
+      }
+    };
+
     fetchProfile();
+    fetchUnreadCount();
+    // Keep the badge fresh when notifications change and while the page is open.
+    const refreshCount = () => fetchUnreadCount();
+    window.addEventListener("employee-notifications-changed", refreshCount);
+    const refreshTimer = window.setInterval(fetchUnreadCount, 30000);
 
     return () => {
+      window.clearInterval(refreshTimer);
+      window.removeEventListener("employee-notifications-changed", refreshCount);
       isMounted = false;
     };
   }, []);
@@ -80,7 +101,11 @@ function EmployeeTopbar() {
         >
           <Bell size={21} />
 
-          <span className="employee-notification-dot"></span>
+          {unreadCount > 0 && (
+            <span className="employee-notification-badge" aria-label={`${unreadCount} unread notifications`}>
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
         </button>
 
         {/* Profile */}

@@ -279,3 +279,68 @@
     padding: 16px 0;
   }
 }
+
+/* Change password form */
+.employee-settings-page .change-password-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.employee-password-form {
+  margin: 0 24px 24px;
+  padding: 20px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+}
+.employee-password-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.employee-password-fields .settings-field:first-child {
+  grid-column: 1 / -1;
+}
+.employee-password-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.employee-password-input-wrap input {
+  width: 100%;
+  padding-right: 44px;
+  background: #fff;
+  color: #1f2937;
+  box-sizing: border-box;
+}
+.employee-password-visibility {
+  position: absolute;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  color: #6b7280;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.employee-password-hint {
+  margin: 14px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+}
+.employee-password-message {
+  margin: 12px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.employee-password-message.error { color: #b91c1c; }
+.employee-password-message.success { color: #15803d; }
+.employee-password-submit { margin-top: 16px; }
+.settings-save-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+@media (max-width: 700px) {
+  .employee-password-fields { grid-template-columns: 1fr; }
+  .employee-password-fields .settings-field:first-child { grid-column: auto; }
+  .employee-password-form { margin: 0 16px 18px; padding: 16px; }
+}
