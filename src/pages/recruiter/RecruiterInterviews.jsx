@@ -219,20 +219,24 @@ function RecruiterInterviews() {
   // FETCH APPLICATIONS / SHORTLISTED CANDIDATES
   // =========================================================
 
+  
+  // Fetch AI-qualified candidates who are eligible for interviews
   const fetchApplications = async () => {
     try {
       setApplicationsLoading(true);
       setApplicationsError("");
       setApplications([]);
 
-      const response = await apiClient.get("/applications");
+      const response = await apiClient.get(
+        "/interviews/eligible-candidates"
+      );
 
       const result = response.data;
 
       if (!result?.success) {
         throw new Error(
           result?.message ||
-            "Failed to load shortlisted candidates."
+            "Failed to load eligible candidates."
         );
       }
 
@@ -240,19 +244,20 @@ function RecruiterInterviews() {
         Array.isArray(result.data) ? result.data : []
       );
     } catch (err) {
-      console.error("Applications error:", err);
+      console.error("Eligible candidates error:", err);
 
       setApplications([]);
 
       setApplicationsError(
         err.response?.data?.message ||
           err.message ||
-          "Failed to load shortlisted candidates."
+          "Failed to load eligible candidates."
       );
     } finally {
       setApplicationsLoading(false);
     }
   };
+
 
   // =========================================================
   // OPEN SCHEDULE MODAL
@@ -551,7 +556,7 @@ function RecruiterInterviews() {
       );
 
       await fetchInterviews();
-
+      await fetchApplications();
       setNewInterview({
         ...initialInterviewForm,
       });
@@ -1209,28 +1214,24 @@ function RecruiterInterviews() {
                     }
                     required
                   >
-                    <option value="">
-                      {applicationsLoading
-                        ? "Loading candidates..."
-                        : "Select Candidate"}
-                    </option>
+                    
+<option value="">
+  {applicationsLoading
+    ? "Loading qualified candidates..."
+    : "Select a qualified candidate"}
+</option>
 
-                    {applications.map(
-                      (application) => (
-                        <option
-                          key={
-                            application.applicationId
-                          }
-                          value={
-                            application.applicationId
-                          }
-                        >
-                          {
-                            application.candidateName
-                          }
-                        </option>
-                      )
-                    )}
+{applications.map((candidate) => (
+  <option
+    key={candidate.applicationId}
+    value={candidate.applicationId}
+  >
+    {candidate.candidateName} — {candidate.jobTitle}
+    {" | Score: "}
+    {candidate.screeningScore ?? "N/A"}%
+  </option>
+))}
+
                   </select>
 
                   {applicationsError && (

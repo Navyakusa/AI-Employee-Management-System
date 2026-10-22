@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Chatbot from "./components/Chatbot";
+
 
 // =====================================================
 // Recruiter Pages
@@ -682,8 +682,6 @@ function App() {
       </Routes>
 
 
-      {/* Global Chatbot */}
-      <Chatbot />
 
     </BrowserRouter>
   );
