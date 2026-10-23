@@ -17,6 +17,7 @@ import InterviewerSidebar from "./InterviewerSidebar";
 import InterviewerNavbar from "./InterviewerNavbar";
 
 import { getMyInterviews } from "../../services/interviewerService";
+import { attachEvaluationStatus } from "../../services/interviewerEvaluationStatus";
 
 import "./InterviewerDashboard.css";
 
@@ -40,6 +41,7 @@ function InterviewerInterviews() {
     }
 
     getMyInterviews()
+      .then(attachEvaluationStatus)
       .then((data) => {
         setInterviews(Array.isArray(data) ? data : []);
       })

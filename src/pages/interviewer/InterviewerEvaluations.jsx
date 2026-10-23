@@ -19,6 +19,15 @@ import { getMyEvaluationsList } from "../../services/interviewerService";
 
 import "./InterviewerDashboard.css";
 
+// Backend may send "SUBMITTED" / "PENDING" (uppercase enums) while the
+// UI compares against "Submitted" / "Pending" — normalize to Title Case.
+function normalizeStatus(status) {
+  const value = String(status ?? "").trim().toLowerCase();
+  if (value === "submitted" || value === "completed") return "Submitted";
+  if (value === "pending" || value === "") return "Pending";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 function InterviewerEvaluations() {
   const navigate = useNavigate();
 
@@ -31,7 +40,14 @@ function InterviewerEvaluations() {
 
   useEffect(() => {
     getMyEvaluationsList()
-      .then((data) => setEvaluations(Array.isArray(data) ? data : []))
+      .then((data) =>
+        setEvaluations(
+          (Array.isArray(data) ? data : []).map((evaluation) => ({
+            ...evaluation,
+            status: normalizeStatus(evaluation.status),
+          }))
+        )
+      )
       .catch(() => {
         setError("Unable to load evaluations right now.");
       })

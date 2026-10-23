@@ -18,6 +18,7 @@ import InterviewerSidebar from "./InterviewerSidebar";
 import InterviewerNavbar from "./InterviewerNavbar";
 
 import { getMyInterviews } from "../../services/interviewerService";
+import { attachEvaluationStatus } from "../../services/interviewerEvaluationStatus";
 
 import "./InterviewerDashboard.css";
 
@@ -30,6 +31,7 @@ function InterviewerDashboard() {
 
   useEffect(() => {
     getMyInterviews()
+      .then(attachEvaluationStatus)
       .then((data) => {
         setInterviews(Array.isArray(data) ? data : []);
       })
@@ -39,34 +41,28 @@ function InterviewerDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Today/upcoming are decided from each interview's real start time
-  // (scheduledAt), not by comparing formatted date text. Interviews whose
-  // time has already passed are not "Scheduled" any more (mapInterview
-  // corrects their status), so they never count as today or upcoming.
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const startOfTomorrow = new Date(startOfToday);
-  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+  /*
+    ASSUMPTION: interview.date is a string that can be directly compared
+    to today's date in the same format. CONFIRM the date format the
+    backend returns (e.g. "16 Sep 2026" vs ISO "2026-09-16") and adjust
+    this comparison if needed — ideally parse both sides with a date
+    library (e.g. dayjs) instead of a raw string match.
+  */
+  const todayDate = new Date().toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 
-  const isToday = (interview) =>
-    interview.scheduledAt !== null &&
-    interview.scheduledAt >= startOfToday.getTime() &&
-    interview.scheduledAt < startOfTomorrow.getTime();
+  const todayInterviews = interviews.filter(
+    (interview) =>
+      interview.date === todayDate && interview.status === "Scheduled"
+  );
 
-  const byStartTime = (a, b) => (a.scheduledAt ?? 0) - (b.scheduledAt ?? 0);
-
-  const todayInterviews = interviews
-    .filter((interview) => interview.status === "Scheduled" && isToday(interview))
-    .sort(byStartTime);
-
-  const upcomingInterviews = interviews
-    .filter(
-      (interview) =>
-        interview.status === "Scheduled" &&
-        interview.scheduledAt !== null &&
-        interview.scheduledAt >= startOfTomorrow.getTime()
-    )
-    .sort(byStartTime);
+  const upcomingInterviews = interviews.filter(
+    (interview) =>
+      interview.status === "Scheduled" && interview.date !== todayDate
+  );
 
   const completedInterviews = interviews.filter(
     (interview) => interview.status === "Completed"

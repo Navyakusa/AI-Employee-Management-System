@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import {
   Bell,
@@ -10,42 +10,57 @@ import {
   LogOut,
 } from "lucide-react";
 
-import { getUnreadNotificationCount } from "../../services/interviewerService";
+import {
+  fetchInterviewerUnreadCount,
+  NOTIFICATIONS_UPDATED_EVENT,
+} from "../../services/interviewerNotificationUtils";
+
+// How often the bell re-checks for new notifications (ms).
+const NOTIFICATION_POLL_INTERVAL = 30000;
 
 function InterviewerNavbar() {
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [searchTerm, setSearchTerm] =
+    useState("");
+
+  const [showProfileMenu, setShowProfileMenu] =
+    useState(false);
+
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const refreshUnreadCount = () => {
-    getUnreadNotificationCount()
-      .then((count) => setUnreadCount(Number(count) || 0))
-      .catch((err) => {
-        console.error("Failed to fetch unread count:", err);
-      });
-  };
-
-  // Refetch on every route change (in case this component instance
-  // somehow persists across navigation instead of remounting) AND
-  // whenever the browser tab regains focus (in case the count changed
-  // in another tab, or just went stale while the tab was inactive).
   useEffect(() => {
-    refreshUnreadCount();
+    let cancelled = false;
 
-    window.addEventListener("focus", refreshUnreadCount);
-    window.addEventListener("notifications-updated", refreshUnreadCount);
+    const refreshUnread = () => {
+      fetchInterviewerUnreadCount()
+        .then((count) => {
+          if (!cancelled) setUnreadCount(count);
+        })
+        .catch(() => {
+          // Keep the last known value if the request fails.
+        });
+    };
+
+    refreshUnread();
+
+    const intervalId = setInterval(
+      refreshUnread,
+      NOTIFICATION_POLL_INTERVAL
+    );
+
+    // Refresh immediately when notifications are read elsewhere,
+    // or when the user comes back to this tab.
+    window.addEventListener(NOTIFICATIONS_UPDATED_EVENT, refreshUnread);
+    window.addEventListener("focus", refreshUnread);
 
     return () => {
-      window.removeEventListener("focus", refreshUnreadCount);
-      window.removeEventListener(
-        "notifications-updated",
-        refreshUnreadCount
-      );
+      cancelled = true;
+      clearInterval(intervalId);
+      window.removeEventListener(NOTIFICATIONS_UPDATED_EVENT, refreshUnread);
+      window.removeEventListener("focus", refreshUnread);
     };
-  }, [location.pathname]);
+  }, []);
 
   const loggedInUser = JSON.parse(
     localStorage.getItem("loggedInUser")
@@ -112,16 +127,36 @@ function InterviewerNavbar() {
         <button
           type="button"
           className="interviewer-notification-button"
-          onClick={() =>
-            navigate("/interviewer/notifications")
+          style={{ position: "relative" }}
+          aria-label={
+            unreadCount > 0
+              ? `Notifications (${unreadCount} unread)`
+              : "Notifications"
           }
+          title={
+            unreadCount > 0
+              ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
+              : "Notifications"
+          }
+          onClick={() => navigate("/interviewer/notifications")}
         >
           <Bell size={20} />
 
           {unreadCount > 0 && (
-            <span className="interviewer-notification-badge">
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                top: "6px",
+                right: "7px",
+                width: "9px",
+                height: "9px",
+                borderRadius: "50%",
+                background: "#e5484d",
+                border: "2px solid #ffffff",
+                boxSizing: "content-box",
+              }}
+            />
           )}
         </button>
 
@@ -155,26 +190,26 @@ function InterviewerNavbar() {
             <div className="interviewer-profile-dropdown">
 
               <button
-                type="button"
-                onClick={() => {
-                  setShowProfileMenu(false);
-                  navigate("/interviewer/profile");
-                }}
-              >
-                <User size={17} />
-                My Profile
-              </button>
+  type="button"
+  onClick={() => {
+    setShowProfileMenu(false);
+    navigate("/interviewer/profile");
+  }}
+>
+  <User size={17} />
+  My Profile
+</button>
 
               <button
-                type="button"
-                onClick={() => {
-                  setShowProfileMenu(false);
-                  navigate("/interviewer/settings");
-                }}
-              >
-                <Settings size={17} />
-                Settings
-              </button>
+  type="button"
+  onClick={() => {
+    setShowProfileMenu(false);
+    navigate("/interviewer/settings");
+  }}
+>
+  <Settings size={17} />
+  Settings
+</button>
 
               <button
                 type="button"
