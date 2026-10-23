@@ -47,7 +47,7 @@ from app.schemas import (
     EmployeeInput, AttritionResponse,
     JobPostingInput, SalaryResponse,
     CandidateDecisionRequest, CandidateDecisionResponse,
-    ChatbotRequest, ChatbotResponse,
+    ChatRequest, ChatResponse,
 )
 
 logger = logging.getLogger("uvicorn")
@@ -511,18 +511,20 @@ def recommend_candidate_decision_endpoint(payload: CandidateDecisionRequest):
 # interviewers, employees or admins get a fixed "not available" message.
 # ---------------------------------------------------------------------------
 
-@app.post("/chat", response_model=ChatbotResponse, tags=["chatbot"])
-def chat_endpoint(payload: ChatbotRequest):
-    # Chatbot.py reads each history item as a dict (item.get("role")), so the
-    # Pydantic message objects are converted first -- otherwise every history
-    # item was silently skipped and the bot forgot the earlier conversation.
-    history = [_to_dict(m) for m in (getattr(payload, "conversation_history", None) or [])]
+@app.post("/chat", response_model=ChatResponse, tags=["chatbot"])
+def chat_endpoint(payload: ChatRequest):
+    # Convert conversation history into dictionaries
+    history = [
+        _to_dict(m)
+        for m in (getattr(payload, "conversation_history", None) or [])
+    ]
 
     kwargs = {
         "message": payload.message,
         "conversation_history": history,
         "job_context": getattr(payload, "job_context", None),
     }
+
     if _CHATBOT_ACCEPTS_ROLE:
         kwargs["role"] = getattr(payload, "role", None) or "PUBLIC"
 
@@ -534,4 +536,4 @@ def chat_endpoint(payload: ChatbotRequest):
         logger.exception("Chatbot request failed")
         raise HTTPException(status_code=500, detail="Chatbot service failed.")
 
-    return ChatbotResponse(response=reply)
+    return ChatResponse(response=reply)
