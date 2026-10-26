@@ -400,23 +400,29 @@ export const getStatusInfo = (status) => {
 
 // application = item from GET /applications/my
 // job         = the same job already run through mapJob (may be missing)
+
 export const mapApplication = (application = {}, job) => {
-  const rawStatus = String(application.status ?? "").toUpperCase();
+  const rawStatus = String(
+    application.status ?? application.applicationStatus ?? ""
+  ).toUpperCase();
+
   const info = getStatusInfo(rawStatus);
 
   return {
-    id: application.applicationId,
+    id: application.applicationId ?? application.id,
     jobId: application.jobId,
     jobTitle: job?.title || `Job #${application.jobId}`,
     company: COMPANY_NAME,
     location: job?.location || "Not specified",
     type: job?.type || "Not specified",
-    appliedDate: formatDate(application.appliedAt),
+    appliedDate: formatDate(
+      application.appliedAt ?? application.applicationDate
+    ),
     status: info.label,
     rawStatus,
     currentStep: info.step,
     applicationCode: `APP-${String(
-      application.applicationId
+      application.applicationId ?? application.id
     ).padStart(4, "0")}`,
   };
 };

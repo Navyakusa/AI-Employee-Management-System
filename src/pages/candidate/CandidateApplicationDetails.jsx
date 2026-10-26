@@ -90,63 +90,77 @@ function CandidateApplicationDetails() {
 
   // There is no "get one application" endpoint for candidates, so the
   // application is found in the candidate's own list.
-  useEffect(() => {
-    let cancelled = false;
+  
+useEffect(() => {
+  let cancelled = false;
 
-    const loadApplication = async () => {
+  const loadApplication = async () => {
+    try {
       setLoading(true);
       setError("");
 
-      try {
-        const [list, interviews] = await Promise.all([
-          getMyApplicationsWithJobs(),
-          // interviews are extra - never block the page if they fail
-          getMyInterviewsWithJobs().catch(() => []),
-        ]);
+      const [list, interviews] = await Promise.all([
+        getMyApplicationsWithJobs(),
+        getMyInterviewsWithJobs().catch(() => []),
+      ]);
 
-        if (!cancelled) {
-          const found = list.find(
-            (item) =>
-              String(item.id) === String(applicationId)
-          );
+      if (cancelled) return;
 
-          setApplication(
-            found
-              ? {
-                  ...found,
-                  interview:
-                    interviews.find(
-                      (interview) =>
-                        String(interview.applicationId) ===
-                          String(found.id) &&
-                        interview.status === "Upcoming"
-                    ) || null,
-                }
-              : null
-          );
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(
-            getErrorMessage(
-              err,
-              "Unable to load this application."
-            )
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+      // Match by application ID, not candidate ID or job ID.
+      const found = list.find(
+        (item) => String(item.id) === String(applicationId)
+      );
+
+      const matchedInterview = found
+        ? interviews.find(
+            (interview) =>
+              String(interview.applicationId) === String(found.id) &&
+              interview.status === "Upcoming"
+          ) || null
+        : null;
+
+      setApplication(
+        found
+          ? {
+              ...found,
+              interview: matchedInterview,
+              currentStep: matchedInterview
+                ? 4
+                : found.currentStep,
+            }
+          : null
+      );
+    } catch (err) {
+      if (!cancelled) {
+        setError(
+          getErrorMessage(err, "Unable to load this application.")
+        );
       }
-    };
+    } finally {
+      if (!cancelled) {
+        setLoading(false);
+      }
+    }
+  };
 
-    loadApplication();
+  loadApplication();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [applicationId]);
+  const refreshOnFocus = () => {
+    if (document.visibilityState === "visible") {
+      loadApplication();
+    }
+  };
+
+  window.addEventListener("focus", refreshOnFocus);
+  document.addEventListener("visibilitychange", refreshOnFocus);
+
+  return () => {
+    cancelled = true;
+    window.removeEventListener("focus", refreshOnFocus);
+    document.removeEventListener("visibilitychange", refreshOnFocus);
+  };
+}, [applicationId]);
+
 
   const steps = [
     {
@@ -275,7 +289,9 @@ function CandidateApplicationDetails() {
                 application.status
               )}`}
             >
-              {application.status}
+              {application.interview
+  ? "Interview"
+  : application.status}
             </span>
           </div>
 
@@ -407,7 +423,9 @@ function CandidateApplicationDetails() {
 
                   <div>
                     <span>Your application is currently</span>
-                    <strong>{application.status}</strong>
+                    <strong>
+  {application.interview ? "Interview" : application.status}
+</strong>
                   </div>
                 </div>
 

@@ -14,7 +14,10 @@ import {
 import CandidateSidebar from "./CandidateSidebar";
 import CandidateNavbar from "./CandidateNavbar";
 
-import { getMyApplicationsWithJobs } from "../../services/candidateService";
+import {
+  getMyApplicationsWithJobs,
+  getMyInterviewsWithJobs,
+} from "../../services/candidateService";
 import {
   APPLICATION_STATUS_FILTERS,
   getErrorMessage,
@@ -30,19 +33,39 @@ function CandidateApplications() {
   const [error, setError] = useState("");
 
   const loadApplications = async () => {
-    setLoading(true);
-    setError("");
+  setLoading(true);
+  setError("");
 
-    try {
-      setApplications(await getMyApplicationsWithJobs());
-    } catch (err) {
-      setError(
-        getErrorMessage(err, "Unable to load your applications.")
+  try {
+    const [applicationList, interviews] = await Promise.all([
+      getMyApplicationsWithJobs(),
+      getMyInterviewsWithJobs().catch(() => []),
+    ]);
+
+    const updatedApplications = applicationList.map((application) => {
+      const hasUpcomingInterview = interviews.some(
+        (interview) =>
+          String(interview.applicationId) === String(application.id) &&
+          interview.status === "Upcoming"
       );
-    } finally {
-      setLoading(false);
-    }
-  };
+
+      return {
+        ...application,
+        displayStatus: hasUpcomingInterview
+          ? "Interview"
+          : application.status,
+      };
+    });
+
+    setApplications(updatedApplications);
+  } catch (err) {
+    setError(
+      getErrorMessage(err, "Unable to load your applications.")
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     loadApplications();
@@ -65,8 +88,8 @@ function CandidateApplications() {
           .includes(searchValue);
 
       const matchesStatus =
-        status === "All" ||
-        application.status === status;
+  status === "All" ||
+  (application.displayStatus || application.status) === status;
 
       return matchesSearch && matchesStatus;
     });
@@ -203,12 +226,12 @@ function CandidateApplications() {
                         </div>
 
                         <span
-                          className={`candidate-my-application-status ${getStatusClass(
-                            application.status
-                          )}`}
-                        >
-                          {application.status}
-                        </span>
+  className={`candidate-my-application-status ${getStatusClass(
+    application.displayStatus || application.status
+  )}`}
+>
+  {application.displayStatus || application.status}
+</span>
                       </div>
 
                       <div className="candidate-application-list-meta">
