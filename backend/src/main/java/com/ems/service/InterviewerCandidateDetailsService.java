@@ -63,11 +63,13 @@ public class InterviewerCandidateDetailsService {
             );
         }
 
+        // Find interviews assigned to the logged-in interviewer.
         List<Interview> interviews =
                 interviewRepository.findByInterviewerId(interviewerId);
 
         Interview candidateInterview = null;
 
+        // Select the latest interview for this candidate.
         for (Interview interview : interviews) {
             if (candidateId.equals(interview.getCandidateId())) {
                 if (candidateInterview == null ||
@@ -81,6 +83,7 @@ public class InterviewerCandidateDetailsService {
             }
         }
 
+        // Do not allow an interviewer to access an unassigned candidate.
         if (candidateInterview == null) {
             return ResponseEntity.status(403).body(
                     new ApiResponse<>(
@@ -94,7 +97,7 @@ public class InterviewerCandidateDetailsService {
         Job job = jobRepository.findById(candidateInterview.getJobId())
                 .orElse(null);
 
-        // Retrieve the latest resume belonging to this candidate.
+        // Retrieve the latest resume record for this candidate.
         Resume resume = resumeRepository
                 .findFirstByCandidateIdOrderByIdDesc(candidateId)
                 .orElse(null);
@@ -111,10 +114,9 @@ public class InterviewerCandidateDetailsService {
         dto.setExperience(candidate.getExperience());
         dto.setSkills(candidate.getSkills());
 
-        // Use the actual resume record, not Candidate.resume.
-        dto.setResume(
-                resume != null ? resume.getFileName() : null
-        );
+        // Return both the resume database ID and its filename.
+        dto.setResumeId(resume != null ? resume.getId() : null);
+        dto.setResume(resume != null ? resume.getFileName() : null);
 
         dto.setLinkedin(candidate.getLinkedin());
         dto.setPortfolio(candidate.getPortfolio());
@@ -154,6 +156,11 @@ public class InterviewerCandidateDetailsService {
     }
 
     private User getLoggedInUser(Authentication authentication) {
+        if (authentication == null ||
+                !authentication.isAuthenticated()) {
+            throw new RuntimeException("User is not authenticated");
+        }
+
         String email = authentication.getName();
 
         return userRepository.findByEmailIgnoreCase(email)

@@ -9,9 +9,17 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface PerformanceReviewRepository extends JpaRepository<PerformanceReview, Long> {
+public interface PerformanceReviewRepository
+        extends JpaRepository<PerformanceReview, Long> {
 
-    List<PerformanceReview> findByEmployeeIdOrderByReviewDateDesc(Long employeeId);
+    List<PerformanceReview> findByEmployeeIdOrderByReviewDateDesc(
+            Long employeeId
+    );
 
-    Optional<PerformanceReview> findByIdAndEmployeeId(Long id, Long employeeId);
+    Optional<PerformanceReview> findByIdAndEmployeeId(
+            Long id,
+            Long employeeId
+    );
+
+    List<PerformanceReview> findAllByOrderByReviewDateDesc();
 }

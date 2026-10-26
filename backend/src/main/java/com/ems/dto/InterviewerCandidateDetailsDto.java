@@ -1,3 +1,4 @@
+
 package com.ems.dto;
 
 import lombok.AllArgsConstructor;
@@ -12,7 +13,6 @@ import java.time.LocalDateTime;
 public class InterviewerCandidateDetailsDto {
 
     private Long candidateId;
-
     private String name;
     private String email;
     private String phone;
@@ -20,7 +20,10 @@ public class InterviewerCandidateDetailsDto {
     private String education;
     private String experience;
     private String skills;
+
+    private Long resumeId;
     private String resume;
+
     private String linkedin;
     private String portfolio;
 
@@ -38,6 +41,5 @@ public class InterviewerCandidateDetailsDto {
     private String interviewStatus;
 
     private Double aiMatchScore;
-
     private String professionalSummary;
 }
