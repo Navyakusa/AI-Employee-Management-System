@@ -6,7 +6,6 @@ const apiClient = axios.create({
 
   baseURL: "http://192.168.0.3:8080/api"
 
-
 });
 
 // Add JWT automatically for protected APIs

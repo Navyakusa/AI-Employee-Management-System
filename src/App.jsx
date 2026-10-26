@@ -44,7 +44,7 @@ import HRDashboard from "./pages/hr/HRDashboard";
 import HRJobs from "./pages/hr/HRJobs";
 import CreateJob from "./pages/hr/CreateJob";
 import HRCandidates from "./pages/hr/HRCandidates";
-import HRScreening from "./pages/hr/HRScreening";
+
 import HRAnalytics from "./pages/hr/HRAnalytics";
 import HRInterviews from "./pages/hr/HRInterviews";
 import HROffers from "./pages/hr/HROffers";
@@ -244,10 +244,7 @@ function App() {
           element={<HRCandidates />}
         />
 
-        <Route
-          path="/hr/ai-screening"
-          element={<HRScreening />}
-        />
+       
 
         <Route
           path="/hr/analytics"

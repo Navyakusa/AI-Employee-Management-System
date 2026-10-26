@@ -1,1203 +1,235 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import HRSidebar from "./HRSidebar";
 import HRNavbar from "./HRNavbar";
 import "./HRScreening.css";
+import { fetchAIScreening } from "./hrApi";
 
-import {
-  fetchJobs,
-  fetchCandidates,
-  screenResume,
-  rankCandidatesForJob,
-} from "./hrApi";
+const asArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.content)) return value.content;
+  if (Array.isArray(value?.records)) return value.records;
+  if (Array.isArray(value?.results)) return value.results;
+  if (Array.isArray(value?.screenings)) return value.screenings;
+  if (Array.isArray(value?.data)) return asArray(value.data);
+  if (Array.isArray(value?.items)) return value.items;
+  return [];
+};
 
+const first = (...values) =>
+  values.find((value) => value !== undefined && value !== null && value !== "");
 
-function HRScreening() {
-  // ==========================================================
-  // SCREENING
-  // ==========================================================
+function getCandidateName(row) {
+  const candidate = row?.candidate || row?.candidateDetails || {};
+  return first(
+    row?.candidateName,
+    row?.fullName,
+    candidate?.fullName,
+    candidate?.name,
+    [candidate?.firstName, candidate?.lastName].filter(Boolean).join(" "),
+    row?.name,
+    `Candidate ${first(row?.candidateId, candidate?.id, "—")}`
+  );
+}
 
-  const [jobId, setJobId] = useState("");
-  const [candidateId, setCandidateId] = useState("");
+function getJobTitle(row) {
+  const job = row?.job || row?.jobDetails || {};
+  return first(row?.jobTitle, job?.title, job?.jobTitle, job?.name,
+    row?.position, `Job ${first(row?.jobId, job?.id, "—")}`);
+}
 
-  const [jobs, setJobs] = useState([]);
-  const [candidates, setCandidates] = useState([]);
+function getScore(row) {
+  const value = first(row?.screeningScore, row?.score, row?.matchScore,
+    row?.aiMatch, row?.matchPercentage, row?.percentage);
+  if (value === undefined) return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
 
-  const [loadingJobs, setLoadingJobs] = useState(true);
-  const [loadingCandidates, setLoadingCandidates] = useState(true);
+function getResult(row) {
+  return String(first(row?.screeningResult, row?.result, row?.status, row?.decision, "PENDING"))
+    .replaceAll("_", " ");
+}
 
-  const [screening, setScreening] = useState(false);
+function getSkills(row) {
+  const value = first(row?.extractedSkills, row?.skills, row?.candidateSkills, row?.resumeAnalysis?.skills);
+  if (Array.isArray(value)) return value.map((item) => typeof item === "string" ? item : item?.name).filter(Boolean);
+  if (typeof value === "string") return value.split(/[,;|]/).map((item) => item.trim()).filter(Boolean);
+  return [];
+}
 
-  const [screenResult, setScreenResult] = useState(null);
+function getEducation(row) {
+  const value = first(row?.education, row?.extractedEducation, row?.resumeAnalysis?.education);
+  if (Array.isArray(value)) return value.map((item) => typeof item === "string" ? item : first(item?.degree, item?.qualification, item?.institution)).filter(Boolean).join(", ");
+  if (typeof value === "object" && value !== null) return first(value?.degree, value?.qualification, value?.institution, JSON.stringify(value));
+  return value || "—";
+}
 
-  const [screenError, setScreenError] = useState("");
+function getDate(row) {
+  const value = first(row?.screenedAt, row?.screeningDate, row?.createdAt, row?.createdDate, row?.updatedAt);
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString();
+}
 
-  const [pageError, setPageError] = useState("");
+function resultClass(result) {
+  const value = result.toLowerCase();
+  if (value.includes("qualified") && !value.includes("not qualified")) return "qualified";
+  if (value.includes("recommend")) return "recommended";
+  if (value.includes("not qualified") || value.includes("rejected") || value.includes("fail")) return "not-qualified";
+  return "needs-review";
+}
 
-  // ==========================================================
-  // AI RANKING
-  // ==========================================================
+export default function HRScreening() {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("ALL");
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  const [rankingJobId, setRankingJobId] = useState("");
+  const loadScreeningRecords = useCallback(async (quiet = false) => {
+    try {
+      if (quiet) setRefreshing(true);
+      else setLoading(true);
+      setError("");
 
-  const [rankingResults, setRankingResults] = useState([]);
+      // Existing helper calls GET /api/dashboard/ai-screening and unwraps
+      // the standard { success: true, data: ... } API envelope.
+      const response = await fetchAIScreening();
+      console.log("AI Screening records response:", response);
 
-  const [rankingLoading, setRankingLoading] = useState(false);
-
-  const [rankingError, setRankingError] = useState("");
-
-  // ==========================================================
-  // LOAD JOBS + CANDIDATES
-  // ==========================================================
-
-  useEffect(() => {
-    loadJobs();
-    loadCandidates();
+      const list = asArray(response);
+      setRecords(list);
+      setLastUpdated(new Date());
+    } catch (err) {
+      console.error("Failed to load AI screening records:", err);
+      setError(err?.message || "Unable to load AI screening records.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
-  async function loadJobs() {
-    try {
-      setLoadingJobs(true);
-      setPageError("");
+  useEffect(() => {
+    loadScreeningRecords();
+    // Refresh completed records periodically so new automatic screenings appear.
+    const timer = window.setInterval(() => loadScreeningRecords(true), 30000);
+    return () => window.clearInterval(timer);
+  }, [loadScreeningRecords]);
 
-      const data = await fetchJobs();
+  const visibleRecords = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return records.filter((row) => {
+      const result = getResult(row);
+      const matchesFilter = filter === "ALL" ||
+        (filter === "HIGH_MATCH" && getScore(row) !== null && getScore(row) >= 75) ||
+        (filter === "RECOMMENDED" && result.toLowerCase().includes("recommend")) ||
+        (filter === "NEEDS_REVIEW" && (result.toLowerCase().includes("pending") || result.toLowerCase().includes("review"))) ||
+        (filter === "NOT_QUALIFIED" && result.toLowerCase().includes("not qualified"));
+      const haystack = [
+        getCandidateName(row), getJobTitle(row), row?.candidateId, row?.jobId,
+        result, getSkills(row).join(" "), getEducation(row)
+      ].join(" ").toLowerCase();
+      return matchesFilter && (!query || haystack.includes(query));
+    });
+  }, [records, search, filter]);
 
-      console.log("AI Screening - jobs response:", data);
-
-      const jobList = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.data)
-        ? data.data
-        : Array.isArray(data?.content)
-        ? data.content
-        : [];
-
-      setJobs(jobList);
-    } catch (error) {
-      console.error("Failed to load jobs:", error);
-
-      setPageError(error.message || "Failed to load jobs.");
-    } finally {
-      setLoadingJobs(false);
-    }
-  }
-
-  async function loadCandidates() {
-    try {
-      setLoadingCandidates(true);
-
-      const data = await fetchCandidates();
-
-      console.log(
-        "AI Screening - candidates response:",
-        data
-      );
-
-      const candidateList = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.data)
-        ? data.data
-        : Array.isArray(data?.content)
-        ? data.content
-        : [];
-
-      setCandidates(candidateList);
-    } catch (error) {
-      console.error(
-        "Failed to load candidates:",
-        error
-      );
-
-      setPageError(
-        error.message || "Failed to load candidates."
-      );
-    } finally {
-      setLoadingCandidates(false);
-    }
-  }
-
-  // ==========================================================
-  // GET JOB ID
-  // ==========================================================
-
-  function getJobId(job) {
-    return (
-      job?.id ??
-      job?.jobId ??
-      job?.job_id
-    );
-  }
-
-  // ==========================================================
-  // GET JOB TITLE
-  // ==========================================================
-
-  function getJobTitle(job) {
-    return (
-      job?.title ||
-      job?.jobTitle ||
-      job?.name ||
-      `Job ${getJobId(job)}`
-    );
-  }
-
-  // ==========================================================
-  // GET CANDIDATE ID
-  // ==========================================================
-
-  function getCandidateId(candidate) {
-    return (
-      candidate?.id ??
-      candidate?.candidateId ??
-      candidate?.candidate_id
-    );
-  }
-
-  // ==========================================================
-  // GET CANDIDATE NAME
-  // ==========================================================
-
-  function getCandidateName(candidate) {
-    return (
-      candidate?.name ||
-      candidate?.fullName ||
-      candidate?.candidateName ||
-      [
-        candidate?.firstName,
-        candidate?.lastName,
-      ]
-        .filter(Boolean)
-        .join(" ") ||
-      `Candidate ${getCandidateId(candidate)}`
-    );
-  }
-
-  // ==========================================================
-  // RUN AI SCREENING
-  // ==========================================================
-
-  async function handleScreen(e) {
-    e.preventDefault();
-
-    setScreenError("");
-    setScreenResult(null);
-
-    if (!jobId) {
-      setScreenError("Please select a job.");
-      return;
-    }
-
-    if (!candidateId) {
-      setScreenError("Please select a candidate.");
-      return;
-    }
-
-    try {
-      setScreening(true);
-
-      console.log(
-        "Running AI Resume Screening:",
-        {
-          candidateId,
-          jobId,
-        }
-      );
-
-      const result = await screenResume(
-        candidateId,
-        jobId
-      );
-
-      console.log(
-        "AI Resume Screening response:",
-        result
-      );
-
-      /*
-       * screenResume() already unwraps:
-       *
-       * {
-       *   success: true,
-       *   data: {...}
-       * }
-       *
-       * so `result` is the actual data object.
-       */
-
-      setScreenResult(result);
-    } catch (error) {
-      console.error(
-        "AI Resume Screening failed:",
-        error
-      );
-
-      setScreenError(
-        error.message ||
-          "Failed to perform AI resume screening."
-      );
-    } finally {
-      setScreening(false);
-    }
-  }
-
-  // ==========================================================
-  // RUN AI RANKING
-  // ==========================================================
-
-  async function handleRanking() {
-    setRankingError("");
-    setRankingResults([]);
-
-    if (!rankingJobId) {
-      setRankingError("Please select a job.");
-      return;
-    }
-
-    try {
-      setRankingLoading(true);
-
-      console.log(
-        "Running AI Candidate Ranking:",
-        {
-          jobId: rankingJobId,
-        }
-      );
-
-      const result = await rankCandidatesForJob(
-        rankingJobId
-      );
-
-      console.log(
-        "AI Candidate Ranking response:",
-        result
-      );
-
-      /*
-       * rankCandidatesForJob() already unwraps:
-       *
-       * {
-       *   success: true,
-       *   data: [...]
-       * }
-       *
-       * so result should be the ranking array.
-       */
-
-      const rankingList = Array.isArray(result)
-        ? result
-        : Array.isArray(result?.data)
-        ? result.data
-        : [];
-
-      setRankingResults(rankingList);
-    } catch (error) {
-      console.error(
-        "AI Candidate Ranking failed:",
-        error
-      );
-
-      setRankingError(
-        error.message ||
-          "Failed to rank candidates."
-      );
-    } finally {
-      setRankingLoading(false);
-    }
-  }
-
-  // ==========================================================
-  // FORMAT SCORE
-  // ==========================================================
-
-  function formatScore(score) {
-    if (
-      score === null ||
-      score === undefined ||
-      score === ""
-    ) {
-      return "—";
-    }
-
-    const numericScore = Number(score);
-
-    if (Number.isNaN(numericScore)) {
-      return score;
-    }
-
-    return `${numericScore}%`;
-  }
-
-  // ==========================================================
-  // DISPLAY VALUE
-  // ==========================================================
-
-  function displayValue(value) {
-    if (
-      value === null ||
-      value === undefined ||
-      value === ""
-    ) {
-      return "Not available";
-    }
-
-    return value;
-  }
-
-  // ==========================================================
-  // SELECTED CANDIDATE
-  // ==========================================================
-
-  const selectedCandidate =
-    candidates.find(
-      (candidate) =>
-        String(getCandidateId(candidate)) ===
-        String(candidateId)
-    );
-
-  // ==========================================================
-  // SELECTED JOB
-  // ==========================================================
-
-  const selectedJob = jobs.find(
-    (job) =>
-      String(getJobId(job)) ===
-      String(jobId)
-  );
-
-  // ==========================================================
-  // RENDER
-  // ==========================================================
+  const totalScreened = records.length;
+  const highMatch = records.filter((row) => (getScore(row) ?? -1) >= 75).length;
+  const recommended = records.filter((row) => getResult(row).toLowerCase().includes("recommend")).length;
+  const needsReview = records.filter((row) => {
+    const result = getResult(row).toLowerCase();
+    return result.includes("pending") || result.includes("review");
+  }).length;
 
   return (
     <div className="hr-screening-layout">
-
-      {/* =====================================================
-          SIDEBAR
-      ===================================================== */}
-
       <HRSidebar />
-
-
-      {/* =====================================================
-          COMMON HR NAVBAR
-      ===================================================== */}
-
       <HRNavbar />
-
-
-      {/* =====================================================
-          MAIN CONTENT
-      ===================================================== */}
-
       <main className="hr-screening-main">
-
-        {/* ===================================================
-            HEADER
-        =================================================== */}
-
         <header className="screening-header">
-
           <div>
             <h1>AI Screening</h1>
-
-            <p>
-              Analyze candidate resumes against job
-              requirements using AI.
-            </p>
+            <p>Review AI-powered candidate screening and matching results.</p>
           </div>
-
+          <button className="refresh-screenings" type="button" onClick={() => loadScreeningRecords(true)} disabled={refreshing}>
+            {refreshing ? "Refreshing…" : "↻ Refresh Results"}
+          </button>
         </header>
 
+        {error && <div className="error-message">{error}</div>}
 
-        {/* ===================================================
-            PAGE ERROR
-        =================================================== */}
-
-        {pageError && (
-          <div className="error-message">
-            {pageError}
-          </div>
-        )}
-
-
-        {/* ===================================================
-            SCREEN A CANDIDATE
-        =================================================== */}
-
-        <section className="screening-card">
-
-          <div className="card-heading">
-
-            <div className="heading-icon">
-              🤖
-            </div>
-
-            <div>
-              <h2>Screen a Candidate</h2>
-
-              <p>
-                Select a job and candidate to perform
-                AI-based resume screening.
-              </p>
-            </div>
-
-          </div>
-
-
-          <form
-            className="screening-form"
-            onSubmit={handleScreen}
-          >
-
-            {/* JOB */}
-
-            <div className="form-group">
-
-              <label htmlFor="screen-job">
-                Select Job
-              </label>
-
-              <select
-                id="screen-job"
-                value={jobId}
-                onChange={(e) => {
-                  setJobId(e.target.value);
-                  setScreenResult(null);
-                  setScreenError("");
-                }}
-                disabled={loadingJobs}
-              >
-
-                <option value="">
-                  {loadingJobs
-                    ? "Loading jobs..."
-                    : "Select a job..."}
-                </option>
-
-                {jobs.map((job) => {
-                  const id = getJobId(job);
-
-                  return (
-                    <option
-                      key={id}
-                      value={id}
-                    >
-                      {getJobTitle(job)}
-                    </option>
-                  );
-                })}
-
-              </select>
-
-            </div>
-
-
-            {/* CANDIDATE */}
-
-            <div className="form-group">
-
-              <label htmlFor="screen-candidate">
-                Select Candidate
-              </label>
-
-              <select
-                id="screen-candidate"
-                value={candidateId}
-                onChange={(e) => {
-                  setCandidateId(e.target.value);
-                  setScreenResult(null);
-                  setScreenError("");
-                }}
-                disabled={loadingCandidates}
-              >
-
-                <option value="">
-                  {loadingCandidates
-                    ? "Loading candidates..."
-                    : "Select a candidate..."}
-                </option>
-
-                {candidates.map(
-                  (candidate) => {
-                    const id =
-                      getCandidateId(
-                        candidate
-                      );
-
-                    return (
-                      <option
-                        key={id}
-                        value={id}
-                      >
-                        {getCandidateName(
-                          candidate
-                        )}
-                      </option>
-                    );
-                  }
-                )}
-
-              </select>
-
-            </div>
-
-
-            {/* BUTTON */}
-
-            <button
-              type="submit"
-              className="primary-button"
-              disabled={
-                screening ||
-                loadingJobs ||
-                loadingCandidates
-              }
-            >
-              {screening
-                ? "Screening..."
-                : "Run AI Screening"}
-            </button>
-
-          </form>
-
-
-          {screenError && (
-            <div className="error-message">
-              {screenError}
-            </div>
-          )}
-
+        <section className="screening-stats" aria-label="Screening summary">
+          <div className="stat-card"><span className="stat-icon">👥</span><div><span className="stat-label">Total Screened</span><strong>{loading ? "…" : totalScreened}</strong></div></div>
+          <div className="stat-card"><span className="stat-icon">★</span><div><span className="stat-label">High Match</span><strong>{loading ? "…" : highMatch}</strong></div></div>
+          <div className="stat-card"><span className="stat-icon">✓</span><div><span className="stat-label">Recommended</span><strong>{loading ? "…" : recommended}</strong></div></div>
+          <div className="stat-card"><span className="stat-icon">◷</span><div><span className="stat-label">Needs Review</span><strong>{loading ? "…" : needsReview}</strong></div></div>
         </section>
 
-
-        {/* ===================================================
-            SCREENING RESULT
-        =================================================== */}
-
-        {screenResult && (
-          <section className="screening-card result-card">
-
-            {/* RESULT HEADER */}
-
-            <div className="result-header">
-
-              <div>
-
-                <h2>
-                  AI Screening Result
-                </h2>
-
-                <p>
-                  Candidate:{" "}
-                  <strong>
-                    {selectedCandidate
-                      ? getCandidateName(
-                          selectedCandidate
-                        )
-                      : `Candidate ${candidateId}`}
-                  </strong>
-                </p>
-
-                <p>
-                  Job:{" "}
-                  <strong>
-                    {selectedJob
-                      ? getJobTitle(selectedJob)
-                      : `Job ${jobId}`}
-                  </strong>
-                </p>
-
-              </div>
-
-
-              {/* SCORE */}
-
-              <div className="overall-score">
-
-                <span>
-                  {formatScore(
-                    screenResult.screeningScore
-                  )}
-                </span>
-
-                <small>
-                  Screening Score
-                </small>
-
-              </div>
-
-            </div>
-
-
-            {/* =================================================
-                SCREENING RESULT + RECOMMENDATION
-            ================================================= */}
-
-            <div className="screening-summary-grid">
-
-              <div className="summary-box">
-
-                <span className="summary-label">
-                  Screening Result
-                </span>
-
-                <strong className="screening-result-value">
-                  {displayValue(
-                    screenResult.screeningResult
-                  )}
-                </strong>
-
-              </div>
-
-
-              <div className="summary-box">
-
-                <span className="summary-label">
-                  Recommendation
-                </span>
-
-                <p>
-                  {displayValue(
-                    screenResult.recommendation
-                  )}
-                </p>
-
-              </div>
-
-            </div>
-
-
-            {/* =================================================
-                RESUME INFORMATION
-            ================================================= */}
-
-            <div className="resume-info-section">
-
-              <h3>
-                Resume Analysis
-              </h3>
-
-
-              <div className="resume-info-grid">
-
-                <InfoCard
-                  title="Skills"
-                  value={
-                    screenResult.skills
-                  }
-                />
-
-                <InfoCard
-                  title="Experience"
-                  value={
-                    screenResult.experience
-                  }
-                />
-
-                <InfoCard
-                  title="Education"
-                  value={
-                    screenResult.education
-                  }
-                />
-
-                <InfoCard
-                  title="Certifications"
-                  value={
-                    screenResult.certifications
-                  }
-                />
-
-                <InfoCard
-                  title="Job Titles"
-                  value={
-                    screenResult.jobTitles
-                  }
-                />
-
-                <InfoCard
-                  title="Companies"
-                  value={
-                    screenResult.companies
-                  }
-                />
-
-                <InfoCard
-                  title="Technologies"
-                  value={
-                    screenResult.technologies
-                  }
-                />
-
-                <InfoCard
-                  title="Projects"
-                  value={
-                    screenResult.projects
-                  }
-                />
-
-              </div>
-
-            </div>
-
-
-            {/* =================================================
-                EXPERIENCE
-            ================================================= */}
-
-            <div className="experience-card">
-
-              <span>
-                Years of Experience
-              </span>
-
-              <strong>
-                {displayValue(
-                  screenResult.yearsOfExperience
-                )}
-              </strong>
-
-            </div>
-
-
-            {/* =================================================
-                SCREENING ID / DATE
-            ================================================= */}
-
-            <div className="screening-meta">
-
-              <span>
-                Screening ID:{" "}
-                <strong>
-                  {displayValue(
-                    screenResult.id
-                  )}
-                </strong>
-              </span>
-
-              <span>
-                Screened At:{" "}
-                <strong>
-                  {screenResult.screenedAt
-                    ? new Date(
-                        screenResult.screenedAt
-                      ).toLocaleString()
-                    : "Not available"}
-                </strong>
-              </span>
-
-            </div>
-
-          </section>
-        )}
-
-
-        {/* ===================================================
-            AI RANKINGS
-        =================================================== */}
-
-        <section className="screening-card ranking-card">
-
-          <div className="card-heading">
-
-            <div className="heading-icon">
-              🏆
-            </div>
-
-            <div>
-
-              <h2>
-                AI Rankings
-              </h2>
-
-              <p>
-                Rank candidates against a selected
-                job based on AI screening results.
-              </p>
-
-            </div>
-
-          </div>
-
-
-          {/* =================================================
-              RANKING CONTROLS
-          ================================================= */}
-
-          <div className="ranking-controls">
-
-            <div className="form-group ranking-job-group">
-
-              <label htmlFor="ranking-job">
-                Select Job
-              </label>
-
-              <select
-                id="ranking-job"
-                value={rankingJobId}
-                onChange={(e) => {
-                  setRankingJobId(e.target.value);
-                  setRankingResults([]);
-                  setRankingError("");
-                }}
-                disabled={
-                  loadingJobs ||
-                  rankingLoading
-                }
-              >
-
-                <option value="">
-                  {loadingJobs
-                    ? "Loading jobs..."
-                    : "Select a job..."}
-                </option>
-
-                {jobs.map((job) => {
-
-                  const id = getJobId(job);
-
-                  return (
-                    <option
-                      key={id}
-                      value={id}
-                    >
-                      {getJobTitle(job)}
-                    </option>
-                  );
-
-                })}
-
-              </select>
-
-            </div>
-
-
-            <button
-              type="button"
-              className="primary-button ranking-button"
-              onClick={handleRanking}
-              disabled={
-                rankingLoading ||
-                loadingJobs ||
-                !rankingJobId
-              }
-            >
-              {rankingLoading
-                ? "Ranking..."
-                : "Rank Candidates"}
-            </button>
-
-          </div>
-
-
-          {/* =================================================
-              RANKING ERROR
-          ================================================= */}
-
-          {rankingError && (
-            <div className="error-message">
-              {rankingError}
-            </div>
-          )}
-
-
-          {/* =================================================
-              RANKING RESULTS
-          ================================================= */}
-
-          {rankingResults.length > 0 && (
-            <div className="ranking-results">
-
-              <div className="ranking-results-header">
-
-                <div>
-
-                  <h3>
-                    Candidate Rankings
-                  </h3>
-
-                  <p>
-                    AI-generated ranking for{" "}
-                    <strong>
-                      {jobs.find(
-                        (job) =>
-                          String(
-                            getJobId(job)
-                          ) ===
-                          String(rankingJobId)
-                      )
-                        ? getJobTitle(
-                            jobs.find(
-                              (job) =>
-                                String(
-                                  getJobId(job)
-                                ) ===
-                                String(
-                                  rankingJobId
-                                )
-                            )
-                          )
-                        : `Job ${rankingJobId}`}
-                    </strong>
-                  </p>
-
-                </div>
-
-                <div className="ranking-count">
-                  {rankingResults.length} Candidates
-                </div>
-
-              </div>
-
-
-              <div className="ranking-table-wrapper">
-
-                <table className="ranking-table">
-
-                  <thead>
-
-                    <tr>
-                      <th>Rank</th>
-                      <th>Candidate</th>
-                      <th>Match</th>
-                      <th>Must-Have Coverage</th>
-                      <th>Missing Must-Have</th>
-                    </tr>
-
-                  </thead>
-
-
-                  <tbody>
-
-                    {rankingResults.map(
-                      (item) => {
-
-                        const candidate =
-                          candidates.find(
-                            (candidateItem) =>
-                              String(
-                                getCandidateId(
-                                  candidateItem
-                                )
-                              ) ===
-                              String(
-                                item.candidateId
-                              )
-                          );
-
-
-                        const candidateName =
-                          candidate
-                            ? getCandidateName(
-                                candidate
-                              )
-                            : `Candidate ${item.candidateId}`;
-
-
-                        return (
-                          <tr key={item.id}>
-
-                            {/* RANK */}
-
-                            <td>
-
-                              <span className="rank-badge">
-                                #{item.rank}
-                              </span>
-
-                            </td>
-
-
-                            {/* CANDIDATE */}
-
-                            <td>
-
-                              <div className="ranking-candidate-name">
-
-                                <strong>
-                                  {candidateName}
-                                </strong>
-
-                                {item.candidateRole && (
-                                  <span className="candidate-role">
-                                    {item.candidateRole}
-                                  </span>
-                                )}
-
-                              </div>
-
-                            </td>
-
-
-                            {/* MATCH SCORE */}
-
-                            <td>
-
-                              <span className="match-score">
-                                {Number(
-                                  item.matchScore ??
-                                  0
-                                ).toFixed(2)}
-                                %
-                              </span>
-
-                            </td>
-
-
-                            {/* MUST HAVE COVERAGE */}
-
-                            <td>
-
-                              <div className="coverage-cell">
-
-                                <div className="coverage-value">
-                                  {Number(
-                                    item.mustHaveCoveragePct ??
-                                    0
-                                  ).toFixed(0)}
-                                  %
-                                </div>
-
-                                <div className="coverage-bar">
-
-                                  <div
-                                    className="coverage-fill"
-                                    style={{
-                                      width: `${Math.min(
-                                        100,
-                                        Math.max(
-                                          0,
-                                          Number(
-                                            item.mustHaveCoveragePct ??
-                                            0
-                                          )
-                                        )
-                                      )}%`,
-                                    }}
-                                  />
-
-                                </div>
-
-                              </div>
-
-                            </td>
-
-
-                            {/* MISSING SKILLS */}
-
-                            <td>
-
-                              {Array.isArray(
-                                item.missingMustHave
-                              ) &&
-                              item.missingMustHave
-                                .length > 0 ? (
-
-                                <div className="missing-skills">
-
-                                  {item.missingMustHave.map(
-                                    (
-                                      skill,
-                                      index
-                                    ) => (
-                                      <span
-                                        className="skill-tag"
-                                        key={`${skill}-${index}`}
-                                      >
-                                        {skill}
-                                      </span>
-                                    )
-                                  )}
-
-                                </div>
-
-                              ) : (
-
-                                <span className="no-missing">
-                                  ✓ None
-                                </span>
-
-                              )}
-
-                            </td>
-
-                          </tr>
-                        );
-
-                      }
-                    )}
-
-                  </tbody>
-
-                </table>
-
-              </div>
-
-            </div>
-          )}
-
-
-          {/* =================================================
-              EMPTY STATE
-          ================================================= */}
-
-          {!rankingLoading &&
-            !rankingError &&
-            rankingResults.length === 0 && (
-
-              <div className="ranking-empty">
-
-                <div className="ranking-empty-icon">
-                  🏆
-                </div>
-
-                <h3>
-                  No Rankings Yet
-                </h3>
-
-                <p>
-                  Select a job and click{" "}
-                  <strong>
-                    Rank Candidates
-                  </strong>{" "}
-                  to generate AI candidate rankings.
-                </p>
-
-              </div>
-
-            )}
-
+        <section className="screening-info-banner">
+          <span className="banner-icon">✦</span>
+          <div><h2>AI Candidate Screening</h2><p>Screening results are loaded from the backend. When a candidate applies and the backend completes screening, the result will appear here automatically.</p></div>
         </section>
 
+        <section className="screening-results-card">
+          <div className="results-toolbar">
+            <input
+              type="search"
+              aria-label="Search screening results"
+              placeholder="Search candidates, jobs or skills (optional)…"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <select aria-label="Filter screening results" value={filter} onChange={(event) => setFilter(event.target.value)}>
+              <option value="ALL">All Results</option>
+              <option value="HIGH_MATCH">High Match (75%+)</option>
+              <option value="RECOMMENDED">Recommended</option>
+              <option value="NEEDS_REVIEW">Needs Review</option>
+              <option value="NOT_QUALIFIED">Not Qualified</option>
+            </select>
+          </div>
+
+          <div className="screening-table-wrap">
+            <table className="screening-table">
+              <thead><tr>
+                <th>Candidate</th><th>Candidate ID</th><th>Position</th><th>Job ID</th><th>Skills</th><th>Education</th><th>AI Match</th><th>Result</th><th>Screened</th>
+              </tr></thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan="9" className="table-message">Loading screening results from the backend…</td></tr>
+                ) : visibleRecords.length ? visibleRecords.map((row, index) => {
+                  const score = getScore(row);
+                  const result = getResult(row);
+                  const skills = getSkills(row);
+                  return <tr key={first(row?.id, row?.screeningId, `${row?.candidateId}-${row?.jobId}-${index}`)}>
+                    <td><strong>{getCandidateName(row)}</strong><small>Screening ID: {first(row?.screeningId, row?.id, "—")}</small></td>
+                    <td>{first(row?.candidateId, row?.candidate?.id, "—")}</td>
+                    <td>{getJobTitle(row)}</td>
+                    <td>{first(row?.jobId, row?.job?.id, "—")}</td>
+                    <td><div className="skill-tags">{skills.length ? skills.slice(0, 8).map((skill, i) => <span key={`${skill}-${i}`}>{skill}</span>) : <span className="muted-value">—</span>}{skills.length > 8 && <span>+{skills.length - 8} more</span>}</div></td>
+                    <td>{getEducation(row)}</td>
+                    <td><strong className={`match-score ${score !== null && score < 50 ? "low" : score !== null && score >= 75 ? "high" : ""}`}>{score === null ? "—" : `${score.toFixed(2)}%`}</strong></td>
+                    <td><span className={`result-pill ${resultClass(result)}`}>{result}</span><small className="recommendation-text">{first(row?.recommendation, row?.aiRecommendation, "")}</small></td>
+                    <td>{getDate(row)}</td>
+                  </tr>;
+                }) : (
+                  <tr><td colSpan="9" className="empty-results">
+                    <div className="empty-icon">✦</div>
+                    <h3>{records.length ? "No matching results" : "No screening records returned"}</h3>
+                    <p>{records.length ? "Try changing your search or filter." : "This page checks the existing backend screening-results endpoint. If Swagger shows screening ID 153 but this list is empty, the GET endpoint must return saved screening records; the POST screening response alone cannot populate a historical list."}</p>
+                    {!records.length && <button type="button" className="refresh-screenings" onClick={() => loadScreeningRecords(true)}>Check Again</button>}
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="results-footer">
+            <span>{visibleRecords.length} result{visibleRecords.length === 1 ? "" : "s"}</span>
+            <span>{lastUpdated ? `Last checked ${lastUpdated.toLocaleTimeString()}` : "Waiting for results"}</span>
+          </div>
+        </section>
       </main>
-
     </div>
   );
 }
-
-
-// ============================================================
-// INFO CARD
-// ============================================================
-
-function InfoCard({ title, value }) {
-  return (
-    <div className="info-card">
-
-      <h4>
-        {title}
-      </h4>
-
-      <p>
-        {value === null ||
-        value === undefined ||
-        value === ""
-          ? "Not available"
-          : value}
-      </p>
-
-    </div>
-  );
-}
-
-
-export default HRScreening;

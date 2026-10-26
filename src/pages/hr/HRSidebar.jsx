@@ -31,11 +31,7 @@ function HRSidebar() {
           <span className="hr-nav-label">Candidates</span>
         </NavLink>
 
-        {/* AI Screening */}
-        <NavLink to="/hr/ai-screening">
-          <span className="hr-nav-icon">🤖</span>
-          <span className="hr-nav-label">AI Screening</span>
-        </NavLink>
+        
 
         {/* Interviews */}
         <NavLink to="/hr/interviews">

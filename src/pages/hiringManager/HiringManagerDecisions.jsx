@@ -105,8 +105,8 @@ function HiringManagerDecisions() {
       // Confirm that GET /api/candidate-decisions is the
       // actual listing endpoint in CandidateDecisionController.
       const response = await apiClient.get(
-        "/candidate-decisions"
-      );
+  "/candidate-decisions/pending"
+);
 
       console.log(
         "Candidate Decisions API response:",
@@ -156,10 +156,26 @@ function HiringManagerDecisions() {
           interviewScore:
             candidate.interviewScore ?? null,
 
-          aiMatchPercentage:
-            candidate.aiMatchPercentage ??
-            candidate.aiMatchScore ??
-            null,
+          aiMatchPercentage: (() => {
+  const score =
+    candidate.aiMatchPercentage ??
+    candidate.aiMatchScore ??
+    null;
+
+  if (score === null || score === "") {
+    return null;
+  }
+
+  const numericScore = Number(score);
+
+  if (!Number.isFinite(numericScore)) {
+    return null;
+  }
+
+  return numericScore >= 0 && numericScore <= 1
+    ? numericScore * 100
+    : numericScore;
+})(),
 
           status:
             candidate.status ??
@@ -412,10 +428,11 @@ function HiringManagerDecisions() {
   */
 
   const pendingCount = candidates.filter(
-    (candidate) =>
-      normalizeStatus(candidate.status) === "PENDING"
-  ).length;
-
+  (candidate) =>
+    ["PENDING", "SHORTLISTED"].includes(
+      normalizeStatus(candidate.status)
+    )
+).length;
   const approvedCount = candidates.filter(
     (candidate) =>
       ["APPROVED", "SELECTED", "HIRED"].includes(
@@ -795,14 +812,14 @@ function HiringManagerDecisions() {
                       <button
                         type="button"
                         className="hm-decision-view-button"
-                        disabled={candidate.applicationId == null}
-                        onClick={() => {
-                          if (candidate.applicationId != null) {
-                            navigate(
-                              `/hiring-manager/shortlisted-candidates/${candidate.applicationId}`
-                            );
-                          }
-                        }}
+                       disabled={candidate.candidateId == null}
+                       onClick={() => {
+  if (candidate.candidateId != null) {
+    navigate(
+      `/hiring-manager/shortlisted-candidates/${candidate.candidateId}`
+    );
+  }
+}}
                       >
                         View Candidate
                       </button>

@@ -19,6 +19,7 @@ import {
   searchOffers,
   fetchOffersByStatus,
   sendOffer,
+  fetchEligibleApplicationsForInterview,
 } from "./hrApi";
 
 import HRSidebar from "./HRSidebar";
@@ -32,6 +33,11 @@ function HROffers() {
   // ============================================================
 
   const [offers, setOffers] = useState([]);
+
+  // Candidate list used by the Create Offer form
+  const [candidates, setCandidates] = useState([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [candidatesError, setCandidatesError] = useState("");
 
   const [stats, setStats] = useState({
     totalOffers: 0,
@@ -63,6 +69,7 @@ function HROffers() {
   const [createLoading, setCreateLoading] = useState(false);
 
   const [createOfferForm, setCreateOfferForm] = useState({
+    applicationId: "",
     candidateId: "",
     candidateName: "",
     position: "",
@@ -400,20 +407,78 @@ function HROffers() {
   // CREATE OFFER - FORM CHANGE
   // ============================================================
 
-  const handleCreateOfferChange =
-    (event) => {
-      const {
-        name,
-        value,
-      } = event.target;
+  const handleCreateOfferChange = (event) => {
+    const { name, value } = event.target;
 
-      setCreateOfferForm(
-        (previous) => ({
-          ...previous,
-          [name]: value,
-        })
+    // Select an eligible application and automatically fill in the
+    // candidate ID, candidate name, and position from the backend.
+    if (name === "applicationId") {
+      const selectedApplication = candidates.find(
+        (application) => String(application.applicationId) === String(value)
       );
-    };
+
+      setCreateOfferForm((previous) => ({
+        ...previous,
+        applicationId: value,
+        candidateId: selectedApplication ? String(selectedApplication.candidateId) : "",
+        candidateName: selectedApplication ? selectedApplication.candidateName : "",
+        position: selectedApplication ? selectedApplication.jobTitle : "",
+      }));
+      return;
+    }
+
+    setCreateOfferForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  };
+
+  // ============================================================
+  // LOAD APPLICATIONS ELIGIBLE FOR INTERVIEW
+  // ============================================================
+
+  const loadCandidates = async () => {
+    try {
+      setCandidatesLoading(true);
+      setCandidatesError("");
+
+      // This endpoint is authorized for HR and returns only applications
+      // eligible for interview scheduling. Do not use /applications here;
+      // that endpoint returns 403 for the HR account.
+      const response = await fetchEligibleApplicationsForInterview();
+      const applicationList = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.data)
+          ? response.data
+          : [];
+
+      const validApplications = applicationList.filter(
+        (application) =>
+          application?.applicationId != null &&
+          Number(application.applicationId) > 0 &&
+          application?.candidateId != null &&
+          Number(application.candidateId) > 0 &&
+          String(application?.candidateName || "").trim() &&
+          String(application?.jobTitle || "").trim()
+      );
+
+      setCandidates(validApplications);
+
+      if (validApplications.length === 0) {
+        setCandidatesError(
+          "No eligible applications were returned by the backend."
+        );
+      }
+    } catch (error) {
+      console.error("Failed to load eligible applications:", error);
+      setCandidatesError(
+        error?.message || "Failed to load eligible candidates. Please try again."
+      );
+      setCandidates([]);
+    } finally {
+      setCandidatesLoading(false);
+    }
+  };
 
   // ============================================================
   // OPEN CREATE OFFER
@@ -424,6 +489,7 @@ function HROffers() {
       setError("");
 
       setCreateOfferForm({
+        applicationId: "",
         candidateId: "",
         candidateName: "",
         position: "",
@@ -434,6 +500,7 @@ function HROffers() {
       });
 
       setCreateOfferOpen(true);
+      loadCandidates();
     };
 
   // ============================================================
@@ -1497,66 +1564,58 @@ function HROffers() {
                     }}
                   >
 
-                    {/* CANDIDATE ID */}
-
-                    <div>
-
-                      <label>
-                        Candidate ID *
+                    {/* ELIGIBLE CANDIDATE / APPLICATION DROPDOWN */}
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <label htmlFor="offer-application-select">
+                        Candidate and Job *
                       </label>
-
-                      <input
-                        type="number"
-                        name="candidateId"
-                        value={
-                          createOfferForm.candidateId
-                        }
-                        onChange={
-                          handleCreateOfferChange
-                        }
-                        placeholder="Example: 8"
+                      <select
+                        id="offer-application-select"
+                        name="applicationId"
+                        value={createOfferForm.applicationId}
+                        onChange={handleCreateOfferChange}
                         required
+                        disabled={candidatesLoading || candidates.length === 0}
                         style={{
-                          width:
-                            "100%",
-                          padding:
-                            "10px",
-                          marginTop:
-                            "6px",
+                          width: "100%",
+                          padding: "10px",
+                          marginTop: "6px",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "6px",
+                          background: "#fff",
                         }}
-                      />
-
-                    </div>
-
-                    {/* CANDIDATE NAME */}
-
-                    <div>
-
-                      <label>
-                        Candidate Name *
-                      </label>
-
-                      <input
-                        type="text"
-                        name="candidateName"
-                        value={
-                          createOfferForm.candidateName
-                        }
-                        onChange={
-                          handleCreateOfferChange
-                        }
-                        placeholder="Candidate name"
-                        required
-                        style={{
-                          width:
-                            "100%",
-                          padding:
-                            "10px",
-                          marginTop:
-                            "6px",
-                        }}
-                      />
-
+                      >
+                        <option value="">
+                          {candidatesLoading
+                            ? "Loading eligible candidates..."
+                            : candidates.length === 0
+                              ? "No eligible candidates available"
+                              : "Select a candidate and job"}
+                        </option>
+                        {candidates.map((application) => (
+                          <option
+                            key={application.applicationId}
+                            value={String(application.applicationId)}
+                          >
+                            {application.candidateName} — {application.jobTitle} (Candidate ID: {application.candidateId})
+                          </option>
+                        ))}
+                      </select>
+                      {candidatesError && (
+                        <p
+                          role="alert"
+                          style={{
+                            color: "#dc2626",
+                            fontSize: "13px",
+                            marginTop: "6px",
+                          }}
+                        >
+                          {candidatesError}
+                        </p>
+                      )}
+                      <p style={{ color: "#6b7280", fontSize: "12px", marginTop: "6px" }}>
+                        Candidate ID, name, and position will be filled automatically.
+                      </p>
                     </div>
 
                     {/* POSITION */}

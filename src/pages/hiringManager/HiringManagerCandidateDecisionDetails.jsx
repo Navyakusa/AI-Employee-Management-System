@@ -42,100 +42,54 @@ function HiringManagerCandidateDecisionDetails() {
   // FETCH CANDIDATE DECISION
   // =========================================================
 
-  const fetchCandidate = async () => {
-    try {
-      setLoading(true);
-      setError("");
+  
+const fetchCandidate = async () => {
+  try {
+    setLoading(true);
+    setError("");
 
-      if (!candidateId) {
-        setCandidate(null);
-        setError("Candidate ID is missing.");
-        return;
-      }
-
-      console.log(
-        "Loading candidate decision for candidateId:",
-        candidateId
-      );
-
-      // apiClient already includes /api in its base URL.
-      const response = await apiClient.get(
-        "/candidate-decisions"
-      );
-
-      console.log(
-        "Candidate decisions API response:",
-        response.data
-      );
-
-      const responseData = response.data;
-
-      // Support common backend response structures.
-      const candidates = Array.isArray(responseData)
-        ? responseData
-        : Array.isArray(responseData?.data)
-          ? responseData.data
-          : Array.isArray(responseData?.content)
-            ? responseData.content
-            : [];
-
-      /*
-       * The route parameter may be a candidate ID or
-       * an application ID, depending on the configured route.
-       */
-      const foundCandidate = candidates.find(
-        (item) =>
-          String(item?.candidateId) === String(candidateId) ||
-          String(item?.applicationId) === String(candidateId)
-      );
-
-      if (!foundCandidate) {
-        setCandidate(null);
-        setError("Candidate decision record was not found.");
-        return;
-      }
-
-      console.log("Selected candidate:", foundCandidate);
-
-      setCandidate(foundCandidate);
-
-      setDecision(
-        foundCandidate.status ||
-          foundCandidate.decision ||
-          "PENDING"
-      );
-    } catch (err) {
-      console.error(
-        "Failed to load candidate decision:",
-        err
-      );
-
-      if (err.response?.status === 401) {
-        setError(
-          "Your session may have expired. Please sign in again."
-        );
-      } else if (err.response?.status === 403) {
-        setError(
-          "You do not have permission to view this candidate. Please check Hiring Manager permissions."
-        );
-      } else if (err.response?.status === 404) {
-        setError(
-          "The candidate decisions endpoint was not found. Please verify the backend API mapping."
-        );
-      } else {
-        setError(
-          err.response?.data?.message ||
-            err.message ||
-            "Failed to load candidate decision."
-        );
-      }
-
+    if (!candidateId) {
       setCandidate(null);
-    } finally {
-      setLoading(false);
+      setError("Candidate ID is missing.");
+      return;
     }
-  };
 
+    // candidateId here is the Candidate ID from the URL
+    const response = await apiClient.get(
+      `/candidates/${candidateId}`
+    );
+
+    console.log("Candidate details response:", response.data);
+
+    const data = response.data?.data ?? response.data;
+
+    if (!data || typeof data !== "object") {
+      setCandidate(null);
+      setError("Candidate details were not returned by the backend.");
+      return;
+    }
+
+    setCandidate(data);
+
+    setDecision(
+      String(data.status || data.decision || "PENDING").toUpperCase()
+    );
+  } catch (err) {
+    console.error("Failed to load candidate details:", err);
+
+    setCandidate(null);
+
+    setError(
+      err.response?.status === 403
+        ? "Access denied. The backend team needs to verify Hiring Manager permissions for the candidate details endpoint."
+        : err.response?.data?.message ||
+          err.message ||
+          "Failed to load candidate details."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
   // =========================================================
   // LOAD WHEN PAGE OPENS
   // =========================================================
@@ -416,11 +370,18 @@ function HiringManagerCandidateDecisionDetails() {
   const experience =
     candidate.experience || "Not specified";
 
-  const matchScore =
-    candidate.aiMatchPercentage ??
-    candidate.matchScore ??
-    candidate.aiMatchScore ??
-    null;
+  const rawMatchScore =
+  candidate.aiMatchPercentage ??
+  candidate.matchScore ??
+  candidate.aiMatchScore ??
+  null;
+
+const matchScore =
+  rawMatchScore === null || rawMatchScore === ""
+    ? null
+    : Number(rawMatchScore) <= 1
+      ? Number(rawMatchScore) * 100
+      : Number(rawMatchScore);
 
   const interviewScore =
     candidate.interviewScore ??
@@ -443,7 +404,7 @@ function HiringManagerCandidateDecisionDetails() {
     null;
 
   const interviewStatus =
-    candidate.interviewStatus || "Completed";
+  candidate.interviewStatus || "Not available";
 
   const interviewer =
     candidate.interviewerName ||
