@@ -16,7 +16,7 @@ requests are fast: single-digit to low-double-digit milliseconds for most endpoi
    `uvicorn` process between calls (a process manager set to restart on every request, a
    serverless-style deployment that spins up fresh each time, `--reload` triggering restarts from
    file changes), every request pays the full startup cost again. Run with a plain
-   `uvicorn app.main:app --port 8000` (no `--reload`) for anything other than active local
+   `uvicorn app.main:app --port 8100` (no `--reload`) for anything other than active local
    development.
 2. **Is `explain=true` being sent on every `/match-score` call?** SHAP's explanation computation
    is meaningfully slower than a plain score -- only request it for the specific view that
@@ -28,7 +28,7 @@ requests are fast: single-digit to low-double-digit milliseconds for most endpoi
    it skips NER entirely and is faster.
 4. **Concurrent load:** a single `uvicorn` process handles requests one worker's worth of CPU at
    a time. For concurrent traffic beyond a light demo, run with multiple workers:
-   `uvicorn app.main:app --port 8000 --workers 4` (each worker loads its own copy of the models,
+   `uvicorn app.main:app --port 8100 --workers 4` (each worker loads its own copy of the models,
    so this increases memory use accordingly).
 5. **Network vs. compute:** if the ML service and backend are on different machines, some of the
    perceived latency may be network round-trip, not model computation -- time a direct `curl` to
@@ -48,10 +48,10 @@ in `app/models/` with the same filename and restart the service.
 ## Running
 
 ```bash
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8100
 ```
 
-Then open **http://localhost:8000/docs** for interactive API documentation (Swagger UI) --
+Then open **http://localhost:8100/docs** for interactive API documentation (Swagger UI) --
 you can try every endpoint directly from the browser there.
 
 ## Testing

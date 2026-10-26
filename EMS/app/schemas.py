@@ -5,7 +5,7 @@ Field names match the original training CSVs exactly (jobs.csv, resume.csv, the
 IBM attrition dataset, and the India job market dataset) so the backend team can
 pass data straight through from the database without renaming anything.
 """
-from typing import Optional, List
+from typing import Any, Optional, List, Union
 from pydantic import BaseModel, Field
 
 
@@ -129,8 +129,6 @@ class ScreeningDimension(BaseModel):
     match: Optional[bool] = None
     similarity_pct: Optional[float] = None
     similarity_score: Optional[float] = None
-    overall_match_pct: Optional[float] = None
-    result: Optional[str] = None
     note: Optional[str] = None
 
 
@@ -197,6 +195,7 @@ class InterviewQuestionsResponse(BaseModel):
     resume_id: str
     source: str = Field(description="'llm:<provider>' if a real LLM call succeeded, else 'offline_fallback'")
     questions: List[InterviewQuestion]
+    fallback_reason: Optional[str] = Field(default=None, description="Why the LLM call failed (only present when source is 'offline_fallback')")
 
 
 # ---------------------------------------------------------------------------
@@ -293,25 +292,61 @@ class SalaryResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Candidate Chatbot
+# Candidate chatbot (POST /chat)
 # ---------------------------------------------------------------------------
 
 class ChatMessage(BaseModel):
-    role: str = Field(..., example="user", description="user | assistant")
+    role: str = Field(..., example="user", description="'user' or 'assistant'")
     content: str = Field(..., example="How much does a web developer earn?")
 
 
+class ChatJob(BaseModel):
+    """One open job, as the backend already has it. Every field accepts any JSON shape
+    (string, number, list, or an object like {"name": "Engineering"}), so a Java entity
+    or DTO can be sent as is and never causes a 422. camelCase names from Java
+    (jobTitle, requiredSkills, minExperience, ...) are also accepted."""
+    class Config:
+        extra = "allow"     # keep any other fields the backend sends (camelCase etc.)
+
+    job_id: Optional[Any] = Field(default=None, example="7")
+    title: Optional[Any] = Field(default=None, example="Java Full Stack Developer")
+    department: Optional[Any] = Field(default=None, example="Engineering")
+    location: Optional[Any] = Field(default=None, example="Hyderabad")
+    experience: Optional[Any] = Field(default=None, example="2 - 5 Years")
+    min_experience: Optional[Any] = Field(default=None, example=2)
+    max_experience: Optional[Any] = Field(default=None, example=5)
+    employment_type: Optional[Any] = Field(default=None, example="Full-Time")
+    work_mode: Optional[Any] = Field(default=None, example="Onsite")
+    required_skills: Optional[Any] = Field(default=None, example=["Java", "Spring Boot", "React", "PostgreSQL"])
+    preferred_skills: Optional[Any] = Field(default=None, example=["Docker", "Git", "REST API"])
+    education: Optional[Any] = Field(default=None, example="B.Tech Computer Science")
+    openings: Optional[Any] = Field(default=None, example=2)
+    salary_range: Optional[Any] = Field(default=None, example="Not specified")
+    closing_date: Optional[Any] = Field(default=None, example="Not specified")
+    description: Optional[Any] = Field(default=None, example="We are looking for a Java Full Stack Developer...")
+    responsibilities: Optional[Any] = Field(default=None, example="Develop and maintain full stack applications")
+
+
 class ChatRequest(BaseModel):
-    message: str = Field(..., example="What skills do I need to become a data scientist?")
-    role: Optional[str] = Field(
-        default="PUBLIC", example="PUBLIC",
-        description="Role of the logged-in user from the Java backend. Only PUBLIC / CANDIDATE "
-                    "get answers; staff roles get a 'candidates only' message.")
-    conversation_history: Optional[List[ChatMessage]] = Field(
-        default=None, description="Previous messages, oldest first (used for follow-up questions).")
-    job_context: Optional[str] = Field(
+    class Config:
+        extra = "allow"     # jobList / conversationHistory / jobContext etc. are picked up in main.py
+    message: str = Field(..., example="How much does a web developer earn?")
+    role: str = Field(default="PUBLIC", example="PUBLIC",
+                      description="Logged-in user's role from the backend. Only PUBLIC / CANDIDATE / USER get answers.")
+    conversation_history: Optional[List[Any]] = Field(
+        default=None,
+        description="Earlier messages, oldest first, used for follow-up questions. Either objects "
+                    "{\"role\": \"user\"|\"assistant\", \"content\": \"...\"} (also sender/message/text keys) "
+                    "or plain strings "
+                    "(Java List<String>), optionally prefixed with 'user:' / 'assistant:' / 'bot:'.")
+    job_context: Optional[Any] = Field(
         default=None, example="Java Developer | Hyderabad | 3-5 yrs\nData Scientist | Bangalore | 2-4 yrs",
-        description="Current open jobs, one per line. Job answers are built only from this text.")
+        description="Current job openings from the backend: one job per line ('Title | Dept | City | "
+                    "2 - 5 Years | Full-Time | Skills: Java, React | Preferred: Docker'), or a JSON list. "
+                    "Job answers come only from this and/or 'jobs'.")
+    jobs: Optional[List[ChatJob]] = Field(
+        default=None, description="Structured open jobs (recommended over job_context). "
+                                  "Used for search by experience, skills, city, job type and title.")
 
 
 class ChatResponse(BaseModel):

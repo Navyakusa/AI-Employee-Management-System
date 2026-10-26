@@ -5,10 +5,22 @@ if no API key is configured, so the endpoint always returns something usable.
 """
 import os
 import json
+import logging
 import random
 
+# Optional: load ANTHROPIC_API_KEY / OPENAI_API_KEY from a .env file in the
+# project root, if python-dotenv is installed. Without this, the keys MUST be
+# exported in the same terminal that starts uvicorn.
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+logger = logging.getLogger("uvicorn")
+
 from app.skill_gap import skill_gap_analysis
-from app.ml_utils import parse_skills
+from app.ml_utils import parse_skills, normalize_skill
 
 INTERVIEW_PROMPT_TEMPLATE = """You are an experienced technical interviewer preparing questions \
 for a candidate interview.
@@ -67,7 +79,7 @@ def call_llm(prompt: str, provider: str = "anthropic", model: str = None) -> str
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
             model=model or "claude-sonnet-4-6",
-            max_tokens=1000,
+            max_tokens=2000,
             messages=[{"role": "user", "content": prompt}],
         )
         return response.content[0].text
@@ -80,7 +92,7 @@ def call_llm(prompt: str, provider: str = "anthropic", model: str = None) -> str
         client = openai.OpenAI(api_key=api_key)
         response = client.chat.completions.create(
             model=model or "gpt-4o-mini",
-            max_tokens=1000,
+            max_tokens=2000,
             messages=[{"role": "user", "content": prompt}],
         )
         return response.choices[0].message.content
@@ -111,6 +123,12 @@ def generate_interview_questions(job: dict, resume: dict, num_questions: int = 5
     gap = skill_gap_analysis(job, resume)
     candidate_skills = parse_skills(resume["skills"])
 
+    job_skill_set = {
+        normalize_skill(s)
+        for s in parse_skills(job["must_have_skills"]) + parse_skills(job["nice_to_have_skills"])
+    }
+    matched_skills = [s for s in candidate_skills if normalize_skill(s) in job_skill_set]
+
     prompt = INTERVIEW_PROMPT_TEMPLATE.format(
         job_title=job["job_title"],
         job_description=job.get("description", ""),
@@ -119,10 +137,13 @@ def generate_interview_questions(job: dict, resume: dict, num_questions: int = 5
         candidate_role=resume["role"],
         candidate_experience=resume.get("years_experience", "unknown"),
         candidate_skills=candidate_skills,
-        matched_skills=[],  # filled in below from gap analysis's matched set
+        matched_skills=matched_skills,
         missing_skills=gap["missing_must_have"] + gap["missing_nice_to_have"],
         num_questions=num_questions,
     )
+
+    provider = (provider or "anthropic").strip().lower()
+    fallback_reason = None
 
     try:
         raw_response = call_llm(prompt, provider=provider)
@@ -134,12 +155,22 @@ def generate_interview_questions(job: dict, resume: dict, num_questions: int = 5
                 cleaned = cleaned[:-3]
         questions = json.loads(cleaned.strip())
         source = f"llm:{provider}"
-    except Exception:
+    except Exception as exc:
+        # Previously this swallowed the error silently, so there was nothing
+        # in the logs explaining WHY the fallback was used.
+        fallback_reason = f"{type(exc).__name__}: {exc}"
+        logger.warning(
+            "Interview questions: LLM provider '%s' failed, using offline_fallback. Reason: %s",
+            provider, fallback_reason,
+        )
         questions = generate_questions_fallback(
-            job, candidate_skills, candidate_skills,
+            job, candidate_skills, matched_skills or candidate_skills,
             gap["missing_must_have"] + gap["missing_nice_to_have"],
             num_questions=num_questions,
         )
         source = "offline_fallback"
 
-    return {"questions": questions, "source": source}
+    result = {"questions": questions, "source": source}
+    if fallback_reason:
+        result["fallback_reason"] = fallback_reason
+    return result

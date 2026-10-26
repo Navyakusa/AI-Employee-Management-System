@@ -11,7 +11,7 @@ Wraps all 7 AI/ML modules from the project report as REST endpoints:
   34. Attrition Prediction          -> POST /predict-attrition
   35. Salary Prediction             -> POST /predict-salary
   --  Candidate Decision Recommendation -> POST /recommend-candidate-decision
-  --  Candidate Chatbot                 -> POST /chat   (own trained model, no external LLM)
+  --  Candidate Chatbot                 -> POST /chat
 
 Run with: uvicorn app.main:app --port 8000   (do NOT use --reload in production/demo --
 see the note in the "why imports are at the top" comment below)
@@ -30,10 +30,10 @@ means all models (spaCy NER, XGBoost matching/attrition/salary, TF-IDF
 vectorizer) finish loading during `uvicorn` startup, so even the very first
 real request is fast.
 """
-import inspect
 import time
 import logging
 import json
+import re
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import ValidationError
@@ -67,21 +67,19 @@ from app.attrition import predict_attrition_risk
 from app.salary import predict_salary_range
 from app.decision import recommend_candidate_decision
 from app.file_extraction import extract_resume_text
-from app.chatbot import get_chatbot_response
+from app.chatbot import get_chatbot_response, load_chatbot_model, CHATBOT_VERSION
+from app.job_search import parse_jobs
+
+# Load the chatbot model at startup too (fast). If the .joblib is missing,
+# the rest of the service still starts and /chat returns a clear 503.
+try:
+    load_chatbot_model()
+except Exception as exc:  # noqa: BLE001
+    logger.warning(f"Chatbot model not loaded: {exc}")
 
 logger.info(f"All models loaded in {time.time() - _t0:.2f}s")
+logger.info(f"Chatbot version: {CHATBOT_VERSION}")
 # ---------------------------------------------------------------------------
-
-# Whether this version of Chatbot.get_chatbot_response accepts a `role`
-# argument (the two merged branches disagreed on this). Checked once at
-# startup so /chat works with either version of Chatbot.py.
-try:
-    _chatbot_params = inspect.signature(get_chatbot_response).parameters
-    _CHATBOT_ACCEPTS_ROLE = "role" in _chatbot_params or any(
-        p.kind == inspect.Parameter.VAR_KEYWORD for p in _chatbot_params.values()
-    )
-except (TypeError, ValueError):
-    _CHATBOT_ACCEPTS_ROLE = False
 
 app = FastAPI(
     title="AI Recruitment Platform -- ML Service",
@@ -95,7 +93,7 @@ app = FastAPI(
 @app.get("/health", tags=["health"])
 def health_check():
     """Confirms the service is up and all models loaded successfully at startup."""
-    return {"status": "ok"}
+    return {"status": "ok", "chatbot_version": CHATBOT_VERSION}
 
 
 # ---------------------------------------------------------------------------
@@ -113,15 +111,6 @@ def health_check():
 # pick JSON (a text box) or multipart (an actual file picker).
 # ---------------------------------------------------------------------------
 
-def _to_dict(obj):
-    """Pydantic v1/v2-safe conversion of a model (or plain dict) to a dict."""
-    if isinstance(obj, dict):
-        return obj
-    if hasattr(obj, "model_dump"):
-        return obj.model_dump()
-    return obj.dict()
-
-
 def _is_multipart(request: Request) -> bool:
     return request.headers.get("content-type", "").lower().startswith("multipart/form-data")
 
@@ -131,8 +120,6 @@ async def _load_json_body(request: Request, model_cls):
         body = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Request body is not valid JSON.")
-    if not isinstance(body, dict):
-        raise HTTPException(status_code=400, detail="Request body must be a JSON object.")
     try:
         return model_cls(**body)
     except ValidationError as e:
@@ -142,7 +129,7 @@ async def _load_json_body(request: Request, model_cls):
 async def _read_uploaded_file_text(request: Request) -> str:
     form = await request.form()
     file = form.get("file")
-    if file is None or isinstance(file, str):
+    if file is None:
         raise HTTPException(status_code=400, detail="Missing 'file' in multipart form data.")
     file_bytes = await file.read()
     return extract_resume_text(file.filename, file_bytes)
@@ -257,13 +244,13 @@ async def screen_resume_endpoint(request: Request):
             raise HTTPException(status_code=400, detail="Provide exactly one of 'resume' or 'resume_text'.")
         job_obj = payload.job
         if payload.resume is not None:
-            resume_profile = extract_resume_profile(_to_dict(payload.resume))
+            resume_profile = extract_resume_profile(payload.resume.dict())
             resume_text_for_similarity = f"{payload.resume.summary} {payload.resume.experience_bullets}"
         else:
             resume_profile = extract_resume_profile_from_text(payload.resume_text)
             resume_text_for_similarity = None
 
-    job_req = extract_job_requirements(_to_dict(job_obj))
+    job_req = extract_job_requirements(job_obj.dict())
     job_text = f"{job_obj.description} {job_obj.responsibilities} {job_obj.requirements}"
     return screen_resume_against_job(resume_profile, job_req, resume_text=resume_text_for_similarity, job_text=job_text)
 
@@ -311,13 +298,13 @@ async def match_score_endpoint(request: Request, explain: bool = False):
             raise HTTPException(status_code=400, detail="Provide exactly one of 'resume' or 'resume_text'.")
         job_obj = payload.job
         if payload.resume is not None:
-            resume_dict = _to_dict(payload.resume)
+            resume_dict = payload.resume.dict()
         else:
             resume_dict = build_resume_dict_from_text(
                 payload.resume_text, seniority=payload.resume_seniority, industry=payload.resume_industry
             )
 
-    result = score_candidate(_to_dict(job_obj), resume_dict, explain=explain)
+    result = score_candidate(job_obj.dict(), resume_dict, explain=explain)
     return {
         "job_id": job_obj.job_id,
         "resume_id": resume_dict["resume_id"],
@@ -367,11 +354,11 @@ async def skill_gap_endpoint(request: Request):
             raise HTTPException(status_code=400, detail="Provide exactly one of 'resume' or 'resume_text'.")
         job_obj = payload.job
         if payload.resume is not None:
-            resume_dict = _to_dict(payload.resume)
+            resume_dict = payload.resume.dict()
         else:
             resume_dict = build_resume_dict_from_text(payload.resume_text)
 
-    return skill_gap_analysis(_to_dict(job_obj), resume_dict)
+    return skill_gap_analysis(job_obj.dict(), resume_dict)
 
 
 # ---------------------------------------------------------------------------
@@ -380,14 +367,14 @@ async def skill_gap_endpoint(request: Request):
 
 @app.post("/rank-candidates", response_model=list[RankedCandidate], tags=["ranking"])
 def rank_candidates_endpoint(payload: RankCandidatesRequest):
-    candidates_dicts = [_to_dict(c) for c in (payload.candidates or [])]
-    for i, text in enumerate(payload.candidate_texts or []):
+    candidates_dicts = [c.dict() for c in payload.candidates]
+    for i, text in enumerate(payload.candidate_texts):
         candidates_dicts.append(build_resume_dict_from_text(text, resume_id=f"TEXT_{i}"))
 
     if not candidates_dicts:
         raise HTTPException(status_code=400, detail="Provide at least one candidate via 'candidates' or 'candidate_texts'.")
 
-    job_dict = _to_dict(payload.job)
+    job_dict = payload.job.dict()
     return rank_candidates_for_job(job_dict, candidates_dicts, top_n=payload.top_n)
 
 
@@ -426,24 +413,22 @@ async def generate_interview_questions_endpoint(request: Request):
         job_obj = await _read_job_form_field(request)
         resume_text = await _read_uploaded_file_text(request)
         resume_dict = build_resume_dict_from_text(resume_text)
-        try:
-            num_questions = int(await _read_optional_form_field(request, "num_questions", default=5))
-        except (TypeError, ValueError):
-            raise HTTPException(status_code=400, detail="'num_questions' must be an integer.")
+        num_questions = int(await _read_optional_form_field(request, "num_questions", default=5))
         provider = await _read_optional_form_field(request, "provider", default="anthropic")
     else:
         payload = await _load_json_body(request, InterviewQuestionsRequest)
         job_obj = payload.job
-        resume_dict = _to_dict(payload.resume)
+        resume_dict = payload.resume.dict()
         num_questions = payload.num_questions
         provider = payload.provider
 
-    result = generate_interview_questions(_to_dict(job_obj), resume_dict, num_questions=num_questions, provider=provider)
+    result = generate_interview_questions(job_obj.dict(), resume_dict, num_questions=num_questions, provider=provider)
     return {
         "job_id": job_obj.job_id,
         "resume_id": resume_dict["resume_id"],
         "source": result["source"],
         "questions": result["questions"],
+        "fallback_reason": result.get("fallback_reason"),
     }
 
 
@@ -453,7 +438,7 @@ async def generate_interview_questions_endpoint(request: Request):
 
 @app.post("/predict-attrition", response_model=AttritionResponse, tags=["attrition"])
 def predict_attrition_endpoint(employee: EmployeeInput):
-    return predict_attrition_risk(_to_dict(employee))
+    return predict_attrition_risk(employee.dict())
 
 
 # ---------------------------------------------------------------------------
@@ -462,7 +447,7 @@ def predict_attrition_endpoint(employee: EmployeeInput):
 
 @app.post("/predict-salary", response_model=SalaryResponse, tags=["salary"])
 def predict_salary_endpoint(job_posting: JobPostingInput):
-    return predict_salary_range(_to_dict(job_posting))
+    return predict_salary_range(job_posting.dict())
 
 
 # ---------------------------------------------------------------------------
@@ -490,14 +475,10 @@ def recommend_candidate_decision_endpoint(payload: CandidateDecisionRequest):
     if payload.match_probability_pct is not None:
         match_pct = payload.match_probability_pct
     else:
-        score = score_candidate(_to_dict(payload.job), _to_dict(payload.resume))
-        match_pct = score["match_probability_pct"]
+        result = score_candidate(payload.job.dict(), payload.resume.dict())
+        match_pct = result["match_probability_pct"]
 
-    feedback_source = payload.interview_feedback
-    feedback_dict = {
-        k: v for k, v in (_to_dict(feedback_source) if feedback_source is not None else {}).items()
-        if v is not None
-    }
+    feedback_dict = {k: v for k, v in payload.interview_feedback.dict().items() if v is not None}
     result = recommend_candidate_decision(match_pct, feedback_dict)
     result["job_id"] = job_id
     result["resume_id"] = resume_id
@@ -505,35 +486,83 @@ def recommend_candidate_decision_endpoint(payload: CandidateDecisionRequest):
 
 
 # ---------------------------------------------------------------------------
-# Candidate Chatbot -- for candidates only. Uses the model trained on the
-# Career Guidance QA Dataset (app/models/candidate_chatbot.joblib); no Groq /
-# OpenAI. Staff roles and questions about recruiters, HR, hiring managers,
-# interviewers, employees or admins get a fixed "not available" message.
+# Candidate Chatbot
 # ---------------------------------------------------------------------------
+
+_USER_PREFIX = re.compile(r"^\s*(user|candidate|you|human|me)\s*[:\-]\s*", re.I)
+_BOT_PREFIX = re.compile(r"^\s*(assistant|bot|talentai|ai|system)\s*[:\-]\s*", re.I)
+# Openings of the chatbot's own replies, used when a plain string has no prefix.
+_BOT_REPLY_START = re.compile(
+    r"^\s*(hello! i can help|hi! .*talentai|i found|there (is|are) \d+|here are|i'm not sure|"
+    r"sorry,|to apply|to upload|to register|you can track|your interview|you're welcome|goodbye|"
+    r"this assistant is|current job listings|which job role|what would you like to know|"
+    r"no job matches|i couldn't find|ask me)", re.I)
+
+
+def _history_to_dicts(items) -> list:
+    """Accept [{"role","content"}] objects or Java List<String> and return role/content dicts."""
+    out = []
+    for m in items or []:
+        if isinstance(m, str):
+            text = m.strip()
+            if not text:
+                continue
+            if _USER_PREFIX.match(text):
+                out.append({"role": "user", "content": _USER_PREFIX.sub("", text, count=1)})
+            elif _BOT_PREFIX.match(text) or _BOT_REPLY_START.match(text):
+                out.append({"role": "assistant", "content": _BOT_PREFIX.sub("", text, count=1)})
+            else:
+                out.append({"role": "user", "content": text})
+        else:
+            d = m if isinstance(m, dict) else m.dict()
+            d = {"role": d.get("role") or d.get("sender") or "user",
+                 "content": d.get("content") or d.get("message") or d.get("text") or ""}
+            role = str(d.get("role", "user")).lower()
+            d["role"] = "assistant" if role in ("assistant", "bot", "ai", "system") else "user"
+            out.append(d)
+    return out
+
 
 @app.post("/chat", response_model=ChatResponse, tags=["chatbot"])
 def chat_endpoint(payload: ChatRequest):
-    # Convert conversation history into dictionaries
-    history = [
-        _to_dict(m)
-        for m in (getattr(payload, "conversation_history", None) or [])
-    ]
+    # Accept camelCase / alternative names the Java DTO might use.
+    extra = getattr(payload, "model_extra", None) or {}
+    jobs = [j.dict(exclude_none=True) for j in (payload.jobs or [])]
+    if not jobs:
+        for key in ("jobList", "jobsList", "job_list", "availableJobs", "openJobs", "jobDetails",
+                    "jobPostings", "jobOpenings"):
+            if isinstance(extra.get(key), list):
+                jobs = [j for j in extra[key] if isinstance(j, dict)]
+                break
+    raw_history = payload.conversation_history or extra.get("conversationHistory") or extra.get("history")
+    history = _history_to_dicts(raw_history)
+    job_context = payload.job_context or extra.get("jobContext")
+    if job_context is not None and not isinstance(job_context, str):
+        job_context = json.dumps(job_context, default=str)      # list/object sent instead of text
 
-    kwargs = {
-        "message": payload.message,
-        "conversation_history": history,
-        "job_context": getattr(payload, "job_context", None),
-    }
-
-    if _CHATBOT_ACCEPTS_ROLE:
-        kwargs["role"] = getattr(payload, "role", None) or "PUBLIC"
+    # Sanitized diagnostics: counts and field NAMES only, never messages or job contents.
+    parsed = len(parse_jobs(job_context, jobs))
+    logger.info(
+        f"/chat role={payload.role} history_items={len(history)} jobs_received={len(jobs)} "
+        f"job_fields={sorted(jobs[0].keys()) if jobs else []} "
+        f"job_context_chars={len(job_context or '')} jobs_usable={parsed} "
+        f"other_fields={sorted(extra.keys())}")
+    if (jobs or job_context) and parsed == 0:
+        logger.warning("/chat received job data but no usable job (each job needs a title / jobTitle).")
 
     try:
-        reply = get_chatbot_response(**kwargs)
+        reply = get_chatbot_response(
+            message=payload.message,
+            conversation_history=history,
+            job_context=job_context,
+            role=payload.role,
+            jobs=jobs,
+        )
     except ValueError as exc:
+        # e.g. empty message
         raise HTTPException(status_code=400, detail=str(exc))
-    except Exception:
-        logger.exception("Chatbot request failed")
-        raise HTTPException(status_code=500, detail="Chatbot service failed.")
-
-    return ChatResponse(response=reply)
+    except RuntimeError as exc:
+        # e.g. chatbot model file missing
+        logger.error(f"/chat failed: {exc}")
+        raise HTTPException(status_code=503, detail=str(exc))
+    return {"response": reply}
