@@ -466,7 +466,26 @@ export const getCandidateById = async (candidateId) =>
 
 /* ---------------- RESUME ---------------- */
 
-// NOT YET CONFIRMED: does the Candidate object include a resumeId
-// field to pass in here?
-export const getResumeView = async (resumeId) =>
-  unwrap(await axiosInstance.get(`/resumes/${resumeId}/view`));
+// Download the actual PDF using the resumeId.
+// axiosInstance already adds the base URL and JWT token.
+export const getResumeDownload = async (resumeId) => {
+  if (!resumeId || !Number.isInteger(Number(resumeId)) || Number(resumeId) <= 0) {
+    throw new Error("A valid resume ID is not available.");
+  }
+
+  return axiosInstance.get(`/resumes/${resumeId}/download`, {
+    responseType: "blob",
+  });
+};
+
+// View the actual PDF in the browser.
+export const getResumeView = async (resumeId) => {
+  if (!resumeId || !Number.isInteger(Number(resumeId)) || Number(resumeId) <= 0) {
+    throw new Error("A valid resume ID is not available.");
+  }
+
+  return axiosInstance.get(`/resumes/${resumeId}/view`, {
+    responseType: "blob",
+  });
+};
+

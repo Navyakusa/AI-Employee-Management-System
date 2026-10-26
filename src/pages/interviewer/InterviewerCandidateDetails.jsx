@@ -22,6 +22,7 @@ import InterviewerNavbar from "./InterviewerNavbar";
 import {
   getCandidateById,
   getInterviewById,
+  getResumeDownload,
 } from "../../services/interviewerService";
 
 import "./InterviewerDashboard.css";
@@ -52,7 +53,11 @@ function mapCandidate(raw) {
     matchScore: raw.matchScore ?? raw.aiMatchScore ?? null,
     interviewStatus: String(raw.interviewStatus ?? raw.status ?? ""),
     resume: String(raw.resume ?? raw.resumeName ?? raw.resumeFileName ?? ""),
-    resumeId: raw.resumeId ?? null,
+    resumeId:
+  raw.resumeId ??
+  raw.resume?.resumeId ??
+  raw.resumeDetails?.resumeId ??
+  null,
     summary: String(raw.summary ?? raw.profileSummary ?? ""),
     // Force an array regardless of what the backend actually sends —
     // ?? only guards against null/undefined, not wrong types (e.g. a
@@ -70,7 +75,8 @@ function InterviewerCandidateDetails() {
 
   const [candidate, setCandidate] = useState(null);
   const [loading, setLoading] = useState(true);
-
+  const [downloadingResume, setDownloadingResume] = useState(false);
+const [resumeError, setResumeError] = useState("");
   useEffect(() => {
     const loadCandidateDetails = async () => {
       try {
@@ -166,16 +172,69 @@ function InterviewerCandidateDetails() {
     .slice(0, 2)
     .toUpperCase();
 
-  const handleDownloadResume = () => {
-    // NOT YET CONFIRMED: swap this for a real download once backend
-    // confirms the resumeId field name and the /resumes/{id}/view
-    // response shape (direct file bytes vs. a URL to open).
-    alert(
-      candidate.resumeId
-        ? `Resume download will be connected later (resumeId: ${candidate.resumeId})`
-        : "This candidate has no resume on file yet."
+ 
+const handleDownloadResume = async () => {
+  if (!candidate?.resumeId) {
+    setResumeError(
+      "The resume ID was not provided by the backend. Please check the candidate details API."
     );
-  };
+    return;
+  }
+
+  setDownloadingResume(true);
+  setResumeError("");
+
+  try {
+    const response = await getResumeDownload(candidate.resumeId);
+
+    const blob = new Blob([response.data], {
+      type: "application/pdf",
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = candidate.resume || `resume-${candidate.resumeId}.pdf`;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("Resume download failed:", error);
+
+    const status = error?.response?.status;
+
+    if (error.message === "A valid resume ID is not available.") {
+      setResumeError(error.message);
+    } else if (!status) {
+      setResumeError(
+        "Unable to connect to the server. Check your backend connection."
+      );
+    } else if (status === 401 || status === 403) {
+      setResumeError(
+        "You are not authorized to download this resume. Check your login and permissions."
+      );
+    } else if (status === 404) {
+      setResumeError(
+        "The resume file was not found on the server."
+      );
+    } else if (status >= 500) {
+      setResumeError(
+        "The server could not download this resume. The file may be missing on the backend."
+      );
+    } else {
+      setResumeError(
+        `Resume download failed (HTTP ${status}).`
+      );
+    }
+  } finally {
+    setDownloadingResume(false);
+  }
+};
+
 
   return (
     <div className="interviewer-layout">
@@ -359,10 +418,20 @@ function InterviewerCandidateDetails() {
                     <span>Candidate uploaded resume</span>
                   </div>
 
-                  <button type="button" onClick={handleDownloadResume}>
-                    <Download size={16} />
-                    Download
-                  </button>
+                  <button
+  type="button"
+  onClick={handleDownloadResume}
+  disabled={downloadingResume}
+>
+  <Download size={16} />
+  {downloadingResume ? "Downloading..." : "Download"}
+</button>
+
+{resumeError && (
+  <p role="alert" style={{ color: "red", marginTop: "8px" }}>
+    {resumeError}
+  </p>
+)}
                 </div>
               </div>
 
