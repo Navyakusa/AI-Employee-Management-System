@@ -1,4 +1,5 @@
-package com.ems.service;
+
+        package com.ems.service;
 
 import com.ems.common.ApiResponse;
 import com.ems.common.InterviewStatus;
@@ -12,12 +13,12 @@ import com.ems.repository.CandidateRepository;
 import com.ems.repository.InterviewRepository;
 import com.ems.repository.JobRepository;
 import com.ems.repository.UserRepository;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,6 +42,7 @@ public class InterviewerInterviewService {
         this.userRepository = userRepository;
     }
 
+    // Get all interviews assigned to the logged-in interviewer.
     public ResponseEntity<ApiResponse<MyInterviewsResponseDto>> getMyInterviews(
             Authentication authentication) {
 
@@ -54,16 +56,17 @@ public class InterviewerInterviewService {
         List<InterviewerInterviewDto> interviewDtos =
                 convertToDtos(interviews);
 
+        // Include both scheduled and rescheduled interviews.
         long scheduledCount = interviews.stream()
                 .filter(interview ->
-                        interview.getStatus() != null &&
-                                interview.getStatus() == InterviewStatus.SCHEDULED)
+                        interview.getStatus() == InterviewStatus.SCHEDULED
+                                || interview.getStatus()
+                                == InterviewStatus.RESCHEDULED)
                 .count();
 
         long completedCount = interviews.stream()
                 .filter(interview ->
-                        interview.getStatus() != null &&
-                                interview.getStatus() == InterviewStatus.COMPLETED)
+                        interview.getStatus() == InterviewStatus.COMPLETED)
                 .count();
 
         MyInterviewsResponseDto response =
@@ -83,6 +86,7 @@ public class InterviewerInterviewService {
         );
     }
 
+    // Search and filter the logged-in interviewer's interviews.
     public ResponseEntity<ApiResponse<List<InterviewerInterviewDto>>> searchMyInterviews(
             Authentication authentication,
             String keyword,
@@ -103,24 +107,24 @@ public class InterviewerInterviewService {
 
         for (Interview interview : interviews) {
 
+            // Filter by status when supplied.
             if (status != null && !status.isBlank()) {
 
-                if (interview.getStatus() == null ||
-                        !interview.getStatus()
-                                .name()
-                                .equalsIgnoreCase(status)) {
-
+                if (interview.getStatus() == null
+                        || !interview.getStatus()
+                        .name()
+                        .equalsIgnoreCase(status.trim())) {
                     continue;
                 }
             }
 
+            // Filter by interview date when supplied.
             if (date != null) {
 
-                if (interview.getInterviewDateTime() == null ||
-                        !interview.getInterviewDateTime()
-                                .toLocalDate()
-                                .equals(date)) {
-
+                if (interview.getInterviewDateTime() == null
+                        || !interview.getInterviewDateTime()
+                        .toLocalDate()
+                        .equals(date)) {
                     continue;
                 }
             }
@@ -134,22 +138,25 @@ public class InterviewerInterviewService {
                             .orElse(null);
 
             String candidateName =
-                    candidate != null ? candidate.getName() : "";
+                    candidate != null && candidate.getName() != null
+                            ? candidate.getName().toLowerCase()
+                            : "";
 
             String candidateEmail =
-                    candidate != null ? candidate.getEmail() : "";
+                    candidate != null && candidate.getEmail() != null
+                            ? candidate.getEmail().toLowerCase()
+                            : "";
 
             String jobTitle =
-                    job != null ? job.getTitle() : "";
+                    job != null && job.getTitle() != null
+                            ? job.getTitle().toLowerCase()
+                            : "";
 
             boolean matchesSearch =
                     searchKeyword.isBlank()
-                            || candidateName.toLowerCase()
-                            .contains(searchKeyword)
-                            || candidateEmail.toLowerCase()
-                            .contains(searchKeyword)
-                            || jobTitle.toLowerCase()
-                            .contains(searchKeyword);
+                            || candidateName.contains(searchKeyword)
+                            || candidateEmail.contains(searchKeyword)
+                            || jobTitle.contains(searchKeyword);
 
             if (!matchesSearch) {
                 continue;
@@ -167,6 +174,7 @@ public class InterviewerInterviewService {
         );
     }
 
+    // Get details for one interview assigned to this interviewer.
     public ResponseEntity<ApiResponse<InterviewerInterviewDto>> getInterviewDetails(
             Authentication authentication,
             Long interviewId) {
@@ -179,7 +187,6 @@ public class InterviewerInterviewService {
                 interviewRepository.findById(interviewId).orElse(null);
 
         if (interview == null) {
-
             return ResponseEntity.status(404).body(
                     new ApiResponse<>(
                             false,
@@ -190,7 +197,6 @@ public class InterviewerInterviewService {
         }
 
         if (!interviewerId.equals(interview.getInterviewerId())) {
-
             return ResponseEntity.status(403).body(
                     new ApiResponse<>(
                             false,
@@ -220,7 +226,12 @@ public class InterviewerInterviewService {
         );
     }
 
+    // Resolve the currently authenticated user.
     private User getLoggedInUser(Authentication authentication) {
+
+        if (authentication == null || authentication.getName() == null) {
+            throw new RuntimeException("Authentication is required");
+        }
 
         String email = authentication.getName();
 
@@ -229,6 +240,7 @@ public class InterviewerInterviewService {
                         new RuntimeException("Logged-in user not found"));
     }
 
+    // Convert interview entities to response DTOs.
     private List<InterviewerInterviewDto> convertToDtos(
             List<Interview> interviews) {
 
@@ -250,6 +262,7 @@ public class InterviewerInterviewService {
         return result;
     }
 
+    // Map interview, candidate, and job data into the existing DTO.
     private InterviewerInterviewDto toDto(
             Interview interview,
             Candidate candidate,

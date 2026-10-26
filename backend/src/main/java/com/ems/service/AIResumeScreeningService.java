@@ -530,35 +530,32 @@ public class AIResumeScreeningService {
             // 14. SCREENING RESULT
             // =====================================================
 
-            if (screeningScore >= 70) {
+            // Prefer the Python service's explicit Overall Match result when present.
+            // If it is missing, apply the agreed Python threshold (40%).
+            String pythonMatchResult = extractOverallResult(
+                    pythonResponse.getScreening_dimensions()
+            );
 
-                screening.setScreeningResult(
-                        "QUALIFIED"
-                );
-
-                screening.setRecommendation(
-                        "Candidate appears suitable for further HR screening."
-                );
-
-            } else if (screeningScore >= 50) {
-
-                screening.setScreeningResult(
-                        "REVIEW"
-                );
-
-                screening.setRecommendation(
-                        "Candidate requires further manual review."
-                );
-
+            if (pythonMatchResult != null) {
+                if (pythonMatchResult.equalsIgnoreCase("Match")
+                        || pythonMatchResult.equalsIgnoreCase("QUALIFIED")) {
+                    screening.setScreeningResult("QUALIFIED");
+                    screening.setRecommendation(
+                            "Candidate meets the AI screening match threshold and is suitable for further HR screening."
+                    );
+                } else if (pythonMatchResult.equalsIgnoreCase("No Match")
+                        || pythonMatchResult.equalsIgnoreCase("NOT_MATCH")
+                        || pythonMatchResult.equalsIgnoreCase("NOT_QUALIFIED")) {
+                    screening.setScreeningResult("NOT_QUALIFIED");
+                    screening.setRecommendation(
+                            "Candidate does not meet the AI screening match threshold."
+                    );
+                } else {
+                    // Unknown result value: use the agreed numeric threshold.
+                    setResultFromScore(screeningScore, screening);
+                }
             } else {
-
-                screening.setScreeningResult(
-                        "NOT_QUALIFIED"
-                );
-
-                screening.setRecommendation(
-                        "Candidate does not sufficiently match the job requirements."
-                );
+                setResultFromScore(screeningScore, screening);
             }
 
 
@@ -698,57 +695,114 @@ public class AIResumeScreeningService {
     private double calculateOverallScore(
             List<Map<String, Object>> dimensions) {
 
-        if (dimensions == null ||
-                dimensions.isEmpty()) {
-
+        if (dimensions == null || dimensions.isEmpty()) {
             System.out.println(
                     "WARNING: Python returned no screening dimensions"
             );
-
             return 0.0;
         }
 
-        List<Double> scores =
-                new ArrayList<>();
+        // Fix: use the Python service's final overall score when supplied.
+        // This avoids averaging individual dimensions into a different score.
+        for (Map<String, Object> dimension : dimensions) {
+            if (dimension == null) {
+                continue;
+            }
 
-        for (Map<String, Object> dimension :
-                dimensions) {
+            Object overallValue = firstPresent(
+                    dimension,
+                    "overall_match_pct",
+                    "overallMatchPct",
+                    "overall_match_percentage",
+                    "overallMatchPercentage"
+            );
 
-            Double score =
-                    extractDimensionScore(
-                            dimension
-                    );
-
-            if (score != null) {
-
-                scores.add(
-                        normalizeScore(score)
+            Double overallScore = objectToDouble(overallValue);
+            if (overallScore != null) {
+                double normalized = normalizeScore(overallScore);
+                System.out.println(
+                        "Using Python overall_match_pct = " + normalized
                 );
+                return Math.round(normalized * 100.0) / 100.0;
+            }
+        }
+
+        // Fallback for older Python responses that do not contain an overall score.
+        List<Double> scores = new ArrayList<>();
+        for (Map<String, Object> dimension : dimensions) {
+            Double score = extractDimensionScore(dimension);
+            if (score != null) {
+                scores.add(normalizeScore(score));
             }
         }
 
         if (scores.isEmpty()) {
-
             System.out.println(
                     "WARNING: No usable screening scores found"
             );
-
             return 0.0;
         }
 
-        double total =
-                scores.stream()
-                        .mapToDouble(
-                                Double::doubleValue
-                        )
-                        .sum();
+        double total = scores.stream()
+                .mapToDouble(Double::doubleValue)
+                .sum();
+        double average = total / scores.size();
+        return Math.round(average * 100.0) / 100.0;
+    }
 
-        double average =
-                total / scores.size();
+    /**
+     * Extract the explicit result from Python's Overall Match dimension.
+     * Returns null when the response has no recognized result field.
+     */
+    private String extractOverallResult(
+            List<Map<String, Object>> dimensions) {
 
-        return Math.round(
-                average * 100.0
-        ) / 100.0;
+        if (dimensions == null) {
+            return null;
+        }
+
+        for (Map<String, Object> dimension : dimensions) {
+            if (dimension == null) {
+                continue;
+            }
+
+            Object result = firstPresent(
+                    dimension,
+                    "result",
+                    "overall_match_result",
+                    "overallMatchResult"
+            );
+
+            if (result != null) {
+                String value = String.valueOf(result).trim();
+                if (!value.isEmpty()) {
+                    System.out.println(
+                            "Python overall match result = " + value
+                    );
+                    return value;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /** Apply the Python service's documented 40% match threshold as fallback. */
+    private void setResultFromScore(
+            double screeningScore,
+            AIResumeScreening screening) {
+
+        if (screeningScore >= 40.0) {
+            screening.setScreeningResult("QUALIFIED");
+            screening.setRecommendation(
+                    "Candidate meets the AI screening match threshold and is suitable for further HR screening."
+            );
+        } else {
+            screening.setScreeningResult("NOT_QUALIFIED");
+            screening.setRecommendation(
+                    "Candidate does not meet the AI screening match threshold."
+            );
+        }
     }
 
 
@@ -767,6 +821,10 @@ public class AIResumeScreeningService {
         Object matchPct =
                 firstPresent(
                         dimension,
+                        "overall_match_pct",
+                        "overallMatchPct",
+                        "overall_match_percentage",
+                        "overallMatchPercentage",
                         "match_pct",
                         "match_percentage",
                         "matchPercent",

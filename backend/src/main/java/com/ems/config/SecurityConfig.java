@@ -171,12 +171,13 @@ public class SecurityConfig {
                                         "/api/jobs/**"
                                 ).hasAnyRole("EMPLOYER", "SUPER_ADMIN")
 
+
                                 // Candidate management
                                 .requestMatchers(
                                         HttpMethod.GET,
                                         "/api/candidates/all"
                                 ).hasAnyRole(
-                                        "HR", "RECRUITER", "SUPER_ADMIN"
+                                        "HR", "RECRUITER", "SUPER_ADMIN", "INTERVIEWER"
                                 )
 
                                 // =================================================

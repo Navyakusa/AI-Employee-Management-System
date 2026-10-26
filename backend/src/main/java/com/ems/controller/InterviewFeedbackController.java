@@ -59,15 +59,30 @@ public class InterviewFeedbackController {
     // =========================================================
 
     @GetMapping("/interview/{interviewId}")
-    public ResponseEntity<InterviewFeedback>
+    public ResponseEntity<?>
     getByInterview(
             @PathVariable Long interviewId) {
 
-        return ResponseEntity.ok(
-                feedbackService.getFeedbackByInterview(
-                        interviewId
-                )
-        );
+        if (interviewId == null || interviewId <= 0) {
+            return ResponseEntity.badRequest().body(
+                    new ApiResponse<>(false, "A valid interview ID is required", null)
+            );
+        }
+
+        InterviewFeedback feedback =
+                feedbackService.getFeedbackByInterview(interviewId);
+
+        if (feedback == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>(
+                            false,
+                            "No feedback has been submitted for this interview yet",
+                            null
+                    ));
+        }
+
+        // Preserve the existing response format when feedback exists.
+        return ResponseEntity.ok(feedback);
     }
 
 

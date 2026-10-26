@@ -1,3 +1,4 @@
+
 package com.ems.repository;
 
 import com.ems.common.EvaluationStatus;
@@ -21,6 +22,9 @@ public interface InterviewEvaluationRepository
             Long interviewId,
             Long interviewerId
     );
+
+    Optional<InterviewEvaluation>
+    findFirstByInterviewIdOrderBySubmittedAtDesc(Long interviewId);
 
     long countByInterviewerId(Long interviewerId);
 

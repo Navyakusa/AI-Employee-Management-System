@@ -1,3 +1,4 @@
+
 package com.ems.dto;
 
 import lombok.AllArgsConstructor;
@@ -26,6 +27,9 @@ public class InterviewerCandidateDto {
     private String experience;
 
     private String skills;
+
+    // Resume information
+    private Long resumeId;
 
     private String resume;
 

@@ -1,3 +1,4 @@
+
 package com.ems.service;
 
 import com.ems.common.ApiResponse;
@@ -7,11 +8,14 @@ import com.ems.dto.InterviewerCandidatesResponseDto;
 import com.ems.entity.Candidate;
 import com.ems.entity.Interview;
 import com.ems.entity.Job;
+import com.ems.entity.Resume;
 import com.ems.entity.User;
 import com.ems.repository.CandidateRepository;
 import com.ems.repository.InterviewerCandidateRepository;
 import com.ems.repository.JobRepository;
+import com.ems.repository.ResumeRepository;
 import com.ems.repository.UserRepository;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -26,17 +30,20 @@ public class InterviewerCandidateService {
     private final InterviewerCandidateRepository interviewRepository;
     private final CandidateRepository candidateRepository;
     private final JobRepository jobRepository;
+    private final ResumeRepository resumeRepository;
     private final UserRepository userRepository;
 
     public InterviewerCandidateService(
             InterviewerCandidateRepository interviewRepository,
             CandidateRepository candidateRepository,
             JobRepository jobRepository,
+            ResumeRepository resumeRepository,
             UserRepository userRepository) {
 
         this.interviewRepository = interviewRepository;
         this.candidateRepository = candidateRepository;
         this.jobRepository = jobRepository;
+        this.resumeRepository = resumeRepository;
         this.userRepository = userRepository;
     }
 
@@ -44,7 +51,6 @@ public class InterviewerCandidateService {
     getMyCandidates(Authentication authentication) {
 
         User user = getLoggedInUser(authentication);
-
         Long interviewerId = user.getUserId();
 
         List<Interview> interviews =
@@ -55,14 +61,16 @@ public class InterviewerCandidateService {
 
         long scheduledCount = interviews.stream()
                 .filter(interview ->
-                        interview.getStatus() != null &&
-                                interview.getStatus() == InterviewStatus.SCHEDULED)
+                        interview.getStatus() != null
+                                && interview.getStatus()
+                                == InterviewStatus.SCHEDULED)
                 .count();
 
         long completedCount = interviews.stream()
                 .filter(interview ->
-                        interview.getStatus() != null &&
-                                interview.getStatus() == InterviewStatus.COMPLETED)
+                        interview.getStatus() != null
+                                && interview.getStatus()
+                                == InterviewStatus.COMPLETED)
                 .count();
 
         InterviewerCandidatesResponseDto response =
@@ -91,7 +99,6 @@ public class InterviewerCandidateService {
             LocalDate date) {
 
         User user = getLoggedInUser(authentication);
-
         Long interviewerId = user.getUserId();
 
         List<Interview> interviews =
@@ -99,10 +106,9 @@ public class InterviewerCandidateService {
 
         List<InterviewerCandidateDto> result = new ArrayList<>();
 
-        String searchKeyword =
-                keyword == null
-                        ? ""
-                        : keyword.trim().toLowerCase();
+        String searchKeyword = keyword == null
+                ? ""
+                : keyword.trim().toLowerCase();
 
         for (Interview interview : interviews) {
 
@@ -112,55 +118,46 @@ public class InterviewerCandidateService {
             }
 
             if (status != null && !status.isBlank()) {
-
                 if (interview.getStatus() == null ||
                         !interview.getStatus()
                                 .name()
                                 .equalsIgnoreCase(status)) {
-
                     continue;
                 }
             }
 
             if (date != null) {
-
                 if (interview.getInterviewDateTime() == null ||
                         !interview.getInterviewDateTime()
                                 .toLocalDate()
                                 .equals(date)) {
-
                     continue;
                 }
             }
 
-            Candidate candidate =
-                    candidateRepository
-                            .findById(interview.getCandidateId())
-                            .orElse(null);
+            Candidate candidate = candidateRepository
+                    .findById(interview.getCandidateId())
+                    .orElse(null);
 
-            Job job =
-                    jobRepository
-                            .findById(interview.getJobId())
-                            .orElse(null);
+            Job job = jobRepository
+                    .findById(interview.getJobId())
+                    .orElse(null);
 
             if (candidate == null) {
                 continue;
             }
 
-            String candidateName =
-                    candidate.getName() == null
-                            ? ""
-                            : candidate.getName().toLowerCase();
+            String candidateName = candidate.getName() == null
+                    ? ""
+                    : candidate.getName().toLowerCase();
 
-            String candidateEmail =
-                    candidate.getEmail() == null
-                            ? ""
-                            : candidate.getEmail().toLowerCase();
+            String candidateEmail = candidate.getEmail() == null
+                    ? ""
+                    : candidate.getEmail().toLowerCase();
 
-            String jobTitle =
-                    job == null || job.getTitle() == null
-                            ? ""
-                            : job.getTitle().toLowerCase();
+            String jobTitle = job == null || job.getTitle() == null
+                    ? ""
+                    : job.getTitle().toLowerCase();
 
             boolean matchesSearch =
                     searchKeyword.isBlank()
@@ -190,7 +187,6 @@ public class InterviewerCandidateService {
             Long candidateId) {
 
         User user = getLoggedInUser(authentication);
-
         Long interviewerId = user.getUserId();
 
         List<Interview> interviews =
@@ -202,13 +198,11 @@ public class InterviewerCandidateService {
                 continue;
             }
 
-            Candidate candidate =
-                    candidateRepository
-                            .findById(candidateId)
-                            .orElse(null);
+            Candidate candidate = candidateRepository
+                    .findById(candidateId)
+                    .orElse(null);
 
             if (candidate == null) {
-
                 return ResponseEntity.status(404).body(
                         new ApiResponse<>(
                                 false,
@@ -218,10 +212,9 @@ public class InterviewerCandidateService {
                 );
             }
 
-            Job job =
-                    jobRepository
-                            .findById(interview.getJobId())
-                            .orElse(null);
+            Job job = jobRepository
+                    .findById(interview.getJobId())
+                    .orElse(null);
 
             return ResponseEntity.ok(
                     new ApiResponse<>(
@@ -256,29 +249,20 @@ public class InterviewerCandidateService {
     private List<InterviewerCandidateDto> convertToDtos(
             List<Interview> interviews) {
 
-        List<InterviewerCandidateDto> result =
-                new ArrayList<>();
+        List<InterviewerCandidateDto> result = new ArrayList<>();
 
         for (Interview interview : interviews) {
 
-            Candidate candidate =
-                    candidateRepository
-                            .findById(interview.getCandidateId())
-                            .orElse(null);
+            Candidate candidate = candidateRepository
+                    .findById(interview.getCandidateId())
+                    .orElse(null);
 
-            Job job =
-                    jobRepository
-                            .findById(interview.getJobId())
-                            .orElse(null);
+            Job job = jobRepository
+                    .findById(interview.getJobId())
+                    .orElse(null);
 
             if (candidate != null) {
-                result.add(
-                        toDto(
-                                interview,
-                                candidate,
-                                job
-                        )
-                );
+                result.add(toDto(interview, candidate, job));
             }
         }
 
@@ -290,10 +274,20 @@ public class InterviewerCandidateService {
             Candidate candidate,
             Job job) {
 
+        Resume resumeEntity = resumeRepository
+                .findFirstByCandidateIdOrderByIdDesc(candidate.getId())
+                .orElse(null);
+
+        Long resumeId = resumeEntity != null
+                ? resumeEntity.getId()
+                : null;
+
+        String resumeFileName = resumeEntity != null
+                ? resumeEntity.getFileName()
+                : null;
+
         return new InterviewerCandidateDto(
-
                 candidate.getId(),
-
                 candidate.getName(),
                 candidate.getEmail(),
                 candidate.getPhone(),
@@ -301,7 +295,11 @@ public class InterviewerCandidateService {
                 candidate.getEducation(),
                 candidate.getExperience(),
                 candidate.getSkills(),
-                candidate.getResume(),
+
+                // Resume ID and filename
+                resumeId,
+                resumeFileName,
+
                 candidate.getLinkedin(),
                 candidate.getPortfolio(),
                 candidate.getExpectedSalary(),

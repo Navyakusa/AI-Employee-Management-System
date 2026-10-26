@@ -1,3 +1,4 @@
+
 package com.ems.service;
 
 import com.ems.common.ApiResponse;
@@ -49,58 +50,30 @@ public class InterviewQuestionService {
             PythonRankingJobDto pythonJob =
                     new PythonRankingJobDto();
 
-            pythonJob.setJobId(
-                    "J_" + job.getId()
-            );
-
-            pythonJob.setJobTitle(
-                    safe(job.getTitle())
-            );
-
-            pythonJob.setSeniority(
-                    buildSeniority(job)
-            );
-
-            pythonJob.setIndustry(
-                    safe(job.getDepartment())
-            );
+            pythonJob.setJobId("J_" + job.getId());
+            pythonJob.setJobTitle(safe(job.getTitle()));
+            pythonJob.setSeniority(buildSeniority(job));
+            pythonJob.setIndustry(safe(job.getDepartment()));
 
             pythonJob.setMustHaveSkills(
-                    formatSkillsForPython(
-                            job.getRequiredSkills()
-                    )
+                    formatSkillsForPython(job.getRequiredSkills())
             );
 
             pythonJob.setNiceToHaveSkills(
-                    formatSkillsForPython(
-                            job.getPreferredSkills()
-                    )
+                    formatSkillsForPython(job.getPreferredSkills())
             );
 
-            pythonJob.setDescription(
-                    safe(job.getDescription())
-            );
-
-            pythonJob.setResponsibilities(
-                    safe(job.getResponsibilities())
-            );
-
-            pythonJob.setRequirements(
-                    buildRequirements(job)
-            );
+            pythonJob.setDescription(safe(job.getDescription()));
+            pythonJob.setResponsibilities(safe(job.getResponsibilities()));
+            pythonJob.setRequirements(buildRequirements(job));
 
             // 4. Build Python Resume DTO
             PythonRankingCandidateDto pythonResume =
                     new PythonRankingCandidateDto();
 
-            pythonResume.setResumeId(
-                    "R_" + resume.getId()
-            );
-
+            pythonResume.setResumeId("R_" + resume.getId());
             pythonResume.setRole("");
-
             pythonResume.setSeniority("");
-
             pythonResume.setIndustry("");
 
             pythonResume.setYearsExperience(
@@ -134,12 +107,20 @@ public class InterviewQuestionService {
             pythonRequest.setJob(pythonJob);
             pythonRequest.setResume(pythonResume);
 
-            pythonRequest.setNumQuestions(
-                    request.getNumQuestions() == null
-                            ? 5
-                            : request.getNumQuestions()
-            );
+            // Validate the requested number of questions
+            Integer numQuestions = request.getNumQuestions();
 
+            if (numQuestions == null) {
+                numQuestions = 5;
+            }
+
+            if (numQuestions < 1 || numQuestions > 20) {
+                throw new IllegalArgumentException(
+                        "Number of questions must be between 1 and 20"
+                );
+            }
+
+            pythonRequest.setNumQuestions(numQuestions);
             pythonRequest.setProvider("anthropic");
 
             // 6. Call Python AI
@@ -153,12 +134,15 @@ public class InterviewQuestionService {
                     new InterviewQuestionResponseDto();
 
             responseDto.setJobId(job.getId());
+
             responseDto.setCandidateId(
                     request.getCandidateId()
             );
+
             responseDto.setSource(
                     aiResponse.getSource()
             );
+
             responseDto.setQuestions(
                     aiResponse.getQuestions()
             );
@@ -203,8 +187,7 @@ public class InterviewQuestionService {
 
         String[] skillArray = skills.split(",");
 
-        StringBuilder result =
-                new StringBuilder("[");
+        StringBuilder result = new StringBuilder("[");
 
         for (String skill : skillArray) {
 
@@ -247,8 +230,7 @@ public class InterviewQuestionService {
 
     private String buildRequirements(Job job) {
 
-        StringBuilder requirements =
-                new StringBuilder();
+        StringBuilder requirements = new StringBuilder();
 
         if (job.getRequiredSkills() != null) {
             requirements.append("Required skills: ")
@@ -286,6 +268,7 @@ public class InterviewQuestionService {
                         matcher.group(1)
                 );
             } catch (NumberFormatException ignored) {
+                // Return 0.0 below if parsing fails
             }
         }
 

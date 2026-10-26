@@ -1,3 +1,4 @@
+
 package com.ems.service;
 
 import com.ems.common.ApiResponse;
@@ -5,10 +6,12 @@ import com.ems.dto.InterviewerCandidateDetailsDto;
 import com.ems.entity.Candidate;
 import com.ems.entity.Interview;
 import com.ems.entity.Job;
+import com.ems.entity.Resume;
 import com.ems.entity.User;
 import com.ems.repository.CandidateRepository;
 import com.ems.repository.InterviewRepository;
 import com.ems.repository.JobRepository;
+import com.ems.repository.ResumeRepository;
 import com.ems.repository.UserRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -23,17 +26,20 @@ public class InterviewerCandidateDetailsService {
     private final InterviewRepository interviewRepository;
     private final JobRepository jobRepository;
     private final UserRepository userRepository;
+    private final ResumeRepository resumeRepository;
 
     public InterviewerCandidateDetailsService(
             CandidateRepository candidateRepository,
             InterviewRepository interviewRepository,
             JobRepository jobRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            ResumeRepository resumeRepository) {
 
         this.candidateRepository = candidateRepository;
         this.interviewRepository = interviewRepository;
         this.jobRepository = jobRepository;
         this.userRepository = userRepository;
+        this.resumeRepository = resumeRepository;
     }
 
     public ResponseEntity<ApiResponse<InterviewerCandidateDetailsDto>>
@@ -42,15 +48,12 @@ public class InterviewerCandidateDetailsService {
             Long candidateId) {
 
         User user = getLoggedInUser(authentication);
-
         Long interviewerId = user.getUserId();
 
-        Candidate candidate =
-                candidateRepository.findById(candidateId)
-                        .orElse(null);
+        Candidate candidate = candidateRepository.findById(candidateId)
+                .orElse(null);
 
         if (candidate == null) {
-
             return ResponseEntity.status(404).body(
                     new ApiResponse<>(
                             false,
@@ -66,30 +69,19 @@ public class InterviewerCandidateDetailsService {
         Interview candidateInterview = null;
 
         for (Interview interview : interviews) {
-
             if (candidateId.equals(interview.getCandidateId())) {
-
-                candidateInterview = interview;
-
-                /*
-                 * If the interviewer has multiple interviews
-                 * for the same candidate, use the latest one.
-                 */
-                if (candidateInterview.getInterviewDateTime() == null ||
+                if (candidateInterview == null ||
                         (interview.getInterviewDateTime() != null &&
-                                interview.getInterviewDateTime()
-                                        .isAfter(
-                                                candidateInterview
-                                                        .getInterviewDateTime()
-                                        ))) {
-
+                                (candidateInterview.getInterviewDateTime() == null ||
+                                        interview.getInterviewDateTime().isAfter(
+                                                candidateInterview.getInterviewDateTime()
+                                        )))) {
                     candidateInterview = interview;
                 }
             }
         }
 
         if (candidateInterview == null) {
-
             return ResponseEntity.status(403).body(
                     new ApiResponse<>(
                             false,
@@ -99,15 +91,18 @@ public class InterviewerCandidateDetailsService {
             );
         }
 
-        Job job =
-                jobRepository.findById(candidateInterview.getJobId())
-                        .orElse(null);
+        Job job = jobRepository.findById(candidateInterview.getJobId())
+                .orElse(null);
+
+        // Retrieve the latest resume belonging to this candidate.
+        Resume resume = resumeRepository
+                .findFirstByCandidateIdOrderByIdDesc(candidateId)
+                .orElse(null);
 
         InterviewerCandidateDetailsDto dto =
                 new InterviewerCandidateDetailsDto();
 
         dto.setCandidateId(candidate.getId());
-
         dto.setName(candidate.getName());
         dto.setEmail(candidate.getEmail());
         dto.setPhone(candidate.getPhone());
@@ -115,10 +110,14 @@ public class InterviewerCandidateDetailsService {
         dto.setEducation(candidate.getEducation());
         dto.setExperience(candidate.getExperience());
         dto.setSkills(candidate.getSkills());
-        dto.setResume(candidate.getResume());
+
+        // Use the actual resume record, not Candidate.resume.
+        dto.setResume(
+                resume != null ? resume.getFileName() : null
+        );
+
         dto.setLinkedin(candidate.getLinkedin());
         dto.setPortfolio(candidate.getPortfolio());
-
         dto.setExpectedSalary(candidate.getExpectedSalary());
         dto.setNoticePeriod(candidate.getNoticePeriod());
         dto.setSource(candidate.getSource());
@@ -134,9 +133,7 @@ public class InterviewerCandidateDetailsService {
         dto.setInterviewDateTime(
                 candidateInterview.getInterviewDateTime()
         );
-        dto.setInterviewMode(
-                candidateInterview.getInterviewMode()
-        );
+        dto.setInterviewMode(candidateInterview.getInterviewMode());
 
         if (candidateInterview.getStatus() != null) {
             dto.setInterviewStatus(
@@ -144,21 +141,7 @@ public class InterviewerCandidateDetailsService {
             );
         }
 
-        /*
-         * AI Match Score
-         *
-         * This field is intentionally nullable here.
-         * The actual AI matching service can populate it
-         * when the AI Match integration is connected.
-         */
         dto.setAiMatchScore(null);
-
-        /*
-         * Candidate entity currently does not contain
-         * a separate professionalSummary field.
-         *
-         * Therefore we do not invent a value.
-         */
         dto.setProfessionalSummary(null);
 
         return ResponseEntity.ok(
@@ -171,11 +154,9 @@ public class InterviewerCandidateDetailsService {
     }
 
     private User getLoggedInUser(Authentication authentication) {
-
         String email = authentication.getName();
 
-        return userRepository
-                .findByEmailIgnoreCase(email)
+        return userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() ->
                         new RuntimeException(
                                 "Logged-in user not found"

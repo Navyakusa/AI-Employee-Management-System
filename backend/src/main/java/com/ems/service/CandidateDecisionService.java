@@ -1,3 +1,4 @@
+
 package com.ems.service;
 
 import com.ems.common.ApiResponse;
@@ -24,6 +25,7 @@ public class CandidateDecisionService {
     private final JobRepository jobRepository;
     private final InterviewRepository interviewRepository;
     private final InterviewFeedbackRepository interviewFeedbackRepository;
+    private final InterviewEvaluationRepository interviewEvaluationRepository;
     private final CandidateDecisionMapper candidateDecisionMapper;
     private final PythonAIClient pythonAIClient;
     private final CandidateRankingRepository candidateRankingRepository;
@@ -35,6 +37,7 @@ public class CandidateDecisionService {
             JobRepository jobRepository,
             InterviewRepository interviewRepository,
             InterviewFeedbackRepository interviewFeedbackRepository,
+            InterviewEvaluationRepository interviewEvaluationRepository,
             CandidateDecisionMapper candidateDecisionMapper,
             PythonAIClient pythonAIClient,
             CandidateRankingRepository candidateRankingRepository,
@@ -54,6 +57,9 @@ public class CandidateDecisionService {
 
         this.interviewFeedbackRepository =
                 interviewFeedbackRepository;
+
+        this.interviewEvaluationRepository =
+                interviewEvaluationRepository;
 
         this.candidateDecisionMapper =
                 candidateDecisionMapper;
@@ -77,67 +83,14 @@ public class CandidateDecisionService {
     getAllDecisions(String search) {
 
         try {
+            // Include applications of every status. The all-decisions
+            // endpoint should not hide an application because its status
+            // is not included in a hard-coded status list.
+            List<Application> applications =
+                    applicationRepository.findAll();
 
             List<CandidateDecisionDto> decisions =
-                    new ArrayList<>();
-
-            // Pending candidates
-            List<Application> shortlisted =
-                    applicationRepository.findByStatus(
-                            ApplicationStatus.SHORTLISTED
-                    );
-
-            for (Application application : shortlisted) {
-
-                if (isReadyForDecision(application)) {
-
-                    CandidateDecisionDto dto =
-                            buildDecisionDto(application);
-
-                    if (dto != null) {
-                        decisions.add(dto);
-                    }
-                }
-            }
-
-            // Existing PENDING records
-            List<Application> pending =
-                    applicationRepository.findByStatus(
-                            ApplicationStatus.PENDING
-                    );
-
-            for (Application application : pending) {
-
-                CandidateDecisionDto dto =
-                        buildDecisionDto(application);
-
-                if (dto != null) {
-                    decisions.add(dto);
-                }
-            }
-
-            // Approved
-            List<Application> approved =
-                    applicationRepository.findByStatusIn(
-                            List.of(
-                                    ApplicationStatus.SELECTED,
-                                    ApplicationStatus.HIRED
-                            )
-                    );
-
-            decisions.addAll(
-                    buildDecisionDtos(approved)
-            );
-
-            // Rejected
-            List<Application> rejected =
-                    applicationRepository.findByStatus(
-                            ApplicationStatus.REJECTED
-                    );
-
-            decisions.addAll(
-                    buildDecisionDtos(rejected)
-            );
+                    buildDecisionDtos(applications);
 
             // Search
             if (search != null &&
@@ -176,13 +129,10 @@ public class CandidateDecisionService {
             );
 
         } catch (Exception e) {
-
             e.printStackTrace();
 
             return ResponseEntity
-                    .status(
-                            HttpStatus.INTERNAL_SERVER_ERROR
-                    )
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(
                             new ApiResponse<>(
                                     false,
@@ -209,8 +159,11 @@ public class CandidateDecisionService {
                     new ArrayList<>();
 
             List<Application> applications =
-                    applicationRepository.findByStatus(
-                            ApplicationStatus.SHORTLISTED
+                    applicationRepository.findByStatusIn(
+                            List.of(
+                                    ApplicationStatus.SHORTLISTED,
+                                    ApplicationStatus.INTERVIEW
+                            )
                     );
 
             for (Application application : applications) {
@@ -647,59 +600,47 @@ public class CandidateDecisionService {
         );
 
         // =====================================================
-        // LATEST INTERVIEW
+        // LATEST COMPLETED INTERVIEW WITH FEEDBACK
         // =====================================================
 
         Optional<Interview> interviewOptional =
-                interviewRepository
-                        .findFirstByApplicationIdOrderByInterviewDateTimeDesc(
-                                application.getApplicationId()
-                        );
+                findLatestCompletedInterviewWithFeedback(
+                        application.getApplicationId()
+                );
+
+        // Older interview records may be linked through candidate and job.
+        if (interviewOptional.isEmpty()) {
+            interviewOptional =
+                    findLatestCompletedInterviewWithFeedbackForCandidateAndJob(
+                            candidate.getId(),
+                            job.getId()
+                    );
+        }
 
         if (interviewOptional.isPresent()) {
+            Interview interview = interviewOptional.get();
 
-            Interview interview =
-                    interviewOptional.get();
-
-            dto.setInterviewId(
-                    interview.getInterviewId()
-            );
-
+            dto.setInterviewId(interview.getInterviewId());
             dto.setInterviewStatus(
                     interview.getStatus() != null
                             ? interview.getStatus().name()
                             : null
             );
-
-            dto.setInterviewDateTime(
-                    interview.getInterviewDateTime()
-            );
+            dto.setInterviewDateTime(interview.getInterviewDateTime());
 
             InterviewFeedback feedback =
                     interviewFeedbackRepository
-                            .findByInterviewId(
-                                    interview.getInterviewId()
-                            )
+                            .findByInterviewId(interview.getInterviewId())
                             .orElse(null);
 
             if (feedback != null) {
-
-                Integer score =
-                        feedback.getOverallRating();
-
+                Integer score = feedback.getOverallRating();
                 if (score == null) {
                     score = feedback.getRating();
                 }
-
                 dto.setInterviewScore(score);
-
-                dto.setInterviewRecommendation(
-                        feedback.getRecommendation()
-                );
-
-                dto.setInterviewFeedback(
-                        feedback.getFeedback()
-                );
+                dto.setInterviewRecommendation(feedback.getRecommendation());
+                dto.setInterviewFeedback(feedback.getFeedback());
             }
         }
 
@@ -751,46 +692,99 @@ public class CandidateDecisionService {
     // READY FOR DECISION
     // =========================================================
 
-    private boolean isReadyForDecision(
-            Application application
-    ) {
-
+    private boolean isReadyForDecision(Application application) {
         if (application == null) {
             return false;
         }
 
-        if (application.getStatus() !=
-                ApplicationStatus.SHORTLISTED
-                &&
-                application.getStatus() !=
-                        ApplicationStatus.PENDING) {
-
+        if (application.getStatus() != ApplicationStatus.SHORTLISTED
+                && application.getStatus() != ApplicationStatus.PENDING
+                && application.getStatus() != ApplicationStatus.INTERVIEW) {
             return false;
         }
 
-        Optional<Interview> interviewOptional =
+        Long applicationId = application.getApplicationId();
+        Long candidateId = application.getCandidateId();
+        Long jobId = application.getJobId();
+
+        // First, check completed interviews linked by applicationId.
+        Optional<Interview> interview =
+                findLatestCompletedInterviewWithFeedback(applicationId);
+
+        // Fallback for older records linked by candidateId and jobId.
+        if (interview.isEmpty()
+                && candidateId != null
+                && jobId != null) {
+            interview =
+                    findLatestCompletedInterviewWithFeedbackForCandidateAndJob(
+                            candidateId,
+                            jobId
+                    );
+        }
+
+        return interview.isPresent();
+    }
+
+    /**
+     * Returns the newest completed interview that has feedback attached
+     * to that same interview. Scheduled/cancelled interviews are ignored.
+     */
+    private Optional<Interview> findLatestCompletedInterviewWithFeedback(
+            Long applicationId
+    ) {
+        List<Interview> completedInterviews =
                 interviewRepository
-                        .findFirstByApplicationIdOrderByInterviewDateTimeDesc(
-                                application.getApplicationId()
+                        .findByApplicationIdAndStatusOrderByInterviewDateTimeDesc(
+                                applicationId,
+                                InterviewStatus.COMPLETED
                         );
 
-        if (interviewOptional.isEmpty()) {
-            return false;
+        for (Interview interview : completedInterviews) {
+            if (hasFeedbackOrSubmittedEvaluation(
+                    interview.getInterviewId()
+            )) {
+                return Optional.of(interview);
+            }
         }
 
-        Interview interview =
-                interviewOptional.get();
+        return Optional.empty();
+    }
 
-        if (interview.getStatus() !=
-                InterviewStatus.COMPLETED) {
+    private Optional<Interview> findLatestCompletedInterviewWithFeedbackForCandidateAndJob(
+            Long candidateId,
+            Long jobId
+    ) {
+        List<Interview> completedInterviews =
+                interviewRepository
+                        .findByCandidateIdAndJobIdAndStatusOrderByInterviewDateTimeDesc(
+                                candidateId,
+                                jobId,
+                                InterviewStatus.COMPLETED
+                        );
 
-            return false;
+        for (Interview interview : completedInterviews) {
+            if (hasFeedbackOrSubmittedEvaluation(
+                    interview.getInterviewId()
+            )) {
+                return Optional.of(interview);
+            }
         }
 
-        return interviewFeedbackRepository
-                .existsByInterviewId(
-                        interview.getInterviewId()
-                );
+        return Optional.empty();
+    }
+
+
+    private boolean hasFeedbackOrSubmittedEvaluation(Long interviewId) {
+        if (interviewFeedbackRepository.existsByInterviewId(interviewId)) {
+            return true;
+        }
+
+        return interviewEvaluationRepository
+                .findFirstByInterviewIdOrderBySubmittedAtDesc(interviewId)
+                .map(evaluation -> "SUBMITTED".equalsIgnoreCase(
+                        String.valueOf(evaluation.getStatus())
+                ))
+                .orElse(false);
     }
 
     private boolean isDecisionAllowed(
@@ -873,24 +867,14 @@ public class CandidateDecisionService {
             // =====================================================
 
             Interview interview =
-                    interviewRepository
-                            .findFirstByCandidateIdAndJobIdOrderByInterviewDateTimeDesc(
-                                    candidateId,
-                                    jobId
+                    findLatestCompletedInterviewWithFeedbackForCandidateAndJob(
+                            candidateId,
+                            jobId
+                    ).orElseThrow(() ->
+                            new RuntimeException(
+                                    "Completed interview with feedback not found"
                             )
-                            .orElseThrow(() ->
-                                    new RuntimeException(
-                                            "Interview not found"
-                                    )
-                            );
-
-            if (interview.getStatus() !=
-                    InterviewStatus.COMPLETED) {
-
-                throw new RuntimeException(
-                        "Interview is not completed"
-                );
-            }
+                    );
 
             // =====================================================
             // 3. FEEDBACK
@@ -1060,3 +1044,4 @@ public class CandidateDecisionService {
                         .contains(keyword);
     }
 }
+

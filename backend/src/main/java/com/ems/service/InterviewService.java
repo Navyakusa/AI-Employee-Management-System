@@ -7,6 +7,13 @@ import com.ems.dto.InterviewManagementDto;
 import com.ems.dto.InterviewRequestDto;
 import com.ems.dto.InterviewStatsDto;
 import com.ems.dto.InterviewerCandidateDto;
+import com.ems.dto.EligibleInterviewCandidateDto;
+import com.ems.entity.AIResumeScreening;
+import com.ems.repository.AIResumeScreeningRepository;
+
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import com.ems.entity.Application;
 import com.ems.entity.Candidate;
 import com.ems.entity.Interview;
@@ -23,6 +30,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -48,11 +56,15 @@ public class InterviewService {
     @Autowired
     private NotificationService notificationService;
 
+    @Autowired
+    private AIResumeScreeningRepository aiResumeScreeningRepository;
+
 
     // =========================================================
     // SCHEDULE INTERVIEW
     // =========================================================
 
+    @Transactional
     public ResponseEntity<ApiResponse<Interview>> scheduleInterview(
             InterviewRequestDto dto) {
 
@@ -107,22 +119,53 @@ public class InterviewService {
             }
 
             // -------------------------------------------------
-            // 2. Application must be shortlisted
+            // 2. Validate application eligibility consistently with
+            //    getEligibleInterviewCandidates().
+            //    SHORTLISTED applications remain eligible. AI_SCREENED
+            //    applications are eligible only when their latest screening
+            //    result is positive.
             // -------------------------------------------------
 
-            if (application.getStatus() != null &&
-                    application.getStatus()
-                            != com.ems.common.ApplicationStatus.SHORTLISTED) {
+            com.ems.common.ApplicationStatus applicationStatus =
+                    application.getStatus();
 
+            boolean isShortlisted = applicationStatus ==
+                    com.ems.common.ApplicationStatus.SHORTLISTED;
+
+            boolean isAiScreened = applicationStatus ==
+                    com.ems.common.ApplicationStatus.AI_SCREENED;
+
+            if (!isShortlisted && !isAiScreened) {
                 return ResponseEntity
                         .badRequest()
-                        .body(
-                                new ApiResponse<>(
-                                        false,
-                                        "Only shortlisted applications can be scheduled for interview",
-                                        null
-                                )
-                        );
+                        .body(new ApiResponse<>(
+                                false,
+                                "Only shortlisted or AI-qualified applications can be scheduled for interview",
+                                null
+                        ));
+            }
+
+            if (isAiScreened) {
+                AIResumeScreening latestScreening =
+                        aiResumeScreeningRepository
+                                .findAllByOrderByScreenedAtDesc()
+                                .stream()
+                                .filter(screening -> screening.getCandidateId() != null
+                                        && screening.getJobId() != null
+                                        && screening.getCandidateId().equals(application.getCandidateId())
+                                        && screening.getJobId().equals(application.getJobId()))
+                                .findFirst()
+                                .orElse(null);
+
+                if (latestScreening == null || !isScreeningEligible(latestScreening)) {
+                    return ResponseEntity
+                            .badRequest()
+                            .body(new ApiResponse<>(
+                                    false,
+                                    "AI-screened applications require a qualifying latest AI screening result before interview scheduling",
+                                    null
+                            ));
+                }
             }
 
             // -------------------------------------------------
@@ -275,6 +318,12 @@ public class InterviewService {
                     interviewRepository.save(
                             interview
                     );
+
+            // Update and persist the application status after scheduling the interview.
+            application.setStatus(
+                    com.ems.common.ApplicationStatus.INTERVIEW
+            );
+            applicationRepository.saveAndFlush(application);
 
             // -------------------------------------------------
             // 8. Candidate notification
@@ -1447,4 +1496,117 @@ public class InterviewService {
                     );
         }
     }
+
+
+    // =========================================================
+    // AI-QUALIFIED CANDIDATES FOR INTERVIEW SCHEDULING
+    // =========================================================
+
+    public ResponseEntity<ApiResponse<List<EligibleInterviewCandidateDto>>>
+    getEligibleInterviewCandidates() {
+        try {
+            // Results are ordered newest-first, so the first record for each
+            // candidate/job pair is the latest screening.
+            Map<String, AIResumeScreening> latestScreenings =
+                    aiResumeScreeningRepository
+                            .findAllByOrderByScreenedAtDesc()
+                            .stream()
+                            .filter(screening -> screening.getCandidateId() != null
+                                    && screening.getJobId() != null)
+                            .collect(Collectors.toMap(
+                                    screening -> screening.getCandidateId()
+                                            + "-" + screening.getJobId(),
+                                    Function.identity(),
+                                    (first, second) -> first
+                            ));
+
+            List<EligibleInterviewCandidateDto> result =
+                    applicationRepository.findAll()
+                            .stream()
+                            .filter(application -> application.getCandidateId() != null
+                                    && application.getJobId() != null)
+                            // Allow shortlisted applications and applications that
+                            // have completed AI screening. The latest screening
+                            // result is checked separately below, so rejected
+                            // candidates are still excluded.
+                            .filter(application -> {
+                                com.ems.common.ApplicationStatus status = application.getStatus();
+                                return status == com.ems.common.ApplicationStatus.SHORTLISTED
+                                        || status == com.ems.common.ApplicationStatus.AI_SCREENED;
+                            })
+                            .filter(application -> {
+                                String key = application.getCandidateId()
+                                        + "-" + application.getJobId();
+                                AIResumeScreening screening = latestScreenings.get(key);
+                                return screening != null && isScreeningEligible(screening);
+                            })
+                            .filter(application ->
+                                    interviewRepository
+                                            .findFirstByApplicationIdOrderByInterviewDateTimeDesc(
+                                                    application.getApplicationId())
+                                            .map(interview ->
+                                                    interview.getStatus() != InterviewStatus.SCHEDULED
+                                                            && interview.getStatus() != InterviewStatus.RESCHEDULED)
+                                            .orElse(true))
+                            .map(application -> {
+                                AIResumeScreening screening = latestScreenings.get(
+                                        application.getCandidateId() + "-" + application.getJobId());
+
+                                Candidate candidate = candidateRepository.findById(
+                                        application.getCandidateId()).orElse(null);
+                                Job job = jobRepository.findById(
+                                        application.getJobId()).orElse(null);
+
+                                return new EligibleInterviewCandidateDto(
+                                        application.getCandidateId(),
+                                        application.getApplicationId(),
+                                        application.getJobId(),
+                                        candidate != null ? candidate.getName() : null,
+                                        job != null ? job.getTitle() : null,
+                                        screening.getScreeningScore(),
+                                        screening.getScreeningResult()
+                                );
+                            })
+                            .toList();
+
+            return ResponseEntity.ok(new ApiResponse<>(
+                    true,
+                    "Eligible interview candidates retrieved successfully",
+                    result
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(
+                            false,
+                            "Failed to retrieve eligible candidates: " + e.getMessage(),
+                            null
+                    ));
+        }
+    }
+
+    private boolean isScreeningEligible(AIResumeScreening screening) {
+        String result = screening.getScreeningResult();
+        if (result == null) {
+            return false;
+        }
+
+        String normalized = result.trim().toUpperCase();
+
+        // Check negative phrases first to avoid accepting "NOT QUALIFIED".
+        if (normalized.contains("NOT QUALIFIED")
+                || normalized.contains("NOT_QUALIFIED")
+                || normalized.contains("NOT RECOMMENDED")
+                || normalized.contains("REJECT")
+                || normalized.contains("FAIL")) {
+            return false;
+        }
+
+        return normalized.contains("QUALIFIED")
+                || normalized.contains("RECOMMENDED")
+                || normalized.contains("PASS")
+                || normalized.contains("SHORTLISTED");
+    }
+
 }

@@ -2,14 +2,12 @@ package com.ems.service;
 
 import com.ems.common.ApiResponse;
 import com.ems.entity.Attendance;
-import com.ems.entity.Employee;
 import com.ems.repository.AttendanceRepository;
-import com.ems.repository.EmployeeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -17,709 +15,280 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.security.core.Authentication;
+
 @Service
 public class AttendanceService {
 
     @Autowired
     private AttendanceRepository attendanceRepository;
 
-    @Autowired
-    private EmployeeRepository employeeRepository;
-
-
-    // =========================
     // MARK ATTENDANCE
-    // =========================
-
-    public ResponseEntity<ApiResponse<Attendance>> markAttendance(
-            Attendance attendance) {
-
+    public ResponseEntity<ApiResponse<Attendance>> markAttendance(Attendance attendance) {
         try {
-
-            // Employee ID is required
             if (attendance.getEmployeeId() == null) {
-
-                return new ResponseEntity<>(
-                        new ApiResponse<>(
-                                false,
-                                "Employee ID is required",
-                                null
-                        ),
-                        HttpStatus.BAD_REQUEST
-                );
+                return new ResponseEntity<>(new ApiResponse<>(false, "Employee ID is required", null),
+                        HttpStatus.BAD_REQUEST);
             }
 
-            // If date is not provided, use today's date
             if (attendance.getAttendanceDate() == null) {
                 attendance.setAttendanceDate(LocalDate.now());
             }
 
-            // =========================
-            // CHECK DUPLICATE ATTENDANCE
-            // =========================
-
-            long existingAttendance =
-                    attendanceRepository.countByEmployeeIdAndAttendanceDate(
-                            attendance.getEmployeeId(),
-                            attendance.getAttendanceDate()
-                    );
+            long existingAttendance = attendanceRepository.countByEmployeeIdAndAttendanceDate(
+                    attendance.getEmployeeId(), attendance.getAttendanceDate());
 
             if (existingAttendance > 0) {
-
-                return new ResponseEntity<>(
-                        new ApiResponse<>(
-                                false,
-                                "Attendance already exists for this employee on "
-                                        + attendance.getAttendanceDate(),
-                                null
-                        ),
-                        HttpStatus.CONFLICT
-                );
+                return new ResponseEntity<>(new ApiResponse<>(false,
+                        "Attendance already exists for this employee on " + attendance.getAttendanceDate(), null),
+                        HttpStatus.CONFLICT);
             }
 
-            // =========================
-            // SAVE ATTENDANCE
-            // =========================
-
-            Attendance savedAttendance =
-                    attendanceRepository.save(attendance);
-
-            ApiResponse<Attendance> response =
-                    new ApiResponse<>(
-                            true,
-                            "Attendance marked successfully",
-                            savedAttendance
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.CREATED
-            );
-
+            Attendance savedAttendance = attendanceRepository.save(attendance);
+            return new ResponseEntity<>(new ApiResponse<>(true,
+                    "Attendance marked successfully", savedAttendance), HttpStatus.CREATED);
         } catch (Exception e) {
-
-            ApiResponse<Attendance> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.BAD_REQUEST
-            );
+            return new ResponseEntity<>(new ApiResponse<>(false, e.getMessage(), null),
+                    HttpStatus.BAD_REQUEST);
         }
     }
 
-
-    // =========================
     // GET ALL ATTENDANCE
-    // =========================
-
     public ResponseEntity<ApiResponse<List<Attendance>>> getAllAttendance() {
-
         try {
-
-            List<Attendance> attendanceList =
-                    attendanceRepository.findAll();
-
-            ApiResponse<List<Attendance>> response =
-                    new ApiResponse<>(
-                            true,
-                            "Attendance records fetched successfully",
-                            attendanceList
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.OK
-            );
-
+            List<Attendance> attendanceList = attendanceRepository.findAll();
+            return new ResponseEntity<>(new ApiResponse<>(true,
+                    "Attendance records fetched successfully", attendanceList), HttpStatus.OK);
         } catch (Exception e) {
-
-            ApiResponse<List<Attendance>> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.BAD_REQUEST
-            );
+            return new ResponseEntity<>(new ApiResponse<>(false, e.getMessage(), null),
+                    HttpStatus.BAD_REQUEST);
         }
     }
 
-
-    // =========================
     // GET ATTENDANCE BY ID
-    // =========================
-
-    public ResponseEntity<ApiResponse<Attendance>> getAttendanceById(
-            Long id) {
-
+    public ResponseEntity<ApiResponse<Attendance>> getAttendanceById(Long id) {
         try {
-
-            Attendance attendance =
-                    attendanceRepository
-                            .findById(id)
-                            .orElseThrow(() ->
-                                    new RuntimeException(
-                                            "Attendance record not found"
-                                    )
-                            );
-
-            ApiResponse<Attendance> response =
-                    new ApiResponse<>(
-                            true,
-                            "Attendance record fetched successfully",
-                            attendance
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.OK
-            );
-
+            Attendance attendance = attendanceRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Attendance record not found"));
+            return new ResponseEntity<>(new ApiResponse<>(true,
+                    "Attendance record fetched successfully", attendance), HttpStatus.OK);
         } catch (Exception e) {
-
-            ApiResponse<Attendance> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.NOT_FOUND
-            );
+            return new ResponseEntity<>(new ApiResponse<>(false, e.getMessage(), null),
+                    HttpStatus.NOT_FOUND);
         }
     }
 
-
-    // =========================
-    // GET BY EMPLOYEE
-    // =========================
-
-    public ResponseEntity<ApiResponse<List<Attendance>>>
-    getAttendanceByEmployee(Long employeeId) {
-
+    // GET ATTENDANCE BY EMPLOYEE
+    public ResponseEntity<ApiResponse<List<Attendance>>> getAttendanceByEmployee(Long employeeId) {
         try {
-
-            List<Attendance> attendanceList =
-                    attendanceRepository.findByEmployeeId(employeeId);
-
-            ApiResponse<List<Attendance>> response =
-                    new ApiResponse<>(
-                            true,
-                            "Employee attendance fetched successfully",
-                            attendanceList
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.OK
-            );
-
+            List<Attendance> attendanceList = attendanceRepository.findByEmployeeId(employeeId);
+            return new ResponseEntity<>(new ApiResponse<>(true,
+                    "Employee attendance fetched successfully", attendanceList), HttpStatus.OK);
         } catch (Exception e) {
-
-            ApiResponse<List<Attendance>> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.BAD_REQUEST
-            );
+            return new ResponseEntity<>(new ApiResponse<>(false, e.getMessage(), null),
+                    HttpStatus.BAD_REQUEST);
         }
     }
 
-
-    // =========================
-    // GET BY DATE
-    // =========================
-
-    public ResponseEntity<ApiResponse<List<Attendance>>>
-    getAttendanceByDate(LocalDate date) {
-
+    // GET ATTENDANCE BY DATE
+    public ResponseEntity<ApiResponse<List<Attendance>>> getAttendanceByDate(LocalDate date) {
         try {
-
-            List<Attendance> attendanceList =
-                    attendanceRepository.findByAttendanceDate(date);
-
-            ApiResponse<List<Attendance>> response =
-                    new ApiResponse<>(
-                            true,
-                            "Attendance records fetched successfully",
-                            attendanceList
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.OK
-            );
-
+            List<Attendance> attendanceList = attendanceRepository.findByAttendanceDate(date);
+            return new ResponseEntity<>(new ApiResponse<>(true,
+                    "Attendance records fetched successfully", attendanceList), HttpStatus.OK);
         } catch (Exception e) {
-
-            ApiResponse<List<Attendance>> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.BAD_REQUEST
-            );
+            return new ResponseEntity<>(new ApiResponse<>(false, e.getMessage(), null),
+                    HttpStatus.BAD_REQUEST);
         }
     }
 
-
-    // =========================
-    // GET BY STATUS
-    // =========================
-
-    public ResponseEntity<ApiResponse<List<Attendance>>>
-    getAttendanceByStatus(String status) {
-
+    // GET ATTENDANCE BY STATUS
+    public ResponseEntity<ApiResponse<List<Attendance>>> getAttendanceByStatus(String status) {
         try {
-
             List<Attendance> attendanceList;
-
             if (status == null || status.trim().isEmpty()) {
-
-                attendanceList =
-                        attendanceRepository.findAll();
-
+                attendanceList = attendanceRepository.findAll();
             } else {
+                attendanceList = attendanceRepository.findByStatusIgnoreCase(status.trim());
+            }
+            return new ResponseEntity<>(new ApiResponse<>(true,
+                    "Attendance records fetched successfully", attendanceList), HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(new ApiResponse<>(false, e.getMessage(), null),
+                    HttpStatus.BAD_REQUEST);
+        }
+    }
 
-                attendanceList =
-                        attendanceRepository
-                                .findByStatusIgnoreCase(
-                                        status.trim()
-                                );
+    // UPDATE ATTENDANCE: only update fields supplied by the caller.
+    // In particular, a checkout-only request will preserve employee/date/check-in/status/remarks.
+    @Transactional
+    public ResponseEntity<ApiResponse<Attendance>> updateAttendance(Long id, Attendance updatedAttendance) {
+        try {
+            if (updatedAttendance == null) {
+                return new ResponseEntity<>(new ApiResponse<>(false,
+                        "Attendance request body is required", null), HttpStatus.BAD_REQUEST);
             }
 
-            ApiResponse<List<Attendance>> response =
-                    new ApiResponse<>(
-                            true,
-                            "Attendance records fetched successfully",
-                            attendanceList
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.OK
-            );
-
-        } catch (Exception e) {
-
-            ApiResponse<List<Attendance>> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.BAD_REQUEST
-            );
-        }
-    }
-
-
-    // =========================
-    // UPDATE ATTENDANCE
-    // =========================
-
-    public ResponseEntity<ApiResponse<Attendance>> updateAttendance(
-            Long id,
-            Attendance updatedAttendance) {
-
-        try {
-
-            // Find existing attendance record
-            Attendance attendance =
-                    attendanceRepository
-                            .findById(id)
-                            .orElseThrow(() ->
-                                    new RuntimeException(
-                                            "Attendance record not found"
-                                    )
-                            );
-
-            // Update only fields that are provided
+            Attendance attendance = attendanceRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Attendance record not found"));
 
             if (updatedAttendance.getEmployeeId() != null) {
-                attendance.setEmployeeId(
-                        updatedAttendance.getEmployeeId()
-                );
+                attendance.setEmployeeId(updatedAttendance.getEmployeeId());
             }
-
             if (updatedAttendance.getAttendanceDate() != null) {
-                attendance.setAttendanceDate(
-                        updatedAttendance.getAttendanceDate()
-                );
+                attendance.setAttendanceDate(updatedAttendance.getAttendanceDate());
             }
-
             if (updatedAttendance.getCheckInTime() != null) {
-                attendance.setCheckInTime(
-                        updatedAttendance.getCheckInTime()
-                );
+                attendance.setCheckInTime(updatedAttendance.getCheckInTime());
             }
-
             if (updatedAttendance.getCheckOutTime() != null) {
-                attendance.setCheckOutTime(
-                        updatedAttendance.getCheckOutTime()
-                );
+                attendance.setCheckOutTime(updatedAttendance.getCheckOutTime());
             }
-
             if (updatedAttendance.getStatus() != null) {
-                attendance.setStatus(
-                        updatedAttendance.getStatus()
-                );
+                attendance.setStatus(updatedAttendance.getStatus());
             }
-
             if (updatedAttendance.getRemarks() != null) {
-                attendance.setRemarks(
-                        updatedAttendance.getRemarks()
-                );
+                attendance.setRemarks(updatedAttendance.getRemarks());
             }
 
-            // Save existing record
-            Attendance savedAttendance =
-                    attendanceRepository.save(attendance);
-
-            ApiResponse<Attendance> response =
-                    new ApiResponse<>(
-                            true,
-                            "Attendance updated successfully",
-                            savedAttendance
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.OK
-            );
-
+            Attendance savedAttendance = attendanceRepository.save(attendance);
+            return new ResponseEntity<>(new ApiResponse<>(true,
+                    "Attendance updated successfully", savedAttendance), HttpStatus.OK);
+        } catch (RuntimeException e) {
+            return new ResponseEntity<>(new ApiResponse<>(false, e.getMessage(), null),
+                    HttpStatus.NOT_FOUND);
         } catch (Exception e) {
-
-            ApiResponse<Attendance> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.BAD_REQUEST
-            );
+            return new ResponseEntity<>(new ApiResponse<>(false, e.getMessage(), null),
+                    HttpStatus.BAD_REQUEST);
         }
     }
 
-
-    // =========================
     // DELETE ATTENDANCE
-    // =========================
-
-    public ResponseEntity<ApiResponse<Void>> deleteAttendance(
-            Long id) {
-
+    public ResponseEntity<ApiResponse<Void>> deleteAttendance(Long id) {
         try {
-
-            Attendance attendance =
-                    attendanceRepository
-                            .findById(id)
-                            .orElseThrow(() ->
-                                    new RuntimeException(
-                                            "Attendance record not found"
-                                    )
-                            );
-
+            Attendance attendance = attendanceRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Attendance record not found"));
             attendanceRepository.delete(attendance);
-
-            ApiResponse<Void> response =
-                    new ApiResponse<>(
-                            true,
-                            "Attendance deleted successfully",
-                            null
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.OK
-            );
-
+            return new ResponseEntity<>(new ApiResponse<>(true,
+                    "Attendance deleted successfully", null), HttpStatus.OK);
         } catch (Exception e) {
-
-            ApiResponse<Void> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.NOT_FOUND
-            );
+            return new ResponseEntity<>(new ApiResponse<>(false, e.getMessage(), null),
+                    HttpStatus.NOT_FOUND);
         }
     }
 
 
-    // =========================
+    // Gets the logged-in employee's attendance statistics for a month.
+    // Month format: yyyy-MM, for example 2026-10.
+    // IMPORTANT: this version assumes authentication.getName() is the numeric employee ID.
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getMyMonthlyAttendanceStatistics(
+            String month, Authentication authentication) {
+        try {
+            if (authentication == null || authentication.getName() == null
+                    || authentication.getName().trim().isEmpty()) {
+                return new ResponseEntity<>(new ApiResponse<>(false,
+                        "Authenticated user is required", null), HttpStatus.UNAUTHORIZED);
+            }
+
+            final Long employeeId;
+            try {
+                employeeId = Long.valueOf(authentication.getName().trim());
+            } catch (NumberFormatException ex) {
+                return new ResponseEntity<>(new ApiResponse<>(false,
+                        "The authenticated username is not a numeric employee ID. Resolve the employee ID from your user account before using this endpoint.",
+                        null), HttpStatus.BAD_REQUEST);
+            }
+
+            if (month == null || month.trim().isEmpty()) {
+                return new ResponseEntity<>(new ApiResponse<>(false,
+                        "Month is required in yyyy-MM format, for example 2026-10", null),
+                        HttpStatus.BAD_REQUEST);
+            }
+
+            final YearMonth requestedMonth;
+            try {
+                requestedMonth = YearMonth.parse(month.trim());
+            } catch (Exception ex) {
+                return new ResponseEntity<>(new ApiResponse<>(false,
+                        "Invalid month format. Use yyyy-MM, for example 2026-10", null),
+                        HttpStatus.BAD_REQUEST);
+            }
+
+            LocalDate startDate = requestedMonth.atDay(1);
+            LocalDate endDate = requestedMonth.atEndOfMonth();
+
+            List<Attendance> monthlyAttendance = attendanceRepository.findByEmployeeId(employeeId)
+                    .stream()
+                    .filter(a -> a.getAttendanceDate() != null)
+                    .filter(a -> !a.getAttendanceDate().isBefore(startDate)
+                            && !a.getAttendanceDate().isAfter(endDate))
+                    .toList();
+
+            long present = monthlyAttendance.stream()
+                    .filter(a -> a.getStatus() != null && a.getStatus().equalsIgnoreCase("PRESENT"))
+                    .count();
+            long absent = monthlyAttendance.stream()
+                    .filter(a -> a.getStatus() != null && a.getStatus().equalsIgnoreCase("ABSENT"))
+                    .count();
+            long onLeave = monthlyAttendance.stream()
+                    .filter(a -> a.getStatus() != null
+                            && (a.getStatus().equalsIgnoreCase("ON_LEAVE")
+                            || a.getStatus().equalsIgnoreCase("ON LEAVE")
+                            || a.getStatus().equalsIgnoreCase("LEAVE")))
+                    .count();
+            long halfDay = monthlyAttendance.stream()
+                    .filter(a -> a.getStatus() != null && a.getStatus().equalsIgnoreCase("HALF_DAY"))
+                    .count();
+
+            Map<String, Object> statistics = new HashMap<>();
+            statistics.put("employeeId", employeeId);
+            statistics.put("month", requestedMonth.toString());
+            statistics.put("totalRecords", monthlyAttendance.size());
+            statistics.put("present", present);
+            statistics.put("absent", absent);
+            statistics.put("onLeave", onLeave);
+            statistics.put("halfDay", halfDay);
+            statistics.put("attendance", monthlyAttendance);
+
+            return new ResponseEntity<>(new ApiResponse<>(true,
+                    "Monthly attendance statistics fetched successfully", statistics), HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(new ApiResponse<>(false,
+                    "Failed to fetch monthly attendance statistics: " + e.getMessage(), null),
+                    HttpStatus.BAD_REQUEST);
+        }
+    }
+
     // ATTENDANCE STATISTICS
-    // =========================
-
-    public ResponseEntity<ApiResponse<Map<String, Long>>>
-    getAttendanceStatistics() {
-
+    public ResponseEntity<ApiResponse<Map<String, Long>>> getAttendanceStatistics() {
         try {
+            List<Attendance> attendanceList = attendanceRepository.findAll();
+            long totalRecords = attendanceList.size();
+            long present = attendanceList.stream()
+                    .filter(a -> a.getStatus() != null && a.getStatus().equalsIgnoreCase("PRESENT"))
+                    .count();
+            long absent = attendanceList.stream()
+                    .filter(a -> a.getStatus() != null && a.getStatus().equalsIgnoreCase("ABSENT"))
+                    .count();
+            long onLeave = attendanceList.stream()
+                    .filter(a -> a.getStatus() != null && a.getStatus().equalsIgnoreCase("ON_LEAVE"))
+                    .count();
+            long halfDay = attendanceList.stream()
+                    .filter(a -> a.getStatus() != null && a.getStatus().equalsIgnoreCase("HALF_DAY"))
+                    .count();
 
-            List<Attendance> attendanceList =
-                    attendanceRepository.findAll();
+            Map<String, Long> statistics = new HashMap<>();
+            statistics.put("totalRecords", totalRecords);
+            statistics.put("present", present);
+            statistics.put("absent", absent);
+            statistics.put("onLeave", onLeave);
+            statistics.put("halfDay", halfDay);
 
-            long totalRecords =
-                    attendanceList.size();
-
-            long present =
-                    attendanceList.stream()
-                            .filter(record ->
-                                    record.getStatus() != null
-                                            && record.getStatus()
-                                            .equalsIgnoreCase("PRESENT")
-                            )
-                            .count();
-
-            long absent =
-                    attendanceList.stream()
-                            .filter(record ->
-                                    record.getStatus() != null
-                                            && record.getStatus()
-                                            .equalsIgnoreCase("ABSENT")
-                            )
-                            .count();
-
-            long onLeave =
-                    attendanceList.stream()
-                            .filter(record ->
-                                    record.getStatus() != null
-                                            && record.getStatus()
-                                            .equalsIgnoreCase("ON_LEAVE")
-                            )
-                            .count();
-
-            long halfDay =
-                    attendanceList.stream()
-                            .filter(record ->
-                                    record.getStatus() != null
-                                            && record.getStatus()
-                                            .equalsIgnoreCase("HALF_DAY")
-                            )
-                            .count();
-
-            Map<String, Long> statistics =
-                    new HashMap<>();
-
-            statistics.put(
-                    "totalRecords",
-                    totalRecords
-            );
-
-            statistics.put(
-                    "present",
-                    present
-            );
-
-            statistics.put(
-                    "absent",
-                    absent
-            );
-
-            statistics.put(
-                    "onLeave",
-                    onLeave
-            );
-
-            statistics.put(
-                    "halfDay",
-                    halfDay
-            );
-
-            ApiResponse<Map<String, Long>> response =
-                    new ApiResponse<>(
-                            true,
-                            "Attendance statistics fetched successfully",
-                            statistics
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.OK
-            );
-
+            return new ResponseEntity<>(new ApiResponse<>(true,
+                    "Attendance statistics fetched successfully", statistics), HttpStatus.OK);
         } catch (Exception e) {
-
-            ApiResponse<Map<String, Long>> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.BAD_REQUEST
-            );
-        }
-    }
-
-
-    // =========================
-    // MY MONTHLY ATTENDANCE STATISTICS
-    // =========================
-
-    public ResponseEntity<ApiResponse<Map<String, Object>>>
-    getMyMonthlyAttendanceStatistics(
-            String month,
-            Authentication authentication) {
-
-        try {
-
-            // Get logged-in user's email from JWT authentication
-            String email = authentication.getName();
-
-            // Find employee using email
-            Employee employee =
-                    employeeRepository
-                            .findByEmailIgnoreCase(email)
-                            .orElseThrow(() ->
-                                    new RuntimeException(
-                                            "Employee not found for email: "
-                                                    + email
-                                    )
-                            );
-
-            Long employeeId = employee.getId();
-
-            // Convert YYYY-MM to first and last date
-            YearMonth yearMonth =
-                    YearMonth.parse(month);
-
-            LocalDate startDate =
-                    yearMonth.atDay(1);
-
-            LocalDate endDate =
-                    yearMonth.atEndOfMonth();
-
-            // Get attendance only for this employee and month
-            List<Attendance> attendanceList =
-                    attendanceRepository
-                            .findByEmployeeIdAndAttendanceDateBetween(
-                                    employeeId,
-                                    startDate,
-                                    endDate
-                            );
-
-            long totalDays =
-                    attendanceList.size();
-
-            long presentDays =
-                    attendanceList.stream()
-                            .filter(record ->
-                                    record.getStatus() != null
-                                            && record.getStatus()
-                                            .equalsIgnoreCase("PRESENT")
-                            )
-                            .count();
-
-            long absentDays =
-                    attendanceList.stream()
-                            .filter(record ->
-                                    record.getStatus() != null
-                                            && record.getStatus()
-                                            .equalsIgnoreCase("ABSENT")
-                            )
-                            .count();
-
-            long leaveDays =
-                    attendanceList.stream()
-                            .filter(record ->
-                                    record.getStatus() != null
-                                            && record.getStatus()
-                                            .equalsIgnoreCase("ON_LEAVE")
-                            )
-                            .count();
-
-            double attendancePercentage =
-                    totalDays > 0
-                            ? ((double) presentDays / totalDays) * 100
-                            : 0.0;
-
-            Map<String, Object> statistics =
-                    new HashMap<>();
-
-            statistics.put(
-                    "totalDays",
-                    totalDays
-            );
-
-            statistics.put(
-                    "presentDays",
-                    presentDays
-            );
-
-            statistics.put(
-                    "absentDays",
-                    absentDays
-            );
-
-            statistics.put(
-                    "leaveDays",
-                    leaveDays
-            );
-
-            statistics.put(
-                    "attendancePercentage",
-                    Math.round(
-                            attendancePercentage * 10.0
-                    ) / 10.0
-            );
-
-            ApiResponse<Map<String, Object>> response =
-                    new ApiResponse<>(
-                            true,
-                            "Monthly attendance statistics fetched successfully",
-                            statistics
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.OK
-            );
-
-        } catch (Exception e) {
-
-            ApiResponse<Map<String, Object>> response =
-                    new ApiResponse<>(
-                            false,
-                            e.getMessage(),
-                            null
-                    );
-
-            return new ResponseEntity<>(
-                    response,
-                    HttpStatus.BAD_REQUEST
-            );
+            return new ResponseEntity<>(new ApiResponse<>(false, e.getMessage(), null),
+                    HttpStatus.BAD_REQUEST);
         }
     }
 }

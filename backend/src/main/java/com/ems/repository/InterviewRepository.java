@@ -9,8 +9,6 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.repository.query.Param;
-
 
 public interface InterviewRepository extends JpaRepository<Interview, Long> {
 
@@ -48,9 +46,7 @@ public interface InterviewRepository extends JpaRepository<Interview, Long> {
             WHERE LOWER(j.department) = LOWER(:department)
         )
         """)
-    long countInterviewsByDepartment(
-            @Param("department") String department
-    );
+    long countInterviewsByDepartment(@Param("department") String department);
 
     List<Interview> findByInterviewerId(Long interviewerId);
 
@@ -69,21 +65,30 @@ public interface InterviewRepository extends JpaRepository<Interview, Long> {
             Long candidateId,
             Long jobId
     );
-    Optional<Interview>
-    findFirstByApplicationIdOrderByInterviewDateTimeDesc(
+
+    Optional<Interview> findFirstByApplicationIdOrderByInterviewDateTimeDesc(
             Long applicationId
     );
 
-    @Query("""
-    SELECT COUNT(i)
-    FROM Interview i
-    WHERE i.jobId IN (
-        SELECT j.id
-        FROM Job j
-        WHERE j.hiringManagerId = :hiringManagerId
-    )
-    """)
-    long countByHiringManagerId(
-            @Param("hiringManagerId") Long hiringManagerId
+    List<Interview> findByApplicationIdAndStatusOrderByInterviewDateTimeDesc(
+            Long applicationId,
+            InterviewStatus status
     );
+
+    List<Interview> findByCandidateIdAndJobIdAndStatusOrderByInterviewDateTimeDesc(
+            Long candidateId,
+            Long jobId,
+            InterviewStatus status
+    );
+
+    @Query("""
+        SELECT COUNT(i)
+        FROM Interview i
+        WHERE i.jobId IN (
+            SELECT j.id
+            FROM Job j
+            WHERE j.hiringManagerId = :hiringManagerId
+        )
+        """)
+    long countByHiringManagerId(@Param("hiringManagerId") Long hiringManagerId);
 }
