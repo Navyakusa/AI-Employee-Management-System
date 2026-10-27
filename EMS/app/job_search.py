@@ -106,6 +106,9 @@ between same type types mode thing things stuff something anything everything on
 it its them they then than so too very really ok okay hi hello hey thanks thank pl dear sir madam
 details detail info information describe description requirements requirement responsibilities
 many much count number total overall altogether currently right
+apply applying applied eligible eligibility suitable suit suits fit fits qualify qualified so
+interested interest familiar expert expertise proficient background worked working learned learnt
+basic strong done based having got which other others another else
 """.split())
 
 NUMBER_WORDS = {"zero": "0", "one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
@@ -128,6 +131,14 @@ DETAIL_CUES = re.compile(
     r"closing date|last date|deadline|what (are|is) the (skills|requirements))\b", re.I)
 
 COUNT_CUES = re.compile(r"\b(how many|number of|no\.? of|count of|total|how much jobs)\b", re.I)
+
+# "other than X", "except X", "not in X", "outside X", "excluding X", "non-X"
+NEGATION = re.compile(
+    r"\b(other than|except(?: for)?|excluding|exclude|apart from|besides|not in|not at|not from|"
+    r"outside(?: of)?|but not|without|instead of|leaving|non)[\s-]+", re.I)
+OTHER_CITIES = re.compile(
+    r"\b(other|another|different|remaining|rest of the|any other)\s+(cities|city|locations?|places?|areas?)\b|"
+    r"\belsewhere\b|\boutside\s*(?:\?|$)", re.I)
 
 FOLLOW_UP_CUES = re.compile(r"^(and|what about|how about|any|only|also|in|at|with|for|then|ok|okay)\b", re.I)
 
@@ -178,9 +189,13 @@ class JobQuery:
     keywords: List[str] = field(default_factory=list)
     explicit_job_word: bool = False
     detail_request: bool = False
+    exclude_cities: set = field(default_factory=set)      # "other than Hyderabad"
+    exclude_keywords: List[str] = field(default_factory=list)   # "jobs except java"
+    other_cities: bool = False                             # "jobs in other cities" (no city named)
 
     def has_filters(self) -> bool:
-        return bool(self.has_experience() or self.cities or self.job_type or self.keywords)
+        return bool(self.has_experience() or self.cities or self.job_type or self.keywords
+                    or self.exclude_cities or self.exclude_keywords or self.other_cities)
 
     def has_experience(self) -> bool:
         return any(v is not None for v in (self.exp_min, self.exp_max, self.exp_exact)) \
@@ -200,7 +215,8 @@ def _norm(text: str) -> str:
 
 
 def _tokens(text: str) -> List[str]:
-    return [w.strip(".") for w in re.findall(r"[a-z0-9+#.]+", _norm(text)) if w.strip(".")]
+    # node.js / .net / react.js are already rewritten by SKILL_REWRITES, so a dot can end a word
+    return re.findall(r"[a-z0-9+#]+", _norm(text))
 
 
 def _split_list(value) -> List[str]:
@@ -587,9 +603,33 @@ def parse_query(message: str, jobs: List[Job]) -> JobQuery:
     q.detail_request = bool(DETAIL_CUES.search(text))
 
     text = _strip_experience(text, q)
-
     lookup = _city_lookup([j.location for j in jobs])
-    q.cities = _find_cities(text, lookup)
+
+    # "jobs in other cities" / "elsewhere"
+    if OTHER_CITIES.search(text):
+        q.other_cities = True
+        text = OTHER_CITIES.sub(" ", text)
+
+    # "other than hyderabad", "except java and python", "non-java jobs"
+    for m in list(NEGATION.finditer(text))[::-1]:
+        tail = text[m.end():]
+        stop = re.search(r"\b(for|with|jobs?|openings?|roles?|positions?|that|which|having|where|"
+                         r"in which|please)\b|[?.!]", tail)
+        segment = tail[:stop.start()] if stop else tail
+        segment = " ".join(segment.split()[:5])
+        if not segment:
+            continue
+        cities = _find_cities(segment, lookup)
+        q.exclude_cities |= cities
+        rest = segment
+        for alias in sorted(lookup, key=len, reverse=True):
+            if lookup[alias] in cities:
+                rest = re.sub(r"(?<![a-z])" + re.escape(alias) + r"(?![a-z])", " ", rest)
+        q.exclude_keywords += [w for w in _tokens(rest) if w not in STOPWORDS and not w.isdigit()
+                               and w not in ("and", "or", "in", "the") and len(w) > 1]
+        text = text[:m.start()] + " " + tail[len(tail[:stop.start()]) if stop else len(tail):]
+
+    q.cities = _find_cities(text, lookup) - q.exclude_cities
     for alias in sorted(lookup, key=len, reverse=True):
         if lookup[alias] in q.cities:
             text = re.sub(r"(?<![a-z])" + re.escape(alias) + r"(?![a-z])", " ", text)
@@ -639,7 +679,13 @@ def _exp_ok(job: Job, q: JobQuery) -> bool:
 
 
 def _city_ok(job: Job, q: JobQuery) -> bool:
+    if q.exclude_cities and job.cities & q.exclude_cities:
+        return False
     return not q.cities or bool(job.cities & q.cities)
+
+
+def _not_excluded(job: Job, q: JobQuery) -> bool:
+    return not any(_kw_match(k, job.tokens) for k in q.exclude_keywords)
 
 
 def _type_ok(job: Job, q: JobQuery) -> bool:
@@ -658,17 +704,62 @@ def _skills_str(skills: List[str]) -> str:
     return ", ".join(skills)
 
 
+def _openings(job: Job) -> Optional[int]:
+    """Number of positions for one job listing (the 'openings' field), if the backend sent it."""
+    n = _num(job.openings) if job.openings not in (None, "") else None
+    return int(n) if n is not None else None
+
+
+def _count_sentence(jobs: List[Job], what: str = "job listings") -> str:
+    """'There are 3 openings across 2 job listings right now' (falls back to listings only)."""
+    n = len(jobs)
+    seats = [_openings(j) for j in jobs]
+    listings = what if n != 1 else what.replace("listings", "listing").replace("jobs", "job", 1)
+    if any(s is not None for s in seats):
+        total = sum(s if s is not None else 1 for s in seats)
+        if total != n or n == 1:
+            return (f"There {'is' if total == 1 else 'are'} {total} opening{'' if total == 1 else 's'} "
+                    f"across {n} {listings} right now:" if n > 1 else
+                    f"There {'is' if total == 1 else 'are'} {total} opening{'' if total == 1 else 's'} "
+                    f"for 1 {listings} right now:")
+    return f"There {'is' if n == 1 else 'are'} {n} {listings} right now:"
+
+
 def format_job_short(job: Job, n: int) -> str:
-    head = f"{n}. {job.title}" + (f" ({job.department})" if job.department else "")
-    meta = " | ".join(x for x in (job.location, job.experience_text, job.employment_type, job.work_mode) if x)
+    head = f"**{n}) {job.title}**" + (f" ({job.department})" if job.department else "")
+    seats = _openings(job)
+    meta = " | ".join(x for x in (job.location, job.experience_text, job.employment_type, job.work_mode,
+                                  f"{seats} opening{'s' if seats != 1 else ''}" if seats else "") if x)
     lines = [head]
     if meta:
-        lines.append(f"   {meta}")
+        lines.append(f"- {meta}")
     if job.required_skills:
-        lines.append(f"   Skills: {_skills_str(job.required_skills)}")
+        lines.append(f"- Skills: {_skills_str(job.required_skills)}")
     if job.preferred_skills:
-        lines.append(f"   Preferred: {_skills_str(job.preferred_skills)}")
+        lines.append(f"- Preferred: {_skills_str(job.preferred_skills)}")
     return "\n".join(lines)
+
+
+def _inr(n: float) -> str:
+    """Indian digit grouping: 200000 -> 2,00,000."""
+    n = int(round(n))
+    s = str(abs(n))
+    if len(s) > 3:
+        head, tail = s[:-3], s[-3:]
+        head = ",".join([head[max(i - 2, 0):i] for i in range(len(head), 0, -2)][::-1])
+        s = head + "," + tail
+    return ("-" if n < 0 else "") + s
+
+
+def _fmt_salary(text: str) -> str:
+    if not text:
+        return ""
+    nums = [float(x) for x in re.findall(r"\d+(?:\.\d+)?", str(text).replace(",", ""))]
+    if not nums or re.search(r"[a-z]{3,}", str(text), re.I) and not re.search(r"lpa|inr|rs|per", str(text), re.I):
+        return str(text)                      # "Not specified", "Negotiable", ...
+    if len(nums) >= 2 and nums[0] != nums[1]:
+        return f"{_inr(nums[0])} - {_inr(nums[1])}"
+    return _inr(nums[0]) if nums[0] >= 1000 else str(text)
 
 
 def format_job_full(job: Job) -> str:
@@ -677,11 +768,12 @@ def format_job_full(job: Job) -> str:
         ("Experience", job.experience_text), ("Employment type", job.employment_type),
         ("Work mode", job.work_mode), ("Required skills", _skills_str(job.required_skills)),
         ("Preferred skills", _skills_str(job.preferred_skills)), ("Education", job.education),
-        ("Openings", job.openings), ("Salary range", job.salary), ("Closing date", job.closing_date),
-        ("About the role", job.description), ("Responsibilities", job.responsibilities),
+        ("Openings", job.openings), ("Salary range", _fmt_salary(job.salary)), ("Closing date", job.closing_date),
+        ("About the role", job.description), ("Responsibilities", job.responsibilities
+                             if _norm(job.responsibilities).strip() != _norm(job.description).strip() else ""),
     ]
     body = "\n".join(f"- {k}: {v}" for k, v in rows if v)
-    return (f"{job.title}\n{body}\n\nTo apply, open this job on the Jobs page and click Apply Now.")
+    return (f"**{job.title}**\n{body}\n\nTo apply, open this job on the Jobs page and click Apply Now.")
 
 
 def _list(jobs: List[Job], header: str) -> str:
@@ -709,6 +801,10 @@ def _describe(q: JobQuery, keywords: List[str]) -> str:
     parts.append("jobs")
     if q.cities:
         parts.append("in " + " / ".join(sorted(c.title() for c in q.cities)))
+    if q.exclude_cities:
+        parts.append("outside " + " / ".join(sorted(c.title() for c in q.exclude_cities)))
+    if q.exclude_keywords:
+        parts.append("without " + _pretty(q.exclude_keywords))
     if q.exp_label:
         parts.append("for " + q.exp_label)
     return " ".join(parts)
@@ -721,9 +817,10 @@ def _describe(q: JobQuery, keywords: List[str]) -> str:
 def is_job_search(message: str, jobs: List[Job], previous_message: Optional[str] = None) -> bool:
     """Decide whether the message is a job search (vs. a career-guidance question)."""
     q = parse_query(message, jobs)
-    if q.explicit_job_word or q.has_experience() or q.cities or q.job_type:
+    if q.explicit_job_word or q.has_experience() or q.cities or q.job_type \
+            or q.exclude_cities or q.other_cities:
         # "salary of a data analyst with 3 years experience" is still a career question
-        if CAREER_CUES.search(message) and not (q.explicit_job_word or q.cities):
+        if CAREER_CUES.search(message) and not (q.explicit_job_word or q.cities or q.exclude_cities):
             return False
         return True
     if CAREER_CUES.search(message):
@@ -763,7 +860,7 @@ def _merge_follow_up(q: JobQuery, prev: JobQuery) -> JobQuery:
     if not q.has_experience():
         q.exp_min, q.exp_max, q.exp_exact = prev.exp_min, prev.exp_max, prev.exp_exact
         q.fresher, q.experienced, q.exp_label = prev.fresher, prev.experienced, prev.exp_label
-    if not q.cities:
+    if not q.cities and not q.exclude_cities and not q.other_cities:
         q.cities = prev.cities
     if not q.job_type:
         q.job_type = prev.job_type
@@ -783,6 +880,20 @@ def search_jobs(message: str, job_context=None, jobs=None,
     if previous_message and FOLLOW_UP_CUES.search(message.strip()) and is_job_search(previous_message, all_jobs):
         q = _merge_follow_up(q, parse_query(previous_message, all_jobs))
 
+    # "jobs in other cities" -> other than the city asked about before, or the only city we have
+    all_cities = set().union(*(j.cities for j in all_jobs)) if all_jobs else set()
+    if q.other_cities and not q.exclude_cities:
+        prev_cities = parse_query(previous_message, all_jobs).cities if previous_message else set()
+        if prev_cities:
+            q.exclude_cities = set(prev_cities)
+        elif len(all_cities) == 1:
+            q.exclude_cities = set(all_cities)
+        elif all_cities:
+            return _list(all_jobs, "Current openings are in "
+                         + ", ".join(sorted(c.title() for c in all_cities))
+                         + ". Here they are, or ask e.g. \"jobs in " + sorted(all_cities)[0].title() + "\":")
+    q.cities -= q.exclude_cities
+
     # Keywords that exist in our jobs vs. ones that don't (typos, skills nobody asks for)
     known_kw = [k for k in q.keywords if any(_kw_match(k, j.tokens) for j in all_jobs)]
     unknown_kw = [k for k in q.keywords if k not in known_kw]
@@ -795,39 +906,56 @@ def search_jobs(message: str, job_context=None, jobs=None,
 
     counting = bool(COUNT_CUES.search(message))
 
-    def header(n: int, desc: str) -> str:
+    def header(found: List[Job], desc: str) -> str:
+        n = len(found)
         if counting:
-            return f"There {'is' if n == 1 else 'are'} {n} {desc.replace('jobs', 'job' if n == 1 else 'jobs', 1)} right now:"
+            return _count_sentence(found, desc)
         return f"I found {n} {desc}:" if n > 1 else f"I found 1 match for {desc}:"
 
     if not q.has_filters():
         if counting:
-            return _list(all_jobs, f"There {'is' if len(all_jobs) == 1 else 'are'} {len(all_jobs)} "
-                                   f"job opening{'' if len(all_jobs) == 1 else 's'} right now:")
-        return _list(all_jobs, f"Here are all {len(all_jobs)} current openings:")
+            return _list(all_jobs, _count_sentence(all_jobs))
+        return _list(all_jobs, f"Here are the {len(all_jobs)} current job listings:")
 
-    if unknown_kw and not known_kw and not (q.has_experience() or q.cities or q.job_type):
+    if unknown_kw and not known_kw and not (q.has_experience() or q.cities or q.job_type
+                                            or q.exclude_cities or q.exclude_keywords):
         return (f"I couldn't find any jobs for '{_pretty(unknown_kw)}'.\n\n"
-                + _list(all_jobs, f"Here are all {len(all_jobs)} current openings:"))
+                + _list(all_jobs, f"Here are the {len(all_jobs)} current job listings:"))
 
     def candidates(use_exp=True, use_city=True, use_type=True):
         out = [j for j in all_jobs
                if (not use_exp or _exp_ok(j, q)) and (not use_city or _city_ok(j, q))
-               and (not use_type or _type_ok(j, q)) and (not known_kw or _kw_hits(j, known_kw))]
+               and (not use_type or _type_ok(j, q)) and (not known_kw or _kw_hits(j, known_kw))
+               and _not_excluded(j, q)]
         out.sort(key=lambda j: _kw_hits(j, known_kw), reverse=True)
         return out
 
-    note = f"(I couldn't find anything for '{' '.join(unknown_kw)}', so I ignored it.)\n" if unknown_kw else ""
+    note = ""
     matched = candidates()
+    if unknown_kw and known_kw:
+        asked = _pretty([k for k in q.keywords])
+        if matched:
+            return _list(matched, f"There's no {asked} job open right now. "
+                                  f"{'This related job is' if len(matched) == 1 else 'These related jobs are'} open:")
+        note = f"There's no {asked} job open right now.\n\n"
     if matched:
         full = [j for j in matched if _kw_hits(j, known_kw) == len(known_kw)]
         if full:
-            return note + _list(full, header(len(full), _describe(q, known_kw)))
+            return note + _list(full, header(full, _describe(q, known_kw)))
         return note + _list(matched, f"No job matches all of '{_pretty(known_kw)}', "
                                      f"but these are related:")
 
-    # Nothing matched -> relax one filter at a time and say what was relaxed
     wanted = _describe(q, known_kw)
+
+    # Nothing left after "other than X" -> say so plainly instead of showing X again
+    if q.exclude_cities or q.exclude_keywords:
+        where = ""
+        if q.exclude_cities and all_cities and all_cities <= q.exclude_cities:
+            where = " All current openings are in " + ", ".join(sorted(c.title() for c in all_cities)) + "."
+        return note + f"Sorry, there are no {wanted} right now.{where}\n\n" + \
+            _list(all_jobs, f"Here are the {len(all_jobs)} current job listings:")
+
+    # Nothing matched -> relax one filter at a time and say what was relaxed
     for label, kwargs in (("in other locations", dict(use_city=False)),
                           ("with a different experience range", dict(use_exp=False)),
                           ("with a different job type", dict(use_type=False)),
@@ -844,4 +972,4 @@ def search_jobs(message: str, job_context=None, jobs=None,
             return note + _list(relaxed, f"Sorry, there are no {wanted} right now.{suffix}")
 
     return (note + f"Sorry, there are no {wanted} right now.\n\n"
-            + _list(all_jobs, f"Here are all {len(all_jobs)} current openings:"))
+            + _list(all_jobs, f"Here are the {len(all_jobs)} current job listings:"))

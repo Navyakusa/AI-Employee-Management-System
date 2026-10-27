@@ -80,7 +80,7 @@ SECRETS_MESSAGE = (
 )
 
 # Shown in /health so you can confirm which chatbot code the server is running.
-CHATBOT_VERSION = "2.2-job-search"
+CHATBOT_VERSION = "2.5-job-search"
 
 FALLBACK_MESSAGE = (
     "I'm not sure about that. I can help you with:\n"
