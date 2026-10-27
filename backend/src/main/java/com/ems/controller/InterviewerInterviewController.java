@@ -2,6 +2,7 @@ package com.ems.controller;
 
 import com.ems.common.ApiResponse;
 import com.ems.dto.InterviewerInterviewDto;
+import com.ems.dto.InterviewOutcomeRequestDto;
 import com.ems.dto.MyInterviewsResponseDto;
 import com.ems.service.InterviewerInterviewService;
 import org.springframework.http.ResponseEntity;
@@ -45,6 +46,19 @@ public class InterviewerInterviewController {
                 keyword,
                 status,
                 date
+        );
+    }
+
+    @PutMapping("/{interviewId}/outcome")
+    public ResponseEntity<ApiResponse<InterviewerInterviewDto>> updateInterviewOutcome(
+            Authentication authentication,
+            @PathVariable Long interviewId,
+            @RequestBody InterviewOutcomeRequestDto request) {
+
+        return interviewerInterviewService.updateInterviewOutcome(
+                authentication,
+                interviewId,
+                request != null ? request.getStatus() : null
         );
     }
 

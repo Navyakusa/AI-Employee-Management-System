@@ -1,5 +1,5 @@
 
-        package com.ems.service;
+package com.ems.service;
 
 import com.ems.common.ApiResponse;
 import com.ems.common.InterviewStatus;
@@ -224,6 +224,91 @@ public class InterviewerInterviewService {
                         dto
                 )
         );
+    }
+
+    // Update the final outcome for an interview assigned to the logged-in interviewer.
+    // Only final outcome values are accepted here; scheduling/rescheduling statuses
+    // are deliberately not accepted by this endpoint.
+    public ResponseEntity<ApiResponse<InterviewerInterviewDto>> updateInterviewOutcome(
+            Authentication authentication,
+            Long interviewId,
+            String requestedStatus) {
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body(
+                    new ApiResponse<>(false, "Authentication is required", null));
+        }
+
+        if (requestedStatus == null || requestedStatus.isBlank()) {
+            return ResponseEntity.badRequest().body(
+                    new ApiResponse<>(false,
+                            "status is required. Allowed values: COMPLETED, NOT_ATTENDED, CANCELLED",
+                            null));
+        }
+
+        InterviewStatus outcome;
+        try {
+            outcome = InterviewStatus.valueOf(requestedStatus.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(
+                    new ApiResponse<>(false,
+                            "Invalid status. Allowed values: COMPLETED, NOT_ATTENDED, CANCELLED",
+                            null));
+        }
+
+        if (outcome != InterviewStatus.COMPLETED
+                && outcome != InterviewStatus.NOT_ATTENDED
+                && outcome != InterviewStatus.CANCELLED) {
+            return ResponseEntity.badRequest().body(
+                    new ApiResponse<>(false,
+                            "Invalid outcome. Allowed values: COMPLETED, NOT_ATTENDED, CANCELLED",
+                            null));
+        }
+
+        User user;
+        try {
+            user = getLoggedInUser(authentication);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(401).body(
+                    new ApiResponse<>(false, "Could not identify the logged-in interviewer", null));
+        }
+
+        if (user.getRole() == null || !"INTERVIEWER".equalsIgnoreCase(user.getRole())) {
+            return ResponseEntity.status(403).body(
+                    new ApiResponse<>(false, "Only interviewers can update interview outcomes", null));
+        }
+
+        Interview interview = interviewRepository.findById(interviewId).orElse(null);
+        if (interview == null) {
+            return ResponseEntity.status(404).body(
+                    new ApiResponse<>(false, "Interview not found", null));
+        }
+
+        if (interview.getInterviewerId() == null
+                || !interview.getInterviewerId().equals(user.getUserId())) {
+            return ResponseEntity.status(403).body(
+                    new ApiResponse<>(false,
+                            "You are not assigned to this interview", null));
+        }
+
+        // Prevent a cancelled interview from being marked as attended/missed later.
+        if (interview.getStatus() == InterviewStatus.CANCELLED
+                && outcome != InterviewStatus.CANCELLED) {
+            return ResponseEntity.badRequest().body(
+                    new ApiResponse<>(false,
+                            "A cancelled interview cannot be changed to another outcome", null));
+        }
+
+        interview.setStatus(outcome);
+        Interview saved = interviewRepository.save(interview);
+
+        Candidate candidate = candidateRepository.findById(saved.getCandidateId()).orElse(null);
+        Job job = jobRepository.findById(saved.getJobId()).orElse(null);
+
+        return ResponseEntity.ok(new ApiResponse<>(
+                true,
+                "Interview outcome updated successfully",
+                toDto(saved, candidate, job)));
     }
 
     // Resolve the currently authenticated user.

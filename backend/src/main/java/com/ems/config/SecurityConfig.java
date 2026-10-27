@@ -165,6 +165,13 @@ public class SecurityConfig {
                                         HttpMethod.GET,
                                         "/api/interviews/interviewer/my-candidates"
                                 ).hasRole("INTERVIEWER")
+
+                                // Only interviewers can update assigned interview outcomes
+                                .requestMatchers(
+                                        HttpMethod.PUT,
+                                        "/api/interviewer/interviews/*/outcome"
+                                ).hasRole("INTERVIEWER")
+
                                 .requestMatchers(HttpMethod.POST, "/api/interviews/schedule")
                                 .hasAnyRole("HR", "HIRING_MANAGER",
                                         "RECRUITER", "SUPER_ADMIN")
@@ -183,7 +190,7 @@ public class SecurityConfig {
                                         "RECRUITER", "SUPER_ADMIN")
                                 .requestMatchers(
                                         HttpMethod.PUT, "/api/interviews/*/status"
-                                ).hasAnyRole("HR", "INTERVIEWER", "HIRING_MANAGER",
+                                ).hasAnyRole("HR", "HIRING_MANAGER",
                                         "RECRUITER", "SUPER_ADMIN")
                                 .requestMatchers(
                                         HttpMethod.GET,
