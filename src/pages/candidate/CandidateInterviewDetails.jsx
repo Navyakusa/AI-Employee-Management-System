@@ -452,29 +452,51 @@ function CandidateInterviewDetails() {
                   </section>
                 )}
 
-              {/* COMPLETED */}
+              
+{/* INTERVIEW STATUS BANNER */}
 
-              {!isUpcoming && (
-                <section className="candidate-completed-interview-card">
-                  <div>
-                    <CheckCircle2 size={23} />
-                  </div>
+{!isUpcoming && (
+  <section
+    className={`candidate-completed-interview-card ${
+      interview.status === "Not Attended"
+        ? "not-attended"
+        : interview.status === "Cancelled"
+        ? "cancelled"
+        : "completed"
+    }`}
+  >
+    <div>
+      {interview.status === "Not Attended" ? (
+        <Info size={23} />
+      ) : (
+        <CheckCircle2 size={23} />
+      )}
+    </div>
 
-                  <div>
-                    <h2>
-                      {interview.status === "Cancelled"
-                        ? "Interview Cancelled"
-                        : "Interview Completed"}
-                    </h2>
+    <div>
+      <h2>
+        {interview.status === "Not Attended"
+          ? "Interview Not Attended"
+          : interview.status === "Cancelled"
+          ? "Interview Cancelled"
+          : interview.status === "Completed"
+          ? "Interview Completed"
+          : "Interview Status"}
+      </h2>
 
-                    <p>
-                      {interview.status === "Cancelled"
-                        ? "This interview has been cancelled. The recruitment team will contact you if it is rescheduled."
-                        : "This interview has been completed. Your application status will be updated when the recruitment team completes the next review."}
-                    </p>
-                  </div>
-                </section>
-              )}
+      <p>
+        {interview.status === "Not Attended"
+          ? "You did not attend this interview. Please contact the recruitment team if you need assistance."
+          : interview.status === "Cancelled"
+          ? "This interview has been cancelled. Please contact the recruitment team for further information."
+          : interview.status === "Completed"
+          ? "Your interview has been completed. Your application status will be updated when the recruitment team completes the next review."
+          : "Please contact the recruitment team for an update about your interview."}
+      </p>
+    </div>
+  </section>
+)}
+
             </div>
 
             {/* RIGHT SIDE */}

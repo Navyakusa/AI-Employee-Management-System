@@ -62,12 +62,41 @@ function InterviewerNavbar() {
     };
   }, []);
 
-  const loggedInUser = JSON.parse(
-    localStorage.getItem("loggedInUser")
-  );
+  const getLoggedInUser = () => {
+  try {
+    return JSON.parse(
+      localStorage.getItem("loggedInUser") || "{}"
+    );
+  } catch {
+    return {};
+  }
+};
 
-  const interviewerName =
-    loggedInUser?.userName || "Interviewer";
+const getUserNameFromToken = () => {
+  try {
+    const token = localStorage.getItem("token");
+
+    if (!token) return "";
+
+    const payload = token.split(".")[1];
+    const decoded = JSON.parse(
+      atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
+    );
+
+    return decoded.userName || decoded.name || "";
+  } catch {
+    return "";
+  }
+};
+
+const loggedInUser = getLoggedInUser();
+
+const interviewerName =
+  loggedInUser?.userName ||
+  loggedInUser?.name ||
+  loggedInUser?.fullName ||
+  getUserNameFromToken() ||
+  "Interviewer";
 
   const initials = interviewerName
     .split(" ")

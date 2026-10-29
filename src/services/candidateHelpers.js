@@ -448,22 +448,56 @@ export const formatTime = (value) => {
 
 // Only "SCHEDULED" has been seen from the API. The other names are
 // guesses - add the real ones here if they differ.
+
 const INTERVIEW_STATUS = {
   SCHEDULED: "Upcoming",
   RESCHEDULED: "Upcoming",
   COMPLETED: "Completed",
+  ATTENDED: "Completed",
+  NOT_ATTENDED: "Not Attended",
+  NO_SHOW: "Not Attended",
+  ABSENT: "Not Attended",
   CANCELLED: "Cancelled",
   CANCELED: "Cancelled",
 };
 
-export const getInterviewStatus = (status) => {
-  const key = String(status ?? "").toUpperCase();
+// Returns the display status using the recorded interview outcome.
+// If the backend has not recorded an outcome, a past scheduled
+// interview is shown as "Awaiting Outcome", not falsely completed.
+export const getInterviewStatus = (
+  status,
+  interviewDateTime,
+  now = Date.now()
+) => {
+  const key = String(status ?? "").trim().toUpperCase();
 
-  return (
-    INTERVIEW_STATUS[key] ||
-    titleCase(key.replace(/_/g, " ").toLowerCase()) ||
-    "Upcoming"
-  );
+  if (key === "COMPLETED" || key === "ATTENDED") {
+    return "Completed";
+  }
+
+  if (
+    ["NOT_ATTENDED", "NO_SHOW", "NOSHOW", "ABSENT", "MISSED"].includes(key)
+  ) {
+    return "Not Attended";
+  }
+
+  if (["CANCELLED", "CANCELED"].includes(key)) {
+    return "Cancelled";
+  }
+
+  if (["SCHEDULED", "RESCHEDULED", ""].includes(key)) {
+    const interviewDate = parseDate(interviewDateTime);
+
+    if (!interviewDate) {
+      return "Upcoming";
+    }
+
+    return interviewDate.getTime() < now
+      ? "Awaiting Outcome"
+      : "Upcoming";
+  }
+
+  return titleCase(key.replace(/_/g, " ").toLowerCase()) || "Awaiting Outcome";
 };
 
 // "TECHNICAL" -> "Technical Interview", "HR Interview" stays as is
@@ -524,7 +558,10 @@ export const mapInterview = (interview = {}, job) => {
       : interview.location || "To be confirmed",
     // The API only sends an interviewer id, not a name.
     interviewer: "Interview Panel",
-    status: getInterviewStatus(interview.status),
+    status: getInterviewStatus(
+  interview.status,
+  interview.interviewDateTime
+),
     // The API's "notes" field is shown as the instructions list.
     instructions: splitLines(interview.notes),
   };
