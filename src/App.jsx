@@ -56,7 +56,7 @@ import HRLeaveRequests from "./pages/hr/HRLeaveRequests";
 
 // NEW: HR Notifications
 import HRNotifications from "./pages/hr/HRNotifications";
-
+import HRPerformance from "./pages/hr/HRPerformance";
 // =====================================================
 // Public Pages
 // =====================================================
@@ -284,6 +284,10 @@ function App() {
         <Route
   path="/hr/leave-requests"
   element={<HRLeaveRequests />}
+/>
+<Route
+  path="/hr/performance"
+  element={<HRPerformance />}
 />
 
         {/* =====================================================

@@ -1,0 +1,547 @@
+
+/* =========================================
+   HR EMPLOYEE PERFORMANCE PAGE
+   ========================================= */
+
+.hr-performance-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background: #f5f7fb;
+  color: #1e293b;
+  font-family: Arial, sans-serif;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.hr-performance-layout *,
+.hr-performance-layout *::before,
+.hr-performance-layout *::after {
+  box-sizing: border-box;
+}
+
+/* Sidebar stays on the left.
+   Keep its existing width and appearance. */
+.hr-performance-layout .hr-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 180px;
+  min-width: 180px;
+  height: 100vh;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+/* Main content starts after the sidebar */
+.hr-performance-main {
+  flex: 1;
+  min-width: 0;
+  width: calc(100% - 180px);
+  margin-left: 180px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Top navigation */
+.hr-performance-main > header,
+.hr-performance-main .hr-navbar {
+  flex-shrink: 0;
+  width: 100%;
+}
+
+/* Main page content */
+.hr-performance-content {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 28px;
+  min-width: 0;
+}
+
+/* Page heading */
+.hr-performance-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.hr-performance-page-header h1 {
+  margin: 0 0 8px;
+  color: #172033;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.hr-performance-page-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.hr-performance-eyebrow {
+  display: block;
+  margin-bottom: 8px;
+  color: #4f46e5;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.hr-performance-refresh {
+  border: 1px solid #dbe2ef;
+  border-radius: 8px;
+  padding: 10px 16px;
+  background: #fff;
+  color: #334155;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.hr-performance-refresh:hover {
+  background: #eef2ff;
+}
+
+/* Success and error messages */
+.hr-performance-alert {
+  margin-bottom: 18px;
+  padding: 13px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.hr-performance-alert.error {
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.hr-performance-alert.success {
+  color: #166534;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+}
+
+/* Summary cards */
+.hr-performance-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.hr-performance-stat {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid #e5eaf2;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.hr-performance-stat h3 {
+  margin: 0 0 10px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.hr-performance-stat strong {
+  color: #172033;
+  font-size: 28px;
+  overflow-wrap: anywhere;
+}
+
+/* Form and employee list columns */
+.hr-performance-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
+  align-items: start;
+  gap: 22px;
+  margin-bottom: 24px;
+}
+
+.hr-performance-panel {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid #e5eaf2;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.hr-performance-panel h2 {
+  margin: 0 0 8px;
+  color: #172033;
+  font-size: 20px;
+  line-height: 1.4;
+}
+
+.hr-performance-panel > p {
+  margin: 0 0 20px;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* Evaluation form */
+.hr-performance-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.hr-performance-form label {
+  display: block;
+  margin-bottom: 7px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hr-performance-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.hr-performance-form input,
+.hr-performance-form select,
+.hr-performance-form textarea,
+.hr-performance-search {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #fff;
+  color: #1e293b;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.hr-performance-form textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.hr-performance-form input:focus,
+.hr-performance-form select:focus,
+.hr-performance-form textarea:focus,
+.hr-performance-search:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.hr-performance-employee-summary {
+  padding: 14px;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.hr-performance-note {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.hr-performance-submit {
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  padding: 13px 18px;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hr-performance-submit:hover {
+  background: #4338ca;
+}
+
+.hr-performance-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Employee search and list */
+.hr-performance-search {
+  margin-bottom: 14px;
+}
+
+.hr-performance-employee-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 480px;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.hr-performance-employee-row {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.hr-performance-employee-row:hover {
+  border-color: #a5b4fc;
+  background: #f8faff;
+}
+
+.hr-performance-employee-row.selected {
+  border-color: #6366f1;
+  background: #eef2ff;
+  box-shadow: 0 0 0 1px #6366f1;
+}
+
+.hr-performance-employee-row strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #1e293b;
+  font-size: 14px;
+}
+
+.hr-performance-employee-row span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+/* Review history table */
+.hr-performance-table-wrap {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  border: 1px solid #e5eaf2;
+  border-radius: 10px;
+}
+
+.hr-performance-table {
+  width: 100%;
+  min-width: 700px;
+  border-collapse: collapse;
+  background: #fff;
+  text-align: left;
+}
+
+.hr-performance-table th,
+.hr-performance-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5eaf2;
+  font-size: 13px;
+  line-height: 1.5;
+  vertical-align: top;
+}
+
+.hr-performance-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.hr-performance-table td {
+  color: #334155;
+  overflow-wrap: anywhere;
+}
+
+.hr-performance-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.hr-performance-empty {
+  padding: 28px 16px;
+  color: #64748b;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Tablet */
+@media (max-width: 1100px) {
+  .hr-performance-content {
+    padding: 22px;
+  }
+
+  .hr-performance-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hr-performance-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Mobile */
+@media (max-width: 700px) {
+  .hr-performance-layout .hr-sidebar {
+    width: 64px;
+    min-width: 64px;
+  }
+
+  .hr-performance-main {
+    width: calc(100% - 64px);
+    margin-left: 64px;
+  }
+
+  .hr-performance-content {
+    padding: 14px;
+  }
+
+  .hr-performance-page-header h1 {
+    font-size: 23px;
+  }
+
+  .hr-performance-stats {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .hr-performance-panel {
+    padding: 16px;
+  }
+}
+
+
+/* Fix the performance page layout and top navbar overlap */
+
+.hr-performance-layout {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  min-height: 100vh;
+  overflow: visible;
+}
+
+/* Keep sidebar fixed on the left */
+.hr-performance-layout .hr-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 180px;
+  height: 100vh;
+  z-index: 1000;
+}
+
+/* Keep the content away from the sidebar */
+.hr-performance-main {
+  position: relative;
+  margin-left: 180px;
+  width: calc(100% - 180px);
+  min-width: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
+
+/* Put navbar at the top of the main content */
+.hr-performance-main .hr-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* Add enough space below the navbar */
+.hr-performance-content {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  padding: 32px 24px;
+  margin: 0;
+  clear: both;
+}
+
+/* Prevent page heading from going behind the navbar */
+.hr-performance-page-header {
+  position: relative;
+  margin-top: 12px;
+  margin-bottom: 24px;
+  padding-top: 8px;
+  z-index: 1;
+}
+
+/* Responsive sidebar */
+@media (max-width: 700px) {
+  .hr-performance-layout .hr-sidebar {
+    width: 64px;
+  }
+
+  .hr-performance-main {
+    margin-left: 64px;
+    width: calc(100% - 64px);
+  }
+
+  .hr-performance-content {
+    padding: 20px 12px;
+  }
+}
+
+
+/* Fix top navbar width and profile button clipping */
+.hr-performance-main {
+  width: calc(100% - 180px);
+  margin-left: 180px;
+  min-width: 0;
+}
+
+.hr-performance-main .hr-navbar {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: visible;
+}
+
+.hr-performance-main .hr-navbar > * {
+  min-width: 0;
+}
+
+/* Keep navbar items inside the available width */
+.hr-performance-main .hr-navbar button {
+  max-width: 100%;
+}
+
+/* Smaller screens */
+@media (max-width: 700px) {
+  .hr-performance-main {
+    width: calc(100% - 64px);
+    margin-left: 64px;
+  }
+}

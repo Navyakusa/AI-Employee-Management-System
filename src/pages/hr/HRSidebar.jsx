@@ -51,6 +51,12 @@ function HRSidebar() {
           <span className="hr-nav-label">Employees</span>
         </NavLink>
 
+       {/* Employee Performance */}
+<NavLink to="/hr/performance">
+  <span className="hr-nav-icon">⭐</span>
+  <span className="hr-nav-label">Employee Performance</span>
+</NavLink>
+
         {/* Onboarding - NEW */}
         <NavLink to="/hr/onboarding">
           <span className="hr-nav-icon">📋</span>
