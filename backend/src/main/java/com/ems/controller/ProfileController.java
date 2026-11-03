@@ -1,3 +1,4 @@
+
 package com.ems.controller;
 
 import com.ems.common.ApiResponse;
@@ -17,34 +18,18 @@ public class ProfileController {
         this.profileService = profileService;
     }
 
-    // =========================================================
-    // GET PROFILE
-    // =========================================================
-
     @GetMapping("/get")
     public ResponseEntity<ApiResponse<EmployeeProfileDto>> getProfile() {
-
         return profileService.getProfile();
     }
 
-    // =========================================================
-    // UPDATE PROFILE
-    // =========================================================
-
     @PutMapping("/update")
     public ResponseEntity<ApiResponse<EmployeeProfileDto>> updateProfile(
-
             @RequestParam String userName,
-
             @RequestParam String email,
-
             @RequestParam String phone,
-
             @RequestParam String department,
-
-            @RequestParam String location
-
-    ) {
+            @RequestParam String location) {
 
         return profileService.updateProfile(
                 userName,

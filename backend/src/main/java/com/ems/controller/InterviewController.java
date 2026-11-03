@@ -1,3 +1,4 @@
+
 package com.ems.controller;
 
 import com.ems.common.ApiResponse;
@@ -9,6 +10,7 @@ import com.ems.dto.InterviewStatsDto;
 import com.ems.dto.InterviewerCandidateDto;
 import com.ems.entity.Interview;
 import com.ems.service.InterviewService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -25,49 +27,58 @@ public class InterviewController {
     private InterviewService interviewService;
 
     @PostMapping("/schedule")
-    public ResponseEntity<ApiResponse<Interview>> scheduleInterview(@RequestBody InterviewRequestDto dto) {
+    public ResponseEntity<ApiResponse<Interview>> scheduleInterview(
+            @RequestBody InterviewRequestDto dto) {
         return interviewService.scheduleInterview(dto);
     }
 
     @GetMapping("/eligible-candidates")
-    public ResponseEntity<ApiResponse<List<EligibleInterviewCandidateDto>>> getEligibleInterviewCandidates() {
+    public ResponseEntity<ApiResponse<List<EligibleInterviewCandidateDto>>>
+    getEligibleInterviewCandidates() {
         return interviewService.getEligibleInterviewCandidates();
     }
 
     @GetMapping("/available-interviewers")
-    public ResponseEntity<ApiResponse<List<AvailableInterviewerDto>>> getAvailableInterviewers() {
+    public ResponseEntity<ApiResponse<List<AvailableInterviewerDto>>>
+    getAvailableInterviewers() {
         return interviewService.getAvailableInterviewers();
     }
 
     @GetMapping("/my")
-    public ResponseEntity<ApiResponse<List<Interview>>> getMyInterviews(Authentication authentication) {
+    public ResponseEntity<ApiResponse<List<Interview>>> getMyInterviews(
+            Authentication authentication) {
         return interviewService.getMyInterviews(authentication);
     }
 
     @GetMapping("/interviewer/my-candidates")
-    public ResponseEntity<ApiResponse<List<InterviewerCandidateDto>>> getMyCandidates(Authentication authentication) {
+    public ResponseEntity<ApiResponse<List<InterviewerCandidateDto>>>
+    getMyCandidates(Authentication authentication) {
         return interviewService.getMyCandidates(authentication);
     }
 
     @GetMapping("/job/{jobId}")
-    public ResponseEntity<ApiResponse<List<Interview>>> getInterviewsByJob(@PathVariable Long jobId) {
+    public ResponseEntity<ApiResponse<List<Interview>>> getInterviewsByJob(
+            @PathVariable Long jobId) {
         return interviewService.getInterviewsByJob(jobId);
     }
 
     @PutMapping("/{interviewId}/reschedule")
     public ResponseEntity<ApiResponse<Interview>> rescheduleInterview(
-            @PathVariable Long interviewId, @RequestBody InterviewRequestDto dto) {
+            @PathVariable Long interviewId,
+            @RequestBody InterviewRequestDto dto) {
         return interviewService.rescheduleInterview(interviewId, dto);
     }
 
     @PutMapping("/{interviewId}/status")
     public ResponseEntity<ApiResponse<Interview>> updateInterviewStatus(
-            @PathVariable Long interviewId, @RequestParam String status) {
+            @PathVariable Long interviewId,
+            @RequestParam String status) {
         return interviewService.updateInterviewStatus(interviewId, status);
     }
 
     @GetMapping("/management")
-    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>> getInterviewManagementData() {
+    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
+    getInterviewManagementData() {
         return interviewService.getInterviewManagementData();
     }
 
@@ -77,22 +88,26 @@ public class InterviewController {
     }
 
     @GetMapping("/upcoming")
-    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>> getUpcomingInterviews() {
+    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
+    getUpcomingInterviews() {
         return interviewService.getUpcomingInterviews();
     }
 
     @GetMapping("/search")
-    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>> searchInterviews(@RequestParam String keyword) {
+    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>> searchInterviews(
+            @RequestParam String keyword) {
         return interviewService.searchInterviews(keyword);
     }
 
     @GetMapping("/status/{status}")
-    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>> getInterviewsByStatus(@PathVariable String status) {
+    public ResponseEntity<ApiResponse<List<InterviewManagementDto>>>
+    getInterviewsByStatus(@PathVariable String status) {
         return interviewService.getInterviewsByStatus(status);
     }
 
     @GetMapping("/{interviewId}")
-    public ResponseEntity<ApiResponse<InterviewManagementDto>> getInterviewDetails(@PathVariable Long interviewId) {
+    public ResponseEntity<ApiResponse<InterviewManagementDto>>
+    getInterviewDetails(@PathVariable Long interviewId) {
         return interviewService.getInterviewDetails(interviewId);
     }
 }

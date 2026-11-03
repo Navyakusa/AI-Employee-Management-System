@@ -1609,4 +1609,86 @@ public class InterviewService {
                 || normalized.contains("SHORTLISTED");
     }
 
+
+
+    // Record a final outcome for an interview assigned to the logged-in interviewer.
+    @Transactional
+    public ResponseEntity<ApiResponse<Interview>> updateInterviewOutcome(
+            Long interviewId,
+            String status,
+            Authentication authentication) {
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponse<>(false, "Authentication is required", null));
+        }
+
+        if (status == null || status.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>(false,
+                            "Status is required: COMPLETED, NOT_ATTENDED, or CANCELLED", null));
+        }
+
+        try {
+            User interviewer = userRepository
+                    .findByEmailIgnoreCase(authentication.getName())
+                    .orElse(null);
+
+            if (interviewer == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(false, "Interviewer account not found", null));
+            }
+
+            if (interviewer.getRole() == null
+                    || !interviewer.getRole().equalsIgnoreCase("INTERVIEWER")) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ApiResponse<>(false,
+                                "Only interviewers can record interview outcomes", null));
+            }
+
+            Interview interview = interviewRepository.findById(interviewId).orElse(null);
+            if (interview == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ApiResponse<>(false, "Interview not found", null));
+            }
+
+            if (interview.getInterviewerId() == null
+                    || !interview.getInterviewerId().equals(interviewer.getUserId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(new ApiResponse<>(false,
+                                "You are not assigned to this interview", null));
+            }
+
+            final InterviewStatus outcome;
+            try {
+                outcome = InterviewStatus.valueOf(status.trim().toUpperCase());
+            } catch (IllegalArgumentException ex) {
+                return ResponseEntity.badRequest()
+                        .body(new ApiResponse<>(false,
+                                "Invalid outcome. Allowed values: COMPLETED, NOT_ATTENDED, CANCELLED", null));
+            }
+
+            if (outcome != InterviewStatus.COMPLETED
+                    && outcome != InterviewStatus.NOT_ATTENDED
+                    && outcome != InterviewStatus.CANCELLED) {
+                return ResponseEntity.badRequest()
+                        .body(new ApiResponse<>(false,
+                                "Allowed outcomes: COMPLETED, NOT_ATTENDED, CANCELLED", null));
+            }
+
+            interview.setStatus(outcome);
+            Interview savedInterview = interviewRepository.saveAndFlush(interview);
+
+            return ResponseEntity.ok(new ApiResponse<>(
+                    true, "Interview outcome saved successfully", savedInterview));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false,
+                            "Failed to save interview outcome", null));
+        }
+    }
+
 }
+
