@@ -245,8 +245,15 @@ Own trained model -- no Groq / OpenAI. For **candidates only**.
   (1,620 Q&A rows, 54 job roles), stored in `training/chatbot/dataset/career_guidance_qa.csv`.
 - **Model:** `app/models/candidate_chatbot.joblib` -- topic classifier (TF-IDF + Logistic
   Regression, 10 topics) + job-role detector (54 roles). Code: `app/career_model.py`.
-- **Service code:** `app/chatbot.py` (answer logic), `app/chatbot_guardrails.py` (candidate-only rules).
-- **Accuracy:** 90% on fresh candidate-style questions (`training/chatbot/tests/holdout_questions.csv`).
+- **Service code:** `app/chatbot.py` (answer logic), `app/chatbot_smalltalk.py` (greetings,
+  ok/okay, thanks, bye, help, typos like "hlo"/"thnks"), `app/chatbot_guardrails.py` (candidate-only rules).
+- **Accuracy:** 100% topic accuracy on `training/chatbot/tests/holdout_questions.csv` (20/20) and
+  `user_test_questions.csv` (40/40), using keyword topic rules first and the classifier as backup.
+- **v3.0 features:** context-aware small talk; step-by-step roadmap for "how to become a X";
+  role overview for "what is a X" / just the role name; several topics at once ("skills and salary
+  of X"); role comparison ("X vs Y"); "list career roles"; career follow-ups ("and for a data
+  scientist?"); suggested next questions; links to a matching current opening.
+- **Conversation tests:** `python training/chatbot/tests/test_conversation.py`
 
 Request:
 ```json

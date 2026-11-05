@@ -496,7 +496,9 @@ _BOT_REPLY_START = re.compile(
     r"^\s*(hello! i can help|hi! .*talentai|i found|there (is|are) \d+|here are|i'm not sure|"
     r"sorry,|to apply|to upload|to register|you can track|your interview|you're welcome|goodbye|"
     r"this assistant is|current job listings|which job role|what would you like to know|"
-    r"no job matches|i couldn't find|ask me)", re.I)
+    r"no job matches|i couldn't find|ask me|\*\*|hello! \U0001F44B|\U0001F44D|i'm doing great|i'm the candidate|"
+    r"here's what i can|glad i could|alright!|great!|i can give career|there's no|"
+    r"sorry about that|sorry, i didn't)", re.I)
 
 
 def _history_to_dicts(items) -> list:
