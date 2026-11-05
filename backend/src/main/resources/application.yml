@@ -6,10 +6,11 @@ spring:
       base-url: http://localhost:8000
 
   datasource:
-    url: jdbc:postgresql://aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres
-    username: postgres.jnhthcivyouwousramzr
-    password: "Sheshma@0908"
-    driver-class-name: org.postgresql.Driver
+    datasource:
+  url: ${DB_URL}
+  username: ${DB_USERNAME}
+  password: ${DB_PASSWORD}
+  driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 5
       minimum-idle: 1
