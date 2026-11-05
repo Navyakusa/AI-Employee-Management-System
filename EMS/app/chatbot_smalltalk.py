@@ -95,10 +95,49 @@ COMPLAINTS = {
     "i did not understand", "didnt get it", "didnt understand",
 }
 
+POLITE = {
+    "welcome", "wel come", "you are welcome", "youre welcome", "your welcome", "ur welcome",
+    "most welcome", "no problem", "np", "no worries", "my pleasure", "pleasure", "cheers",
+    "nice to meet you", "pleased to meet you", "glad to meet you", "nice meeting you",
+    "nice talking to you", "same to you", "you too", "same here", "good to know", "ok good",
+    "okay good", "good to hear", "nice to know",
+}
+
+APOLOGY = {"sorry", "so sorry", "my bad", "my mistake", "excuse me", "pardon", "pardon me",
+           "oops", "sorry for that", "sorry my mistake", "i am sorry", "im sorry"}
+
+# Extra words allowed after a THANK-YOU only: "thank you for the jobs list", "thanks for the roadmap"
+THANKS_TAIL = {"jobs", "job", "list", "listing", "listings", "suggestions", "suggestion", "tips",
+               "roadmap", "advice", "explanation", "openings", "career", "information", "update",
+               "updates", "quick", "detailed", "clear", "useful", "steps", "guide"}
+
+BYES |= {"have a nice day", "have a good day", "have a great day", "have a good one",
+         "good day", "talk to you later", "ttyl", "see you soon", "bye for now", "signing off"}
+THANKS |= {"thanks for helping", "thank you for helping", "thanks for your help",
+           "thank you for your help", "thanks for the help", "thank you for the help",
+           "thanks for the info", "thank you for the information", "thank you very much",
+           "thanks a ton", "thanks again", "thank you again", "appreciate it", "i appreciate it",
+           "really appreciate it", "that was helpful", "it was helpful", "you helped me",
+           "thank you so much for helping", "great help", "big help"}
+
+# Words that may FOLLOW a small-talk phrase without adding a real question:
+# "thank you for helping me", "thanks for the info today", "bye take care sir"
+TAIL = {
+    "for", "the", "your", "ur", "help", "helping", "helped", "info", "information", "details",
+    "support", "assistance", "answer", "answers", "reply", "replies", "response", "responses",
+    "guidance", "it", "that", "this", "me", "us", "a", "lot", "ton", "so", "much", "very",
+    "really", "again", "all", "today", "now", "everything", "time", "and", "too", "also",
+    "bot", "chatbot", "assistant", "sir", "madam", "mam", "bro", "buddy", "dear", "friend",
+    "you", "u", "of", "with", "my", "doubts", "doubt", "queries", "query", "solving", "clearing",
+    "explaining", "replying", "responding", "being", "here", "there", "patience", "great",
+    "nice", "good", "awesome", "helpful", "kind", "take", "care", "day", "have",
+}
+
 INTENTS = [
     ("greeting", GREETINGS), ("thanks", THANKS), ("bye", BYES), ("wellbeing", WELLBEING),
     ("identity", IDENTITY), ("help", HELP), ("ack", ACKS), ("yes", YES), ("no", NO),
-    ("praise", PRAISE), ("complaint", COMPLAINTS),
+    ("praise", PRAISE), ("polite", POLITE), ("apology", APOLOGY),
+    ("complaint", COMPLAINTS),
 ]
 
 # Words that can surround small talk without changing its meaning.
@@ -181,7 +220,7 @@ def detect_small_talk(message: str) -> Optional[str]:
     text = clean(raw)
     if not text:
         return "ack" if _EMOJI.search(raw) else None
-    if len(text.split()) > 7:
+    if len(text.split()) > 10:
         return None
     for candidate in (text, _strip_filler(text)):
         if not candidate:
@@ -198,6 +237,18 @@ def detect_small_talk(message: str) -> Optional[str]:
                 if pref in (a, b):
                     return pref
             return b
+    # Small-talk phrase followed only by "tail" words: "thank you for helping me",
+    # "welcome sir", "bye take care", "hello good morning"
+    for i in range(len(words) - 1, 0, -1):
+        head = _lookup(" ".join(words[:i]))
+        if head and all(w in TAIL or _lookup(w) or (head == "thanks" and w in THANKS_TAIL)
+                        for w in words[i:]):
+            return head
+    # Small-talk phrase PRECEDED only by tail words: "ok so thank you", "and thanks"
+    for i in range(1, len(words)):
+        head = _lookup(" ".join(words[i:]))
+        if head and all(w in TAIL or w in {"ok", "okay", "so", "and", "well"} for w in words[:i]):
+            return head
     return _fuzzy(_strip_filler(text))
 
 
@@ -208,6 +259,12 @@ def split_leading_small_talk(message: str) -> Tuple[Optional[str], str]:
     'python jobs'               -> (None, 'python jobs')
     """
     original = str(message or "").strip()
+    # "thank you for helping, show me python jobs" -> ('thanks', 'show me python jobs')
+    clause = re.match(r"^\s*([^,.!?;]{1,60})[,.!?;]+\s*(.+)$", original)
+    if clause:
+        head_intent = detect_small_talk(clause.group(1))
+        if head_intent and len(clean(clause.group(2))) >= 2:
+            return head_intent, clause.group(2).strip()
     m = re.match(r"^\s*([A-Za-z' ]{1,25}?)[\s,.!:;\-]+(.+)$", original)
     if not m:
         return None, original
@@ -243,10 +300,10 @@ CAPABILITIES = (
 def small_talk_reply(intent: str, last_bot: Optional[str] = None, has_jobs: bool = False) -> str:
     last = (last_bot or "").lower()
     listed_jobs = bool(re.search(r"job listings?|i found \d+|matches? for|current openings", last))
-    gave_career = "you can also ask" in last or "roadmap" in last
+    gave_career = "you can also ask" in last or "step-by-step roadmap**" in last
 
     if intent == "greeting":
-        return ("Hello! \U0001F44B I'm your career assistant.\n\n" + CAPABILITIES)
+        return ("\U0001F44B Hello! I'm your career assistant.\n\n" + CAPABILITIES)
 
     if intent == "wellbeing":
         return ("I'm doing great, thanks for asking! \U0001F60A How can I help you today? "
@@ -264,6 +321,14 @@ def small_talk_reply(intent: str, last_bot: Optional[str] = None, has_jobs: bool
 
     if intent == "bye":
         return "Goodbye, and all the best with your job search! Come back anytime. \U0001F44B"
+
+    if intent == "polite":
+        return ("\U0001F60A Thank you! Is there anything I can help you with? You can ask about "
+                "current job openings, how to apply, or career questions about any job role.")
+
+    if intent == "apology":
+        return ("No problem at all! \U0001F60A What would you like to know? You can ask about "
+                "job openings, applying, or career questions about any job role.")
 
     if intent == "praise":
         return "Glad I could help! \U0001F60A Anything else you'd like to know?"

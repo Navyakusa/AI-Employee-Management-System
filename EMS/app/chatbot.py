@@ -109,7 +109,7 @@ CAREER_HELP_MESSAGE = (
     "- \"Skills needed for a web developer\"\n"
     "- \"Salary of a data scientist\"\n"
     "- \"How do I become a software engineer?\" (step-by-step roadmap)\n"
-    "- \"Data analyst vs data scientist\"\n"
+    "- \"Data analyst vs data scientist\"\n\n"
     "Say \"list career roles\" to see every role I know about."
 )
 
@@ -133,12 +133,12 @@ JOB_LISTING = re.compile(
 
 PLATFORM_ACTIONS = [
     (re.compile(r"\b(how|where|steps?|process)\b.*\bapply\b|\bapply(ing)? (for|to)\b|\bsubmit (my |an )?application\b", re.I),
-     "To apply for a job:\n1. Open the Jobs page and select a job.\n2. Read the description and "
-     "required skills.\n3. Click Apply and upload your resume.\n4. Submit. You'll get a confirmation "
+     "To apply for a job:\n1) Open the Jobs page and select a job.\n2) Read the description and "
+     "required skills.\n3) Click Apply and upload your resume.\n4) Submit. You'll get a confirmation "
      "and can track the status from your dashboard."),
     (re.compile(r"\b(upload|update|replace|attach|change)\b.*\b(resume|cv)\b|\b(resume|cv)\b.*\b(upload|format|pdf|docx|size)\b", re.I),
-     "To upload your resume:\n1. Go to your profile or the job's Apply page.\n2. Click Upload Resume.\n"
-     "3. Choose a PDF or DOCX file.\nUploading a new file replaces the old one. Use a text-based "
+     "To upload your resume:\n1) Go to your profile or the job's Apply page.\n2) Click Upload Resume.\n"
+     "3) Choose a PDF or DOCX file.\nUploading a new file replaces the old one. Use a text-based "
      "file (not a scanned image) so your skills are read correctly."),
     (re.compile(r"\b(application status|status of my application|track my application|"
                 r"(was|am|have) i (been )?(selected|shortlisted|rejected)|did i get (the|selected)|"
@@ -609,8 +609,19 @@ def get_chatbot_response(
         return small_talk_reply(intent, _last_bot_message(conversation_history), bool(parsed_jobs))
 
     # "hi, show me python jobs" / "ok what about salary" -> answer the real question
+    prefix_intent = None
+    # "help me with python jobs", "can you help me find jobs in pune" -> drop the request wrapper
+    message = re.sub(r"^\s*(please |pls |kindly )?((can|could|will|would) you (please )?)?"
+                     r"(help me|assist me|i need help|i want help|need help)( to| with| in| for)?"
+                     r"( find(ing)?| get(ting)?| search(ing)?| look(ing)? for| know| understand)?\s+",
+                     "", message, flags=re.I) or message
     for _ in range(2):                      # "ok thank you, show jobs" -> "show jobs"
-        _, message = split_leading_small_talk(message)
+        p_intent, message = split_leading_small_talk(message)
+        prefix_intent = prefix_intent or p_intent
+    if prefix_intent and detect_small_talk(message):
+        # "hello, how are you" / "thanks, bye" -> answer the more specific part
+        return small_talk_reply(detect_small_talk(message), _last_bot_message(conversation_history),
+                                bool(parsed_jobs))
 
     # 4. Menu number from the help list ("1", "2)", "option 3")
     menu = re.fullmatch(r"(?:option\s*)?([1-4])\s*[).]?", message, re.I)
@@ -717,6 +728,10 @@ def get_chatbot_response(
 
     if not topics:
         _log_unknown(message, confidence)
+        if prefix_intent:
+            # "thank you for <something I don't understand>" -> still a thank-you
+            return small_talk_reply(prefix_intent, _last_bot_message(conversation_history),
+                                    bool(parsed_jobs))
         if parsed_jobs and len(message.split()) <= 3:
             return (f"I couldn't find any current openings or career roles matching \"{message}\". "
                     "Try a skill, city or job title (e.g. \"python jobs\", \"jobs in Hyderabad\"), "

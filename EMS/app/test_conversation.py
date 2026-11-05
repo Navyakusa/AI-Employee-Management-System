@@ -34,6 +34,16 @@ SINGLE = [
     ("thank you", "welcome", None), ("thnks", "welcome", None), ("tq", "welcome", None),
     ("bye", "Goodbye", None), ("ok bye", "Goodbye", None), ("how are you", "doing great", None),
     ("what can you do", "help you with", None), ("menu", "help you with", None),
+    ("sure", "\U0001F44D", None), ("welcome", "Thank you!", "couldn't find"),
+    ("wel come", "Thank you!", "couldn't find"), ("you're welcome", "Thank you!", None),
+    ("thank you for helping", "welcome", "couldn't find"),
+    ("thanks for the info", "welcome", None), ("thank you so much for your help", "welcome", None),
+    ("thank you for the jobs list", "welcome", None), ("sorry", "No problem", None),
+    ("have a nice day", "Goodbye", None), ("hello sir", "Hello!", None),
+    ("hi bot how are you", "doing great", None), ("nice to meet you", "Thank you!", None),
+    ("thank you for helping, show me python jobs", "python jobs", "helping"),
+    ("help me with python jobs", "python jobs", "help python"),
+    ("2", "1) Open the Jobs page", None),
     # career: roadmap vs skills (the original bug)
     ("how to become a data analyst", "step-by-step roadmap", None),
     ("process to become a data analyst", "step-by-step roadmap", None),
@@ -58,6 +68,8 @@ SINGLE = [
 FLOWS = [
     # "ok" after a job list -> suggests asking for details
     (["how many job openings are there", "okay"], "details of"),
+    # "okay" right after the greeting -> general ack, not the career-follow-up ack
+    (["hlo", "okay"], "Anything else I can help with"),
     # career follow-up keeps the topic, changes the role
     (["how to become a data analyst", "and for a data scientist?"], "become a Data Scientist"),
     # follow-up keeps the role, changes the topic
